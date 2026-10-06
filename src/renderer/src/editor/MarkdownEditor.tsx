@@ -91,7 +91,7 @@ export function selectEditorLines(fromLine: number, toLine: number): void {
   const b = Math.min(Math.max(a, toLine), doc.lines)
   view.dispatch({
     selection: { anchor: doc.line(a).from, head: doc.line(b).to },
-    effects: EditorView.scrollIntoView(doc.line(a).from, { y: 'center' })
+    effects: EditorView.scrollIntoView(doc.line(a).from, { y: 'nearest' })
   })
 }
 

@@ -6,8 +6,18 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, applyGridEdit, redoEditor, replaceCellText, selectEditorLines, undoEditor } from '../editor/MarkdownEditor'
-import { mergeGrid, splitGrid, type GridInfo, type Rect } from './gridEdit'
+import { addCellText, applyGridEdit, redoEditor, replaceCellText, undoEditor } from '../editor/MarkdownEditor'
+import {
+  deleteCols,
+  deleteRows,
+  insertCols,
+  insertRows,
+  mergeGrid,
+  splitGrid,
+  type GridInfo,
+  type GridResult,
+  type Rect
+} from './gridEdit'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -463,10 +473,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           head = h ?? { r: sel.r2, c: sel.c2 }
         }
         paint()
-        const first = sel ? cellAt(sel.r1, sel.c1) : null
-        if (first?.dataset.def) {
-          selectEditorLines(Number(first.dataset.def), Number(first.dataset.end))
-        }
       }
       const whole = (x: HTMLElement): Sel => {
         const p = rcOf(x)
@@ -501,6 +507,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         cell.classList.add('tq-editing')
         box.textContent = cell.dataset.raw ?? ''
         box.contentEditable = 'plaintext-only'
+        box.spellcheck = false
         editing = box
         box.addEventListener('keydown', onEditKey)
         box.addEventListener('blur', commit)
@@ -737,6 +744,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         ci.focus()
         ci.select()
       } 
+      const doEdit = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): void => {
+        const info = gridInfo()
+        if (!info || !sel) return
+        const rect: Rect = normalize(sel)
+        const err = applyGridEdit((getLine) => fn(info, rect, getLine))
+        if (err) toast(err)
+        else select(null)
+      }
       const onKey = (e: KeyboardEvent): void => {
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
           const k = e.key.toLowerCase()
@@ -766,6 +781,24 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           if (e.code === 'KeyS') {
             e.preventDefault()
             askSplit()
+            return
+          }
+        }
+        if (editModeRef.current && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          const alt = e.shiftKey
+          if (e.code === 'KeyR') {
+            e.preventDefault()
+            doEdit((i, r, g) => insertRows(i, r, !alt, g))
+            return
+          }
+          if (e.code === 'KeyC') {
+            e.preventDefault()
+            doEdit((i, r, g) => insertCols(i, r, !alt, g))
+            return
+          }
+          if (e.code === 'KeyX') {
+            e.preventDefault()
+            doEdit((i, r, g) => (alt ? deleteCols(i, r, g) : deleteRows(i, r, g)))
             return
           }
         }
@@ -804,6 +837,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
         paint()
       }
+      const resetPageScroll = (): void => {
+        const root = document.scrollingElement
+        if (root && root.scrollTop !== 0) root.scrollTop = 0
+      }
+      window.addEventListener('scroll', resetPageScroll)
       el.addEventListener('mousedown', onDown)
       el.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
@@ -814,6 +852,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         el.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         window.removeEventListener('keydown', onKey, true)
+        window.removeEventListener('scroll', resetPageScroll)
         el.removeEventListener('snote-rendered', restore)
       }
     }, [])

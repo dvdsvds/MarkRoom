@@ -217,14 +217,14 @@ interface Out {
   h?: number | null
 }
 
-function header(line: string, cols: { n: number; widths: number[] } | null): string {
+function header(line: string, cols: { n: number; widths: number[] | null } | null): string {
   if (!cols) return line
   const indent = /^\s*/.exec(line)?.[0] ?? ''
   const body = line.trim().replace(/\[$/, '').trim()
   const toks = tokenize(body)
     .filter((t) => !/^widths=/.test(t))
     .map((t) => (/^grid=\d+$/.test(t) ? `grid=${cols.n}` : t))
-  toks.push(`widths=${cols.widths.map(fmt).join(',')}`)
+  if (cols.widths) toks.push(`widths=${cols.widths.map(fmt).join(',')}`)
   return `${indent}${toks.join(' ')} [`
 }
 
@@ -232,7 +232,7 @@ function assemble(
   info: GridInfo,
   getLine: GetLine,
   items: Out[],
-  cols: { n: number; widths: number[] } | null
+  cols: { n: number; widths: number[] | null } | null
 ): GridResult {
   items.sort((a, b) => a.key - b.key || a.seq - b.seq)
   const lines: string[] = [header(getLine(info.head), cols)]
@@ -454,4 +454,151 @@ export function splitGrid(
     }
   }
   return assemble(info, getLine, items, addCols ? { n: newCols, widths: newW } : null)
+}
+
+// ───────────── 행·열 추가/삭제 ─────────────
+
+const NEW_KEY = Number.MAX_SAFE_INTEGER
+
+function emptyDef(info: GridInfo, getLine: GetLine): DefParts {
+  return { indent: (/^\s*/.exec(getLine(info.head))?.[0] ?? '') + '  ', head: [], tail: [] }
+}
+
+/** 마지막 줄에 칸 정의가 하나도 닿지 않으면(줄이 사라지므로) 높이를 담은 빈 칸을 하나 둔다. */
+function ensureLastRow(info: GridInfo, getLine: GetLine, items: Out[], rows: number, h: number): void {
+  if (items.some((it) => it.r + it.rs === rows)) return
+  const used = new Set<number>()
+  for (const it of items) {
+    if (it.r <= rows - 1 && it.r + it.rs > rows - 1) for (let c = it.c; c < it.c + it.cs; c++) used.add(c)
+  }
+  let col = 0
+  while (used.has(col)) col++
+  items.push({ key: NEW_KEY, seq: items.length, r: rows - 1, c: col, rs: 1, cs: 1, parts: emptyDef(info, getLine), body: [], h })
+}
+
+/** 전체 폭을 그대로 두고 열 폭 목록을 비례해서 맞춘다. 너무 좁아지면 null. */
+function fitWidths(list: number[], total: number): number[] | null {
+  const now = list.reduce((a, b) => a + b, 0)
+  return splitSizes(list.map((v) => (v * total) / now), list.map(() => 1))
+}
+
+/** 선택한 범위의 줄 수만큼 줄을 아래(after) 또는 위에 추가한다. */
+export function insertRows(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
+  const n = rect.r2 - rect.r1 + 1
+  const rows = info.heights.length
+  if (rows + n > MAX_ROWS) return fail(`줄은 ${MAX_ROWS}개까지예요.`)
+  const p = after ? rect.r2 + 1 : rect.r1
+  const items: Out[] = []
+  const straddle: CellInfo[] = []
+  for (const cell of info.cells) {
+    if (cell.def === null) continue
+    const parts = parseDef(getLine(cell.def))
+    let r = cell.r
+    let rs = cell.rs
+    let h: number | null | undefined
+    if (cell.r >= p) r += n
+    else if (cell.r + cell.rs > p) {
+      rs += n
+      straddle.push(cell)
+      const old = hOf(parts)
+      if (old !== null) h = r2((old * rs) / cell.rs)
+    }
+    items.push({ key: cell.def, seq: 0, r, c: cell.c, rs, cs: cell.cs, parts, body: bodyOf(cell, getLine), h })
+  }
+  for (let i = 0; i < n; i++) {
+    let col = 0
+    while (straddle.some((s) => col >= s.c && col < s.c + s.cs)) col++
+    if (col >= info.cols) continue
+    items.push({
+      key: NEW_KEY, seq: i, r: p + i, c: col, rs: 1, cs: 1,
+      parts: emptyDef(info, getLine), body: [], h: info.heights[rect.r1 + i]
+    })
+  }
+  ensureLastRow(info, getLine, items, rows + n, info.heights[Math.min(rows - 1, rect.r2)])
+  return assemble(info, getLine, items, null)
+}
+
+/** 선택한 범위의 열 수만큼 열을 오른쪽(after) 또는 왼쪽에 추가한다. 표 전체 폭은 그대로, 열 폭은 비례해서 줄어든다. */
+export function insertCols(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
+  const n = rect.c2 - rect.c1 + 1
+  if (info.cols + n > MAX_COLS) return fail(`열은 ${MAX_COLS}개까지예요.`)
+  const p = after ? rect.c2 + 1 : rect.c1
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    if (cell.def === null) continue
+    let c = cell.c
+    let cs = cell.cs
+    if (cell.c >= p) c += n
+    else if (cell.c + cell.cs > p) cs += n
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c, rs: cell.rs, cs,
+      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+    })
+  }
+  let widths: number[] | null = null
+  if (info.widths.some((w) => w !== null)) {
+    const eff = effectiveWidths(info.widths, info.cols)
+    const total = eff.reduce((a, b) => a + b, 0)
+    const list = [...eff]
+    list.splice(p, 0, ...Array.from({ length: n }, (_, i) => eff[rect.c1 + i]))
+    widths = fitWidths(list, total)
+    if (widths === null) return fail('열이 너무 좁아져서 더 추가할 수 없어요.')
+  }
+  ensureLastRow(info, getLine, items, info.heights.length, info.heights[info.heights.length - 1])
+  return assemble(info, getLine, items, { n: info.cols + n, widths })
+}
+
+/** 선택한 범위가 걸친 줄을 모두 지운다. 지우는 줄에 일부만 걸친 칸이 있으면 막는다. */
+export function deleteRows(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
+  const n = rect.r2 - rect.r1 + 1
+  const rows = info.heights.length
+  if (n >= rows) return fail('줄이 하나는 남아야 해요.')
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    const hit = cell.r + cell.rs > rect.r1 && cell.r <= rect.r2
+    if (hit) {
+      if (cell.r < rect.r1 || cell.r + cell.rs - 1 > rect.r2) {
+        return fail('합친 칸이 걸쳐 있어서 지울 수 없어요. 먼저 칸을 나눠 주세요.')
+      }
+      continue
+    }
+    if (cell.def === null) continue
+    items.push({
+      key: cell.def, seq: 0, r: cell.r > rect.r2 ? cell.r - n : cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+    })
+  }
+  const keepLast = rect.r2 === rows - 1 ? rect.r1 - 1 : rows - 1
+  ensureLastRow(info, getLine, items, rows - n, info.heights[keepLast])
+  return assemble(info, getLine, items, null)
+}
+
+/** 선택한 범위가 걸친 열을 모두 지운다. 표 전체 폭은 그대로, 남은 열이 비례해서 넓어진다. */
+export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
+  const n = rect.c2 - rect.c1 + 1
+  if (n >= info.cols) return fail('열이 하나는 남아야 해요.')
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    const hit = cell.c + cell.cs > rect.c1 && cell.c <= rect.c2
+    if (hit) {
+      if (cell.c < rect.c1 || cell.c + cell.cs - 1 > rect.c2) {
+        return fail('합친 칸이 걸쳐 있어서 지울 수 없어요. 먼저 칸을 나눠 주세요.')
+      }
+      continue
+    }
+    if (cell.def === null) continue
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c: cell.c > rect.c2 ? cell.c - n : cell.c, rs: cell.rs, cs: cell.cs,
+      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+    })
+  }
+  let widths: number[] | null = null
+  if (info.widths.some((w) => w !== null)) {
+    const eff = effectiveWidths(info.widths, info.cols)
+    const total = eff.reduce((a, b) => a + b, 0)
+    widths = fitWidths(eff.filter((_, i) => i < rect.c1 || i > rect.c2), total)
+    if (widths === null) return fail('열이 너무 좁아져서 지울 수 없어요.')
+  }
+  ensureLastRow(info, getLine, items, info.heights.length, info.heights[info.heights.length - 1])
+  return assemble(info, getLine, items, { n: info.cols - n, widths })
 }
