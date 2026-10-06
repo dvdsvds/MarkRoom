@@ -1,0 +1,50 @@
+diff --git a/node_modules/@replit/codemirror-vim-core/vim.js b/node_modules/@replit/codemirror-vim-core/vim.js
+index 3cafa6b..7d5bc0c 100644
+--- a/node_modules/@replit/codemirror-vim-core/vim.js
++++ b/node_modules/@replit/codemirror-vim-core/vim.js
+@@ -2394,11 +2394,19 @@ export function initVim(CM) {
+       var cur = head;
+       var repeat = motionArgs.repeat;
+       var ch = motionArgs.forward ? cur.ch + repeat : cur.ch - repeat;
++      var vimState = _cm.state && _cm.state.vim; 
++      if (motionArgs.forward && vimState && vimState.visualMode && !vimState.visualLine) {
++        var lastCh = _cm.getLine(cur.line).length - 1;
++        ch = Math.min(ch, Math.max(cur.ch, lastCh));
++      }
+       return new Pos(cur.line, ch);
+     },
+     moveByLines: function(cm, head, motionArgs, vim) {
+       var cur = head;
+       var endCh = cur.ch;
++      if (vim.visualMode && cur.ch >= cm.getLine(cur.line).length) {
++        vim.lastPos = Infinity;
++      }
+       // Depending what our last motion was, we may want to do different
+       // things. If our last motion was moving vertically, we want to
+       // preserve the HPos from our last horizontal move.  If our last motion
+@@ -2413,6 +2421,9 @@ export function initVim(CM) {
+           endCh = vim.lastHPos;
+           break;
+         default:
++          if (vim.visualMode && cur.ch >= cm.getLine(cur.line).length) {
++            endCh = Infinity;
++          }
+           vim.lastHPos = endCh;
+       }
+       var repeat = motionArgs.repeat+(motionArgs.repeatOffset||0);
+@@ -2425,12 +2436,11 @@ export function initVim(CM) {
+         line = posV.line;
+         endCh = posV.ch;
+       }
+-      // Vim go to line begin or line end when cursor at first/last line and
+-      // move to previous/next line is triggered.
++      // 첫 줄에서 위로, 마지막 줄에서 아래로 가면 움직이지 않는다.
+       if (line < first && cur.line == first){
+-        return this.moveToStartOfLine(cm, head, motionArgs, vim);
++        return null;
+       } else if (line > last && cur.line == last){
+-          return moveToEol(cm, head, motionArgs, vim, true);
++        return null;
+       }
+       if (motionArgs.toFirstChar){
+         endCh=findFirstNonWhiteSpaceCharacter(cm.getLine(line));

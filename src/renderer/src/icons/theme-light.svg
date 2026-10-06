@@ -1,0 +1,5 @@
+<!-- theme-light.svg -->
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="8" cy="8" r="3" stroke="currentColor"/>
+  <path d="M8 1.5V3M8 13V14.5M1.5 8H3M13 8H14.5M3.404 3.404L4.464 4.464M12.596 3.404L11.536 4.464M3.404 12.596L4.464 11.536M12.596 12.596L11.536 11.536" stroke="currentColor" stroke-linecap="round"/>
+</svg>
