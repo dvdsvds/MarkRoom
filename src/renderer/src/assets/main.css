@@ -831,3 +831,11 @@ select option::checkmark {
   width: fit-content;
   min-width: 0;
 }
+.tq-grid.tq-hot-col,
+.tq-grid.tq-hot-col * {
+  cursor: col-resize !important;
+}
+.tq-grid.tq-hot-row,
+.tq-grid.tq-hot-row * {
+  cursor: row-resize !important;
+}

@@ -602,3 +602,62 @@ export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
   ensureLastRow(info, getLine, items, info.heights.length, info.heights[info.heights.length - 1])
   return assemble(info, getLine, items, { n: info.cols - n, widths })
 }
+
+// ───────────── 열 폭·줄 높이 끌기 ─────────────
+
+const MIN_COL_MM = 5
+const MIN_ROW_MM = 3
+const snap = (v: number, step: number): number => Math.round(v / step) * step
+
+/** k번째 열과 k+1번째 열 사이 경계를 deltaMm만큼 옮긴 열 폭 목록(mm). 전체 폭은 그대로. 옮길 수 없으면 null. */
+export function dragColWidths(info: GridInfo, k: number, deltaMm: number, step = 0.5): number[] | null {
+  if (k < 0 || k + 1 >= info.cols) return null
+  const eff = effectiveWidths(info.widths, info.cols).map(r2)
+  const pair = r2(eff[k] + eff[k + 1])
+  if (pair < MIN_COL_MM * 2) return null
+  const left = Math.min(pair - MIN_COL_MM, Math.max(MIN_COL_MM, snap(eff[k] + deltaMm, step)))
+  const out = [...eff]
+  out[k] = r2(left)
+  out[k + 1] = r2(pair - out[k])
+  return out
+}
+
+/** 열 폭 목록(mm)을 widths= 로 쓴다. */
+export function setColWidths(info: GridInfo, widths: number[], getLine: GetLine): GridResult {
+  if (widths.length !== info.cols) return fail('열 수가 맞지 않아요.')
+  if (widths.some((w) => !(w >= MIN_COL_MM))) return fail('열이 너무 좁아요.')
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    if (cell.def === null) continue
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+    })
+  }
+  return assemble(info, getLine, items, { n: info.cols, widths: widths.map(r2) })
+}
+
+/** row번째 줄의 높이를 h(mm)로 맞춘다. 그 줄에서 시작하는 한 줄짜리 칸들의 h=를 바꾸고, 없으면 빈 칸을 하나 둔다. */
+export function setRowHeight(info: GridInfo, row: number, h: number, getLine: GetLine, step = 0.5): GridResult {
+  const H = r2(Math.min(MAX_MM, Math.max(MIN_ROW_MM, snap(h, step))))
+  const items: Out[] = []
+  let carried = false
+  for (const cell of info.cells) {
+    if (cell.def === null) continue
+    const own = cell.rs === 1 && cell.r === row
+    if (own) carried = true
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine), h: own ? H : undefined
+    })
+  }
+  if (!carried) {
+    const covered = (c: number): boolean =>
+      info.cells.some((x) => x.def !== null && x.r <= row && row < x.r + x.rs && c >= x.c && c < x.c + x.cs)
+    let col = 0
+    while (col < info.cols && covered(col)) col++
+    if (col >= info.cols) return fail('합친 칸이 이 줄을 덮고 있어서 높이를 바꿀 수 없어요.')
+    items.push({ key: NEW_KEY, seq: 0, r: row, c: col, rs: 1, cs: 1, parts: emptyDef(info, getLine), body: [], h: H })
+  }
+  return assemble(info, getLine, items, null)
+}
