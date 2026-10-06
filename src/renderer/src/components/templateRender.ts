@@ -1,4 +1,4 @@
-import type { EdgeKind, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
+import type { EdgeKind, Edges, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
 import { fontCandidates } from '../utils/systemFonts'
 
 type Ok = Exclude<ParsedTemplate, { error: string }>
@@ -134,10 +134,33 @@ function build(n: TNode): HTMLElement {
           for (let cc = c.c; cc < c.c + c.cs; cc++) if (map[rr] && cc < n.cols) map[rr][cc] = i
         }
       })
-      const winner = (i: number, others: number[]): number =>
-        others.reduce((a, j) => (n.cells[j].ord > n.cells[a].ord ? j : a), i)
+      const edgeOf = (
+        left: number,
+        lSide: keyof Edges,
+        right: number,
+        rSide: keyof Edges
+      ): { kind: EdgeKind; color: string | null } | null => {
+        if (left < 0 || right < 0 || left === right) return null
+        const A = n.cells[left]
+        const B = n.cells[right]
+        const a = A.style.set[lSide]
+        const b = B.style.set[rSide]
+        let kind: EdgeKind = 'solid'
+        let src = B.ord >= A.ord ? B : A
+        if (a !== undefined && b !== undefined) {
+          src = B.ord > A.ord ? B : A
+          kind = src === B ? b : a
+        } else if (a !== undefined) {
+          kind = a
+          src = A
+        } else if (b !== undefined) {
+          kind = b
+          src = B
+        }
+        return { kind, color: src.style.ec }
+      }
 
-      n.cells.forEach((c, i) => {
+      n.cells.forEach((c) => {
         const s = c.style
         const d = el('div', `tq-cell${s.vertical ? ' tq-vertical' : ''}`)
         d.dataset.r = String(c.r)
@@ -160,28 +183,39 @@ function build(n: TNode): HTMLElement {
         if (bg) d.style.background = bg
         if (s.p !== null) d.style.padding = `${s.p}pt`
 
-        if (c.c + c.cs < n.cols) {
-          const nb = new Set<number>()
-          for (let rr = c.r; rr < c.r + c.rs; rr++) nb.add(map[rr][c.c + c.cs])
-          const others = [...nb].filter((j) => j >= 0 && j !== i)
-          const w = winner(i, others)
-          const ws = n.cells[w].style
-          d.style.borderRight = edgeCss(w === i ? ws.edges.r : ws.edges.l, ws.ec)
-        }
-        if (c.r + c.rs < rows) {
-          const nb = new Set<number>()
-          for (let cc = c.c; cc < c.c + c.cs; cc++) nb.add(map[c.r + c.rs][cc])
-          const others = [...nb].filter((j) => j >= 0 && j !== i)
-          const w = winner(i, others)
-          const ws = n.cells[w].style
-          d.style.borderBottom = edgeCss(w === i ? ws.edges.b : ws.edges.t, ws.ec)
-        }
-
         const t = el('div', 'tq-text')
         fillText(t, c.text, s.align)
         d.appendChild(t)
         g.appendChild(d)
       })
+      for (let r = 0; r < rows; r++) {
+        for (let c = 1; c < n.cols; c++) {
+          const e = edgeOf(map[r][c - 1], 'r', map[r][c], 'l')
+          if (!e || e.kind === 'none') continue
+          const d = el('div', 'tq-edge')
+          d.style.gridColumn = String(c)
+          d.style.gridRow = String(r + 1)
+          d.style.justifySelf = 'end'
+          d.style.width = '0'
+          d.style.borderLeft = edgeCss(e.kind, e.color)
+          d.style.pointerEvents = 'none'
+          g.appendChild(d)
+        }
+      }
+      for (let r = 1; r < rows; r++) {
+        for (let c = 0; c < n.cols; c++) {
+          const e = edgeOf(map[r - 1][c], 'b', map[r][c], 't')
+          if (!e || e.kind === 'none') continue
+          const d = el('div', 'tq-edge')
+          d.style.gridColumn = String(c + 1)
+          d.style.gridRow = String(r)
+          d.style.alignSelf = 'end'
+          d.style.height = '0'
+          d.style.borderTop = edgeCss(e.kind, e.color)
+          d.style.pointerEvents = 'none'
+          g.appendChild(d)
+        }
+      }
       return g
     }
   }

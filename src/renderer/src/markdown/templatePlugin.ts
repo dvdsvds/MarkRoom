@@ -27,6 +27,7 @@ export type Style = {
   p: number | null
   edges: Edges
   ec: string | null
+  set: Partial<Edges>
 }
 export type GridCell = {
   r: number
@@ -106,7 +107,8 @@ const DEFAULT_STYLE: Style = {
   vertical: false,
   p: null,
   edges: { l: 'solid', t: 'solid', r: 'solid', b: 'solid' },
-  ec: null
+  ec: null,
+  set: {}
 }
 
 const isColor = (v: string): boolean => COLOR_NAMES.includes(v) || HEX_RE.test(v)
@@ -309,20 +311,34 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
 
 function merge(base: Style, o: Opt): Style {
   const e: Edges = { ...base.edges }
+  const set: Partial<Edges> = { ...base.set }
   const keys = ['l', 't', 'r', 'b'] as const
   if (o.border) {
     for (const k of keys) {
-      if (!o.border[k]) e[k] = 'none'
-      else if (e[k] === 'none') e[k] = o.line ?? 'solid'
+      if (!o.border[k]) {
+        e[k] = 'none'
+        set[k] = 'none'
+      } else if (e[k] === 'none') {
+        e[k] = o.line ?? 'solid'
+        set[k] = e[k]
+      }
     }
   }
   if (o.line) {
-    for (const k of keys) if (e[k] !== 'none') e[k] = o.line
+    for (const k of keys) {
+      if (e[k] !== 'none') {
+        e[k] = o.line
+        set[k] = o.line
+      }
+    }
   }
   if (o.sides) {
     for (const k of keys) {
       const v = o.sides[k]
-      if (v !== undefined) e[k] = v
+      if (v !== undefined) {
+        e[k] = v
+        set[k] = v
+      }
     }
   }
   return {
@@ -341,7 +357,8 @@ function merge(base: Style, o: Opt): Style {
     vertical: o.vertical ?? base.vertical,
     p: o.p ?? base.p,
     edges: e,
-    ec: o.ec ?? base.ec
+    ec: o.ec ?? base.ec,
+    set
   }
 }
 

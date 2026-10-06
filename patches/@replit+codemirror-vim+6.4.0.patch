@@ -1,8 +1,8 @@
 diff --git a/node_modules/@replit/codemirror-vim/dist/index.js b/node_modules/@replit/codemirror-vim/dist/index.js
-index f0b243a..7563c94 100644
+index f0b243a..a0e70b3 100644
 --- a/node_modules/@replit/codemirror-vim/dist/index.js
 +++ b/node_modules/@replit/codemirror-vim/dist/index.js
-@@ -1228,9 +1228,12 @@ function measureCursor(cm, view, cursor, primary) {
+@@ -1228,15 +1228,16 @@ function measureCursor(cm, view, cursor, primary) {
          fatCursor = true;
          if (vim.visualBlock && !primary)
              return null;
@@ -17,3 +17,9 @@ index f0b243a..7563c94 100644
                  head--;
          }
          if (cm.state.overwrite)
+             hCoeff = 0.2;
+-        else if (vim.status)
+-            hCoeff = 0.5;
+     }
+     if (fatCursor) {
+         let letter = head < view.state.doc.length && view.state.sliceDoc(head, head + 1);

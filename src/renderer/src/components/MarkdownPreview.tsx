@@ -378,8 +378,27 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         editIdxRef.current === null
           ? null
           : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[editIdxRef.current] ?? null)
+      let gridIdx: number | null = null
+      const gridEl = (): HTMLElement | null => {
+        const g = grid()
+        if (!g || gridIdx === null) return null
+        return Array.from(g.querySelectorAll<HTMLElement>('.tq-grid'))[gridIdx] ?? null
+      }
       const cells = (): HTMLElement[] =>
-        Array.from(grid()?.querySelectorAll<HTMLElement>('.tq-cell') ?? [])
+        Array.from(gridEl()?.querySelectorAll<HTMLElement>('.tq-cell') ?? [])
+      const pickGrid = (x: HTMLElement): void => {
+        const g = grid()
+        const tg = x.closest<HTMLElement>('.tq-grid')
+        if (!g || !tg) return
+        const before = gridIdx
+        gridIdx = Array.from(g.querySelectorAll('.tq-grid')).indexOf(tg)
+        if (gridIdx !== before) {
+          sel = null
+          anchor = null
+          head = null
+          paint()
+        }
+      }
       const rcOf = (c: HTMLElement): { r: number; c: number; rs: number; cs: number } => ({
         r: Number(c.dataset.r),
         c: Number(c.dataset.c),
@@ -473,6 +492,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }
       const startEdit = (cell: HTMLElement, at?: { x: number; y: number }): void => {
         if (editing) commit()
+        pickGrid(cell)
         const box = cell.querySelector<HTMLElement>('.tq-text')
         if (!box) return
         sel = null
@@ -581,6 +601,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!editModeRef.current || e.button !== 0) return
         const x = cellOf(e.target)
         if (!x) return
+        pickGrid(x)
         if (x.classList.contains('tq-editing') && !e.shiftKey) return
         const p = rcOf(x)
         if (e.shiftKey) {
@@ -601,6 +622,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const x = cellOf(e.target)
         if (!x) return
         const p = rcOf(x)
+        const ge = gridEl()
+        if (ge && !ge.contains(x)) return
         if (p.r === drag.r && p.c === drag.c && !drag.moved && !sel) return
         drag.moved = true
         e.preventDefault()

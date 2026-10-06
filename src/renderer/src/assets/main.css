@@ -254,7 +254,12 @@ button:not(:disabled) {
   color: #000 !important;
 }
 .cm-fat-cursor * { color: var(--color-bg) !important; }
-.cm-cursorLayer .cm-cursor, .cm-cursorLayer .cm-cursor-primary { border-left-color: var(--color-text) !important; }
+.cm-cursorLayer .cm-cursor,
+.cm-cursorLayer .cm-cursor-primary {
+  border-left-color: var(--color-text) !important;
+  height: calc(var(--editor-line-height) * 1em) !important;
+  transform: translateY(-3.2px);
+}
 .cm-focused .cm-fat-cursor { background: var(--color-text) !important; }
 .cm-editor:not(.cm-focused) .cm-fat-cursor {
   background: none !important;
