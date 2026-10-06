@@ -1,4 +1,4 @@
-import type { EdgeKind, Edges, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
+import type { Diag, EdgeKind, Edges, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
 import { fontCandidates } from '../utils/systemFonts'
 
 type Ok = Exclude<ParsedTemplate, { error: string }>
@@ -29,11 +29,44 @@ function fontFamily(name: string): string {
   return `${list.join(', ')}, ${serif ? 'serif' : 'Pretendard, sans-serif'}`
 }
 
-function edgeCss(kind: EdgeKind, color: string | null): string {
+function edgeCss(kind: EdgeKind, color: string | null, mm: number | null = null): string {
   if (kind === 'none') return '0'
-  const w = kind === 'thick' || kind === 'double' ? '3px' : '1px'
+  const base = kind === 'thick' || kind === 'double' ? '3px' : '1px'
+  // 이중선은 3px보다 얇으면 한 줄로 보이므로 굵기를 정해도 최소 0.8mm로 그린다.
+  const w = mm === null ? base : `${kind === 'double' ? Math.max(mm, 0.8) : mm}mm`
   const st = kind === 'dashed' ? 'dashed' : kind === 'double' ? 'double' : 'solid'
   return `${w} ${st} ${textColor(color) ?? 'var(--tp-ink)'}`
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/** 칸 위에 대각선을 겹쳐 그린다. down은 왼쪽 위→오른쪽 아래, up은 왼쪽 아래→오른쪽 위. */
+function addDiag(cell: HTMLElement, dir: 'down' | 'up', dg: Diag): void {
+  const svg = document.createElementNS(SVG_NS, 'svg')
+  svg.setAttribute('class', 'tq-diag')
+  svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none'
+  const ink = textColor(dg.c) ?? 'var(--tp-ink)'
+  const px = dg.w !== null ? (dg.w * 96) / 25.4 : dg.kind === 'thick' || dg.kind === 'double' ? 3 : 1
+  const add = (dy: number, sw: number): void => {
+    const ln = document.createElementNS(SVG_NS, 'line')
+    ln.setAttribute('x1', '0')
+    ln.setAttribute('y1', dir === 'down' ? '0' : '100%')
+    ln.setAttribute('x2', '100%')
+    ln.setAttribute('y2', dir === 'down' ? '100%' : '0')
+    ln.setAttribute('stroke', ink)
+    ln.setAttribute('stroke-width', String(sw))
+    if (dg.kind === 'dashed') ln.setAttribute('stroke-dasharray', `${Math.max(3, sw * 3)} ${Math.max(2, sw * 2)}`)
+    if (dy !== 0) ln.setAttribute('transform', `translate(0 ${dy})`)
+    svg.appendChild(ln)
+  }
+  if (dg.kind === 'double') {
+    const sw = Math.max(0.75, px / 3)
+    add(-sw, sw)
+    add(sw, sw)
+  } else {
+    add(0, px)
+  }
+  cell.appendChild(svg)
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -131,7 +164,7 @@ function build(n: TNode): HTMLElement {
         ? n.widths.map((w) => (w !== null ? `${Number(w)}mm` : `${share}mm`)).join(' ')
         : `repeat(${Number(n.cols)}, minmax(0, 1fr))`
       g.style.gridTemplateRows = n.heights.map((h) => `minmax(${Number(h)}mm, auto)`).join(' ')
-      g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, null)
+      g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, n.frameC, n.frameW)
       if (n.frame === 'none') g.classList.add('tq-frame-none')
       const rows = n.heights.length
 
@@ -146,7 +179,7 @@ function build(n: TNode): HTMLElement {
         lSide: keyof Edges,
         right: number,
         rSide: keyof Edges
-      ): { kind: EdgeKind; color: string | null } | null => {
+      ): { kind: EdgeKind; color: string | null; w: number | null } | null => {
         if (left < 0 || right < 0 || left === right) return null
         const A = n.cells[left]
         const B = n.cells[right]
@@ -164,7 +197,9 @@ function build(n: TNode): HTMLElement {
           kind = b
           src = B
         }
-        return { kind, color: src.style.ec }
+        const side = src === A ? lSide : rSide
+        const x = src.style.ex[side]
+        return { kind, color: x?.c ?? src.style.ec, w: x?.w ?? null }
       }
 
       n.cells.forEach((c) => {
@@ -193,6 +228,9 @@ function build(n: TNode): HTMLElement {
         const t = el('div', 'tq-text')
         fillText(t, c.text, s.align)
         d.appendChild(t)
+        if (s.dd || s.du) d.style.position = 'relative'
+        if (s.dd) addDiag(d, 'down', s.dd)
+        if (s.du) addDiag(d, 'up', s.du)
         g.appendChild(d)
       })
       for (let r = 0; r < rows; r++) {
@@ -204,7 +242,7 @@ function build(n: TNode): HTMLElement {
           d.style.gridRow = String(r + 1)
           d.style.justifySelf = 'end'
           d.style.width = '0'
-          d.style.borderLeft = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color)
+          d.style.borderLeft = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
           g.appendChild(d)
         }
@@ -218,7 +256,7 @@ function build(n: TNode): HTMLElement {
           d.style.gridRow = String(r)
           d.style.alignSelf = 'end'
           d.style.height = '0'
-          d.style.borderTop = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color)
+          d.style.borderTop = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
           g.appendChild(d)
         }

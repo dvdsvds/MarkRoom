@@ -17,6 +17,10 @@ import {
   setColWidths,
   setRowHeight,
   splitGrid,
+  setBorders,
+  setDiagonals,
+  type BorderKind,
+  type BorderWhere,
   type GridInfo,
   type GridResult,
   type Rect
@@ -768,6 +772,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         const t = e.target as HTMLElement | null
         if (t?.closest('.cm-editor')) return
+        if (e.key === 'Escape' && borderPanel) {
+          e.preventDefault()
+          closeBorderPanel()
+          return
+        }
         if (e.key === 'F5') {
           e.preventDefault()
           const { rows, cols } = size()
@@ -789,6 +798,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
         if (editModeRef.current && !e.ctrlKey && !e.altKey && !e.metaKey) {
           const alt = e.shiftKey
+          if (e.code === 'KeyL' && !alt) {
+            e.preventDefault()
+            toggleBorderPanel()
+            return
+          }
           if (e.code === 'KeyR') {
             e.preventDefault()
             doEdit((i, r, g) => insertRows(i, r, !alt, g))
@@ -958,6 +972,156 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           undoStyle()
         }
       }
+      let bs: { kind: BorderKind; w: number | null; c: string | null } = { kind: 'solid', w: null, c: null }
+      let borderPanel: HTMLElement | null = null
+      const closeBorderPanel = (): void => {
+        borderPanel?.remove()
+        borderPanel = null
+      }
+      const runBorder = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): void => {
+        const info = gridInfo()
+        if (!info || !sel) {
+          toast('칸을 먼저 선택해 주세요')
+          return
+        }
+        const rect: Rect = normalize(sel)
+        const err = applyGridEdit((getLine) => fn(info, rect, getLine))
+        if (err) toast(err)
+      }
+      const toggleBorderPanel = (): void => {
+        if (borderPanel) {
+          closeBorderPanel()
+          return
+        }
+        const BTN =
+          'width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;cursor:pointer'
+        const SEL =
+          'width:100%;padding:3px 4px;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;color-scheme:light dark'
+        const box = document.createElement('div')
+        box.style.cssText =
+          'position:fixed;left:50%;top:10%;transform:translateX(-50%);z-index:9999;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:10px;padding:14px;display:flex;gap:18px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.35);user-select:none'
+
+        const icon = (draw: string): string =>
+          `<svg width="18" height="18" viewBox="0 0 18 18" style="display:block"><rect x="2" y="2" width="14" height="14" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="2 2"/>${draw}</svg>`
+        const ln = (x1: number, y1: number, x2: number, y2: number): string =>
+          `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="2.2"/>`
+        const frame = '<rect x="2" y="2" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"/>'
+        const cross = ln(9, 2, 9, 16) + ln(2, 9, 16, 9)
+        const mk = (html: string, title: string, on: () => void, css = BTN): HTMLButtonElement => {
+          const b = document.createElement('button')
+          b.type = 'button'
+          b.title = title
+          b.style.cssText = css
+          b.innerHTML = html
+          b.addEventListener('mousedown', (ev) => ev.preventDefault())
+          b.addEventListener('click', on)
+          return b
+        }
+        const at = (b: HTMLElement, x: number, y: number): HTMLElement => {
+          b.style.position = 'absolute'
+          b.style.left = `${x}px`
+          b.style.top = `${y}px`
+          return b
+        }
+
+        // 왼쪽: 종류 / 굵기 / 색
+        const left = document.createElement('div')
+        left.style.cssText = 'width:140px;display:flex;flex-direction:column;gap:8px'
+        const head = document.createElement('div')
+        head.textContent = '테두리'
+        head.style.cssText = 'font-weight:600;border-bottom:1px solid var(--color-text-tertiary);padding-bottom:4px'
+        left.appendChild(head)
+        const field = (label: string, opts: [string, string][], cur: string, on: (v: string) => void): void => {
+          const wrap = document.createElement('label')
+          wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px'
+          const t = document.createElement('span')
+          t.textContent = label
+          t.style.opacity = '.7'
+          const s = document.createElement('select')
+          s.style.cssText = SEL
+          for (const [v, l] of opts) {
+            const o = document.createElement('option')
+            o.value = v
+            o.textContent = l
+            s.appendChild(o)
+          }
+          s.value = cur
+          s.addEventListener('change', () => on(s.value))
+          wrap.append(t, s)
+          left.appendChild(wrap)
+        }
+        field(
+          '종류',
+          [['solid', '실선'], ['dashed', '점선'], ['double', '이중선'], ['none', '없음']],
+          bs.kind,
+          (v) => (bs = { ...bs, kind: v as BorderKind })
+        )
+        field(
+          '굵기',
+          [['', '기본'], ...['0.1', '0.15', '0.2', '0.3', '0.4', '0.5', '0.7', '1', '1.5', '2', '3'].map((w): [string, string] => [w, `${w}mm`])],
+          bs.w === null ? '' : String(bs.w),
+          (v) => (bs = { ...bs, w: v === '' ? null : Number(v) })
+        )
+        field(
+          '색',
+          [['', '기본(검정)'], ['red', '빨강'], ['orange', '주황'], ['yellow', '노랑'], ['green', '초록'], ['blue', '파랑'], ['purple', '보라'], ['gray', '회색']],
+          bs.c ?? '',
+          (v) => (bs = { ...bs, c: v === '' ? null : v })
+        )
+
+        // 오른쪽: 미리보기 네모와 1~6 버튼
+        const right = document.createElement('div')
+        const area = document.createElement('div')
+        area.style.cssText = 'position:relative;width:200px;height:150px'
+        const pv = document.createElement('div')
+        pv.style.cssText =
+          'position:absolute;left:28px;top:34px;width:120px;height:90px;border:1px solid var(--color-text-tertiary);box-sizing:border-box'
+        pv.innerHTML =
+          '<div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed var(--color-text-tertiary)"></div><div style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed var(--color-text-tertiary)"></div>'
+        area.appendChild(pv)
+        const w = (where: BorderWhere) => (): void => runBorder((i, r, g) => setBorders(i, r, where, { ...bs }, g))
+        area.appendChild(at(mk(icon(ln(2, 2, 2, 16)), '왼쪽', w('left')), 14, 2))
+        area.appendChild(at(mk(icon(ln(9, 2, 9, 16)), '세로 가운데', w('vmid')), 74, 2))
+        area.appendChild(at(mk(icon(ln(16, 2, 16, 16)), '오른쪽', w('right')), 134, 2))
+        area.appendChild(at(mk(icon(ln(2, 2, 16, 2)), '위쪽', w('top')), 160, 20))
+        area.appendChild(at(mk(icon(ln(2, 9, 16, 9)), '가로 가운데', w('hmid')), 160, 64))
+        area.appendChild(at(mk(icon(ln(2, 16, 16, 16)), '아래쪽', w('bottom')), 160, 108))
+        right.appendChild(area)
+
+        const row = (): HTMLElement => {
+          const r = document.createElement('div')
+          r.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px'
+          return r
+        }
+        const wide = 'height:28px;padding:0 8px;display:flex;align-items:center;gap:5px;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;cursor:pointer'
+        const r1 = row()
+        r1.append(
+          mk(icon(frame + cross) + '모두', '모두 (바깥쪽 + 안쪽)', w('all'), wide),
+          mk(icon(frame) + '바깥쪽', '바깥쪽', w('outer'), wide),
+          mk(icon(cross) + '안쪽', '안쪽', w('inner'), wide)
+        )
+        const r2 = row()
+        const dg = (dir: 'down' | 'up') => (): void =>
+          runBorder((i, r, g) => setDiagonals(i, r, dir, { ...bs }, g))
+        const dl = document.createElement('span')
+        dl.textContent = '대각선'
+        dl.style.opacity = '.7'
+        r2.append(
+          dl,
+          mk(icon(ln(2, 2, 16, 16)), '대각선 ↘', dg('down')),
+          mk(icon(ln(2, 16, 16, 2)), '대각선 ↗', dg('up'))
+        )
+        right.append(r1, r2)
+
+        const hint = document.createElement('div')
+        hint.textContent = '버튼을 누르면 바로 적용돼요 · L 또는 Esc: 닫기'
+        hint.style.cssText = 'opacity:.6;font-size:12px;margin-top:8px'
+        right.appendChild(hint)
+
+        box.append(left, right)
+        document.body.appendChild(box)
+        borderPanel = box
+      }
       const restore = (): void => {
         const keep = sel
         editing = null
@@ -984,6 +1148,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         window.removeEventListener('mouseup', onUp)
         window.removeEventListener('keydown', onKey, true)
         window.removeEventListener('scroll', resetPageScroll)
+        closeBorderPanel()
         el.removeEventListener('mousedown', onResizeDown, true)
         el.removeEventListener('mousemove', onHover)
         window.removeEventListener('mousemove', onResizeMove)

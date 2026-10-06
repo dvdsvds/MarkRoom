@@ -10,6 +10,10 @@ export type EdgeKind = 'none' | LineKind
 export type FrameKind = 'none' | LineKind
 export type Sides = { l: boolean; t: boolean; r: boolean; b: boolean }
 export type Edges = { l: EdgeKind; t: EdgeKind; r: EdgeKind; b: EdgeKind }
+/** 변마다 따로 정한 굵기(mm)와 색. null이면 종류의 기본값/칸의 border-color를 쓴다. */
+export type EdgeExtra = { w: number | null; c: string | null }
+/** 대각선 한 줄. */
+export type Diag = { kind: LineKind; w: number | null; c: string | null }
 export type Style = {
   ff: string | null
   fs: number
@@ -28,6 +32,9 @@ export type Style = {
   edges: Edges
   ec: string | null
   set: Partial<Edges>
+  ex: Partial<Record<keyof Edges, EdgeExtra>>
+  dd: Diag | null
+  du: Diag | null
 }
 export type GridCell = {
   r: number
@@ -54,6 +61,8 @@ export type TNode =
       widths: (number | null)[]
       heights: number[]
       cells: GridCell[]
+      frameW: number | null
+      frameC: string | null
       endLine: number | null
       head: number
       close: number | null
@@ -67,6 +76,7 @@ type Opt = Partial<Omit<Style, 'edges'>> & {
   border?: Sides
   line?: LineKind
   sides?: Partial<Edges>
+  sideEx?: Partial<Record<keyof Edges, EdgeExtra>>
 }
 type Scope = 'page' | 'cell' | 'text'
 
@@ -110,7 +120,10 @@ const DEFAULT_STYLE: Style = {
   p: null,
   edges: { l: 'solid', t: 'solid', r: 'solid', b: 'solid' },
   ec: null,
-  set: {}
+  set: {},
+  ex: {},
+  dd: null,
+  du: null
 }
 
 const isColor = (v: string): boolean => COLOR_NAMES.includes(v) || HEX_RE.test(v)
@@ -216,6 +229,26 @@ function parseBorder(val: string): Sides | null {
   return s
 }
 
+/** solid,0.5,red 처럼 종류[,굵기mm[,색]]. 굵기나 색 자리는 -로 비울 수 있다. */
+function parseEdgeValue(
+  val: string,
+  kinds: readonly string[]
+): { kind: string; w: number | null; c: string | null } | string {
+  const parts = val.split(',').map((x) => x.trim())
+  if (parts.length > 3 || !kinds.includes(parts[0])) return `종류는 ${kinds.join(', ')} 중 하나예요`
+  let w: number | null = null
+  if (parts[1] !== undefined && parts[1] !== '' && parts[1] !== '-') {
+    w = num(parts[1], 0.05, 5)
+    if (w === null) return '굵기는 0.05~5mm 범위의 숫자예요'
+  }
+  let c: string | null = null
+  if (parts[2] !== undefined && parts[2] !== '' && parts[2] !== '-') {
+    if (!isColor(parts[2])) return `색이 아니에요: ${parts[2]}`
+    c = parts[2]
+  }
+  return { kind: parts[0], w, c }
+}
+
 function num(v: string, lo: number, hi: number): number | null {
   if (v.trim() === '') return null
   const n = Number(v)
@@ -288,13 +321,23 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
       else o.border = b
     } else if (/^border-(top|right|bottom|left)$/.test(key)) {
       if (deny('border')) continue
-      if (!EDGE_KINDS.includes(val)) {
-        ctx.warn(`${where}: ${key}= 값은 none, solid, thick, double, dashed 중 하나예요: ${val}`)
+      const v = parseEdgeValue(val, EDGE_KINDS)
+      if (typeof v === 'string') {
+        ctx.warn(`${where}: ${key}= ${v}: ${val}`)
       } else {
         const side = SIDE_KEY[key.slice(7) as keyof typeof SIDE_KEY]
-        const next: Partial<Edges> = { ...(o.sides ?? {}) }
-        next[side] = val as EdgeKind
-        o.sides = next
+        o.sides = { ...(o.sides ?? {}), [side]: v.kind as EdgeKind }
+        o.sideEx = { ...(o.sideEx ?? {}), [side]: { w: v.w, c: v.c } }
+      }
+    } else if (key === 'diag-down' || key === 'diag-up') {
+      if (deny('border')) continue
+      const v = parseEdgeValue(val, EDGE_KINDS)
+      if (typeof v === 'string') {
+        ctx.warn(`${where}: ${key}= ${v}: ${val}`)
+      } else {
+        const d: Diag | null = v.kind === 'none' ? null : { kind: v.kind as LineKind, w: v.w, c: v.c }
+        if (key === 'diag-down') o.dd = d
+        else o.du = d
       }
     } else if (key === 'border-color') {
       if (deny('border')) continue
@@ -314,6 +357,7 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
 function merge(base: Style, o: Opt): Style {
   const e: Edges = { ...base.edges }
   const set: Partial<Edges> = { ...base.set }
+  const ex: Partial<Record<keyof Edges, EdgeExtra>> = { ...base.ex }
   const keys = ['l', 't', 'r', 'b'] as const
   if (o.border) {
     for (const k of keys) {
@@ -340,6 +384,9 @@ function merge(base: Style, o: Opt): Style {
       if (v !== undefined) {
         e[k] = v
         set[k] = v
+        const x = o.sideEx?.[k]
+        if (x && (x.w !== null || x.c !== null)) ex[k] = x
+        else delete ex[k]
       }
     }
   }
@@ -360,7 +407,10 @@ function merge(base: Style, o: Opt): Style {
     p: o.p ?? base.p,
     edges: e,
     ec: o.ec ?? base.ec,
-    set
+    set,
+    ex,
+    dd: o.dd !== undefined ? o.dd : base.dd,
+    du: o.du !== undefined ? o.du : base.du
   }
 }
 
@@ -479,6 +529,8 @@ function parseGrid(
   ctx: Ctx,
   colsIn: number,
   frame: FrameKind,
+  frameW: number | null,
+  frameC: string | null,
   widthsIn: (number | null)[] | null,
   pageStyle: Style,
   headLine: number
@@ -666,7 +718,7 @@ function parseGrid(
   const lastEnd = defs.length > 0 ? Math.max(...defs.map((d) => d.d2)) : -1
   const gridEnd = lastEnd >= 0 ? ctx.lineBase + lastEnd : null
   for (const c of cells) c.gridEnd = gridEnd
-  return { k: 'grid', cols, frame, widths, heights, cells, endLine: gridEnd, head: headLine, close }
+  return { k: 'grid', cols, frame, frameW, frameC, widths, heights, cells, endLine: gridEnd, head: headLine, close }
 }
 
 function parseNodes(
@@ -738,16 +790,25 @@ function parseNodes(
         out.push(parseTable(lines, pos, vars, ctx))
       } else if (gm) {
         let frame: FrameKind = 'solid'
+        let frameW: number | null = null
+        let frameC: string | null = null
         let widthsIn: (number | null)[] | null = null
         for (const tok of head.slice(1)) {
-          const fm = /^frame=(none|solid|thick|double|dashed)$/.exec(tok)
+          const fm = /^frame=(.+)$/.exec(tok)
           const wm = /^widths=(.+)$/.exec(tok)
-          if (fm) frame = fm[1] as FrameKind
-          else if (wm) widthsIn = parseWidths(wm[1], ctx)
+          if (fm) {
+            const v = parseEdgeValue(fm[1], EDGE_KINDS)
+            if (typeof v === 'string') ctx.warn(`grid: frame= ${v}: ${fm[1]}`)
+            else {
+              frame = v.kind as FrameKind
+              frameW = v.w
+              frameC = v.c
+            }
+          } else if (wm) widthsIn = parseWidths(wm[1], ctx)
           else ctx.warn(`grid: 모르는 옵션이에요 (frame=, widths=): ${tok}`)
         }
         const headLine = ctx.lineBase + pos.i - 1
-        out.push(parseGrid(lines, pos, vars, ctx, Number(gm[1]), frame, widthsIn, pageStyle, headLine))
+        out.push(parseGrid(lines, pos, vars, ctx, Number(gm[1]), frame, frameW, frameC, widthsIn, pageStyle, headLine))
       } else {
         ctx.warn(`옛 문법은 읽지 않아요. grid=12 [ 처럼 써 주세요. 이 블록은 건너뛰었어요: ${t}`)
         skipBlock(lines, pos)

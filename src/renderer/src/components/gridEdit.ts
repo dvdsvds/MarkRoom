@@ -661,3 +661,195 @@ export function setRowHeight(info: GridInfo, row: number, h: number, getLine: Ge
   }
   return assemble(info, getLine, items, null)
 }
+
+// ───────────── 선 편집 ─────────────
+
+export type BorderWhere =
+  | 'all'
+  | 'outer'
+  | 'inner'
+  | 'top'
+  | 'bottom'
+  | 'left'
+  | 'right'
+  | 'vmid'
+  | 'hmid'
+export type BorderKind = 'none' | 'solid' | 'thick' | 'double' | 'dashed'
+/** 선 한 가지 모양: 종류, 굵기(mm, null이면 기본), 색(null이면 기본). */
+export interface BorderStyle {
+  kind: BorderKind
+  w: number | null
+  c: string | null
+}
+type Side = 't' | 'b' | 'l' | 'r'
+const SIDES: Side[] = ['t', 'b', 'l', 'r']
+const SIDE_WORD: Record<Side, string> = { t: 'top', b: 'bottom', l: 'left', r: 'right' }
+const OPPOSITE: Record<Side, Side> = { t: 'b', b: 't', l: 'r', r: 'l' }
+
+/** solid,0.5,red 처럼 문서에 쓰는 값. 굵기와 색이 없으면 종류만 쓴다. */
+export function borderValue(st: BorderStyle): string {
+  if (st.kind === 'none' || (st.w === null && st.c === null)) return st.kind
+  const parts: string[] = [st.kind, st.w === null ? '-' : String(r2(st.w))]
+  if (st.c !== null) parts.push(st.c)
+  return parts.join(',')
+}
+
+/** 칸 정의 줄의 옵션에서 key= 로 시작하는 것을 지우고 새 값을 쓴다. */
+function withOpts(p: DefParts, put: Record<string, string>, remove: string[] = []): DefParts {
+  const drop = [...Object.keys(put), ...remove].map((k) => `${k}=`)
+  const keep = (t: string): boolean => !drop.some((d) => t.startsWith(d))
+  const add = Object.entries(put).map(([k, v]) => `${k}=${v}`)
+  const head = p.head.filter(keep)
+  if (p.tail === null) return { ...p, head: [...head, ...add] }
+  return { ...p, head, tail: [...p.tail.filter(keep), ...add] }
+}
+
+/** 이웃 칸이 그 쪽 선을 직접 정해 둔 칸인지(border= 또는 border-쪽=). */
+function hasExplicit(p: DefParts, side: Side): boolean {
+  return [...p.head, ...(p.tail ?? [])].some((t) => t.startsWith('border=') || t.startsWith(`border-${SIDE_WORD[side]}=`))
+}
+
+function withFrame(line: string, st: BorderStyle): string {
+  const indent = /^\s*/.exec(line)?.[0] ?? ''
+  const toks = tokenize(line.trim().replace(/\[$/, '').trim()).filter((t) => !/^frame=/.test(t))
+  const v = borderValue(st)
+  if (v !== 'solid') toks.push(`frame=${v}`)
+  return `${indent}${toks.join(' ')} [`
+}
+
+/**
+ * 선택한 칸들의 선을 바꾼다.
+ * 선택한 칸에 border-쪽=값 을 쓰고, 맞닿은 이웃 칸이 그 쪽 선을 직접 정해 둔 경우에만 이웃 값도 같이 바꿔서 항상 원하는 대로 보이게 한다.
+ * 격자 맨 바깥 테두리는 frame= 이라서, 격자 전체를 선택하고 전체/바깥쪽을 고를 때만 바뀐다.
+ */
+export function setBorders(
+  info: GridInfo,
+  rect: Rect,
+  where: BorderWhere,
+  st: BorderStyle,
+  getLine: GetLine
+): GridResult {
+  const inside = cellsIn(info, rect)
+  if (typeof inside === 'string') return fail(inside)
+  const rows = info.heights.length
+  const value = borderValue(st)
+  const picked = new Set(inside)
+  const edits = new Map<CellInfo, Partial<Record<Side, string>>>()
+  const put = (c: CellInfo, s: Side): void => {
+    const e = edits.get(c) ?? {}
+    e[s] = value
+    edits.set(c, e)
+  }
+  const cache = new Map<CellInfo, DefParts>()
+  const defOf = (c: CellInfo): DefParts | null => {
+    if (c.def === null) return null
+    let p = cache.get(c)
+    if (!p) {
+      p = parseDef(getLine(c.def))
+      cache.set(c, p)
+    }
+    return p
+  }
+  for (const c of inside) {
+    for (const s of SIDES) {
+      const outer =
+        (s === 't' && c.r === rect.r1) ||
+        (s === 'b' && c.r + c.rs - 1 === rect.r2) ||
+        (s === 'l' && c.c === rect.c1) ||
+        (s === 'r' && c.c + c.cs - 1 === rect.c2)
+      const horiz = s === 'l' || s === 'r'
+      const want =
+        where === 'all' ||
+        (where === 'outer' && outer) ||
+        (where === 'inner' && !outer) ||
+        (where === 'vmid' && !outer && horiz) ||
+        (where === 'hmid' && !outer && !horiz) ||
+        (outer &&
+          ((where === 'top' && s === 't') ||
+            (where === 'bottom' && s === 'b') ||
+            (where === 'left' && s === 'l') ||
+            (where === 'right' && s === 'r')))
+      if (!want) continue
+      const atGrid =
+        (s === 't' && c.r === 0) ||
+        (s === 'b' && c.r + c.rs === rows) ||
+        (s === 'l' && c.c === 0) ||
+        (s === 'r' && c.c + c.cs === info.cols)
+      if (atGrid) continue
+      put(c, s)
+      for (const n of info.cells) {
+        if (picked.has(n) || n === c) continue
+        const touches =
+          s === 't' ? n.r + n.rs === c.r && n.c < c.c + c.cs && n.c + n.cs > c.c
+          : s === 'b' ? n.r === c.r + c.rs && n.c < c.c + c.cs && n.c + n.cs > c.c
+          : s === 'l' ? n.c + n.cs === c.c && n.r < c.r + c.rs && n.r + n.rs > c.r
+          : n.c === c.c + c.cs && n.r < c.r + c.rs && n.r + n.rs > c.r
+        const p = touches ? defOf(n) : null
+        if (p && hasExplicit(p, OPPOSITE[s])) put(n, OPPOSITE[s])
+      }
+    }
+  }
+  const wholeGrid = rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
+  const frame = wholeGrid && (where === 'all' || where === 'outer')
+  if (edits.size === 0 && !frame) {
+    return fail('이 위치에는 바꿀 선이 없어요. 안쪽 선은 칸을 둘 이상 선택해야 하고, 격자 맨 바깥 선은 격자 전체를 선택해야 바뀌어요.')
+  }
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    const e = edits.get(cell)
+    const opts: Record<string, string> = {}
+    if (e) for (const s of SIDES) if (e[s] !== undefined) opts[`border-${SIDE_WORD[s]}`] = e[s] as string
+    if (cell.def === null) {
+      if (e) {
+        items.push({
+          key: NEW_KEY, seq: items.length, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+          parts: withOpts(emptyDef(info, getLine), opts), body: []
+        })
+      }
+      continue
+    }
+    const parts = parseDef(getLine(cell.def))
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      parts: e ? withOpts(parts, opts) : parts, body: bodyOf(cell, getLine)
+    })
+  }
+  const res = assemble(info, getLine, items, null)
+  if (res.ok && frame) res.lines[0] = withFrame(res.lines[0], st)
+  return res
+}
+
+/** 선택한 칸 하나하나에 대각선을 긋거나(없음이 아닐 때) 지운다. dir: down은 ↘, up은 ↗. */
+export function setDiagonals(
+  info: GridInfo,
+  rect: Rect,
+  dir: 'down' | 'up',
+  st: BorderStyle,
+  getLine: GetLine
+): GridResult {
+  const inside = cellsIn(info, rect)
+  if (typeof inside === 'string') return fail(inside)
+  const key = dir === 'down' ? 'diag-down' : 'diag-up'
+  const picked = new Set(inside)
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    const on = picked.has(cell)
+    const put: Record<string, string> = on && st.kind !== 'none' ? { [key]: borderValue(st) } : {}
+    const remove = on && st.kind === 'none' ? [key] : []
+    if (cell.def === null) {
+      if (on && st.kind !== 'none') {
+        items.push({
+          key: NEW_KEY, seq: items.length, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+          parts: withOpts(emptyDef(info, getLine), put), body: []
+        })
+      }
+      continue
+    }
+    const parts = parseDef(getLine(cell.def))
+    items.push({
+      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      parts: on ? withOpts(parts, put, remove) : parts, body: bodyOf(cell, getLine)
+    })
+  }
+  return assemble(info, getLine, items, null)
+}
