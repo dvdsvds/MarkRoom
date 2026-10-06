@@ -8,6 +8,7 @@ const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
 const SERIF_RE = /바탕|명조|궁서|batang|myeongjo|myungjo|serif|times|georgia|garamond|palatino|gungsuh/i
 const PAPER_MM = 186
 const V_ITEMS = { top: 'flex-start', middle: 'center', bottom: 'flex-end' } as const
+const GUIDE = '1px dashed #e5484d'
 
 function textColor(v: string | null): string | null {
   if (!v) return null
@@ -131,6 +132,7 @@ function build(n: TNode): HTMLElement {
         : `repeat(${Number(n.cols)}, minmax(0, 1fr))`
       g.style.gridTemplateRows = n.heights.map((h) => `minmax(${Number(h)}mm, auto)`).join(' ')
       g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, null)
+      if (n.frame === 'none') g.classList.add('tq-frame-none')
       const rows = n.heights.length
 
       const map: number[][] = Array.from({ length: rows }, () => Array<number>(n.cols).fill(-1))
@@ -196,13 +198,13 @@ function build(n: TNode): HTMLElement {
       for (let r = 0; r < rows; r++) {
         for (let c = 1; c < n.cols; c++) {
           const e = edgeOf(map[r][c - 1], 'r', map[r][c], 'l')
-          if (!e || e.kind === 'none') continue
-          const d = el('div', 'tq-edge')
+          if (!e) continue
+          const d = el('div', e.kind === 'none' ? 'tq-edge tq-guide' : 'tq-edge')
           d.style.gridColumn = String(c)
           d.style.gridRow = String(r + 1)
           d.style.justifySelf = 'end'
           d.style.width = '0'
-          d.style.borderLeft = edgeCss(e.kind, e.color)
+          d.style.borderLeft = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color)
           d.style.pointerEvents = 'none'
           g.appendChild(d)
         }
@@ -210,13 +212,13 @@ function build(n: TNode): HTMLElement {
       for (let r = 1; r < rows; r++) {
         for (let c = 0; c < n.cols; c++) {
           const e = edgeOf(map[r - 1][c], 'b', map[r][c], 't')
-          if (!e || e.kind === 'none') continue
-          const d = el('div', 'tq-edge')
+          if (!e) continue
+          const d = el('div', e.kind === 'none' ? 'tq-edge tq-guide' : 'tq-edge')
           d.style.gridColumn = String(c + 1)
           d.style.gridRow = String(r)
           d.style.alignSelf = 'end'
           d.style.height = '0'
-          d.style.borderTop = edgeCss(e.kind, e.color)
+          d.style.borderTop = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color)
           d.style.pointerEvents = 'none'
           g.appendChild(d)
         }

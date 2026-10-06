@@ -839,3 +839,12 @@ select option::checkmark {
 .tq-grid.tq-hot-row * {
   cursor: row-resize !important;
 }
+.tq-guide {
+  display: none;
+}
+.tq-editmode .tq-guide {
+  display: block;
+}
+.tq-editmode .tq-grid.tq-frame-none {
+  outline: 1px dashed #e5484d;
+}
