@@ -118,6 +118,11 @@ function build(n: TNode): HTMLElement {
     }
     case 'grid': {
       const g = el('div', 'tq-grid')
+      g.dataset.widths = JSON.stringify(n.widths)
+      g.dataset.heights = JSON.stringify(n.heights)
+      g.dataset.head = String(n.head)
+      if (n.close !== null) g.dataset.close = String(n.close)
+        g.dataset.cols = String(n.cols)
       const fixed = n.widths.reduce<number>((a, w) => a + (w ?? 0), 0)
       const free = n.widths.filter((w) => w === null).length
       const share = free > 0 ? Math.round((Math.max(0, PAPER_MM - fixed) / free) * 100) / 100 : 0

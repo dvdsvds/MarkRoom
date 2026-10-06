@@ -1,0 +1,457 @@
+/**
+ * 서식 격자의 칸 합치기·나누기.
+ * 문서 글자(줄 목록)만 다루는 순수 함수라서 화면 없이 시험할 수 있다.
+ * 결과는 격자 한 개(헤더 줄 ~ 닫는 ] 줄)를 통째로 바꿀 새 줄 목록이다.
+ */
+
+export interface CellInfo {
+  r: number
+  c: number
+  rs: number
+  cs: number
+  /** 칸 정의 줄 번호(문서 기준, 1부터). 글자가 없는 빈 자리면 null */
+  def: number | null
+  end: number | null
+}
+
+export interface GridInfo {
+  /** grid=N [ 줄 번호 */
+  head: number
+  /** 닫는 ] 줄 번호 */
+  close: number
+  cols: number
+  widths: (number | null)[]
+  heights: number[]
+  cells: CellInfo[]
+}
+
+export interface Rect {
+  r1: number
+  c1: number
+  r2: number
+  c2: number
+}
+
+export type GridResult =
+  | { ok: true; from: number; to: number; lines: string[] }
+  | { ok: false; error: string }
+
+type GetLine = (n: number) => string
+
+const PAPER_MM = 186
+const MIN_MM = 1
+const MAX_MM = 280
+const MAX_COLS = 100
+const MAX_ROWS = 200
+
+const r2 = (n: number): number => Math.round(n * 100) / 100
+const fmt = (n: number): string => String(r2(n))
+const fail = (error: string): GridResult => ({ ok: false, error })
+const sum = (a: number[], from: number, len: number): number =>
+  a.slice(from, from + len).reduce((x, y) => x + y, 0)
+
+function tokenize(src: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let q = false
+  for (const ch of src) {
+    if (ch === '"') {
+      q = !q
+      cur += ch
+    } else if (!q && /\s/.test(ch)) {
+      if (cur !== '') out.push(cur)
+      cur = ''
+    } else {
+      cur += ch
+    }
+  }
+  if (cur !== '') out.push(cur)
+  return out
+}
+
+function splitColon(src: string): [string, string | null] {
+  let q = false
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i]
+    if (ch === '"') q = !q
+    else if (ch === ':' && !q) return [src.slice(0, i), src.slice(i + 1)]
+  }
+  return [src, null]
+}
+
+interface DefParts {
+  indent: string
+  head: string[]
+  /** 콜론이 없으면 null */
+  tail: string[] | null
+}
+
+const isPos = (t: string): boolean => /^(?:col|row)=/.test(t)
+const isH = (t: string): boolean => /^h=/.test(t)
+
+function parseDef(line: string): DefParts {
+  const indent = /^\s*/.exec(line)?.[0] ?? ''
+  const [h, t] = splitColon(line.slice(indent.length))
+  return { indent, head: tokenize(h), tail: t === null ? null : tokenize(t) }
+}
+
+function hOf(p: DefParts): number | null {
+  for (const tok of [...p.head, ...(p.tail ?? [])]) {
+    const m = /^h=(.+)$/.exec(tok)
+    if (m) {
+      const n = Number(m[1])
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return null
+}
+
+/** h가 undefined면 기존 h= 를 그대로 두고, 숫자면 바꾸고, null이면 지운다. */
+function buildDef(
+  p: DefParts,
+  r: number,
+  c: number,
+  rs: number,
+  cs: number,
+  h: number | null | undefined
+): string {
+  const strip = (a: string[]): string[] => (h === undefined ? a : a.filter((t) => !isH(t)))
+  const rest = strip(p.head.filter((t) => !isPos(t)))
+  const tail = p.tail === null ? null : strip(p.tail)
+  const pos = [
+    `col=${c + 1}${cs > 1 ? `-${c + cs}` : ''}`,
+    `row=${r + 1}${rs > 1 ? `-${r + rs}` : ''}`
+  ]
+  const hTok = typeof h === 'number' ? [`h=${fmt(h)}`] : []
+  const left = [...pos, ...rest, ...hTok].join(' ')
+  if (tail === null) return p.indent + left
+  return p.indent + left + ' :' + (tail.length > 0 ? ' ' + tail.join(' ') : '')
+}
+
+function bodyOf(c: CellInfo, getLine: GetLine): string[] {
+  if (c.def === null || c.end === null) return []
+  const out: string[] = []
+  for (let n = c.def + 1; n <= c.end; n++) out.push(getLine(n))
+  return out
+}
+
+function effectiveWidths(widths: (number | null)[], cols: number): number[] {
+  const free = widths.filter((w) => w === null).length
+  if (free === widths.length) return Array<number>(cols).fill(PAPER_MM / cols)
+  const fixed = widths.reduce<number>((a, w) => a + (w ?? 0), 0)
+  const share = free > 0 ? Math.max(0, PAPER_MM - fixed) / free : 0
+  return widths.map((w) => w ?? share)
+}
+
+/** 칸이 span개 열을 차지하고 k칸으로 나눌 때, 열마다 몇 조각으로 쪼개야 하는지. */
+function demand(span: number, k: number): number[] {
+  if (k <= span) return Array<number>(span).fill(1)
+  const extra = k - span
+  const base = Math.floor(extra / span)
+  const rem = extra % span
+  return Array.from({ length: span }, (_, i) => 1 + base + (i < rem ? 1 : 0))
+}
+
+/** total개를 k묶음으로 최대한 고르게(앞 묶음이 더 크게) 나눈 크기들. */
+function partition(total: number, k: number): number[] {
+  const base = Math.floor(total / k)
+  const rem = total % k
+  return Array.from({ length: k }, (_, i) => base + (i < rem ? 1 : 0))
+}
+
+function starts(n: number[]): number[] {
+  const s: number[] = []
+  let a = 0
+  for (const x of n) {
+    s.push(a)
+    a += x
+  }
+  return s
+}
+
+/** vals[i]를 ns[i]등분한 새 목록. 소수 둘째 자리로 맞추되 합은 그대로, 너무 작으면 null. */
+function splitSizes(vals: number[], ns: number[]): number[] | null {
+  const raw: number[] = []
+  vals.forEach((v, i) => {
+    for (let k = 0; k < ns[i]; k++) raw.push(v / ns[i])
+  })
+  const total = r2(vals.reduce((a, b) => a + b, 0))
+  const out = raw.map(r2)
+  const diff = r2(total - out.reduce((a, b) => a + b, 0))
+  if (diff !== 0) {
+    let m = 0
+    out.forEach((v, i) => {
+      if (v > out[m]) m = i
+    })
+    out[m] = r2(out[m] + diff)
+  }
+  return out.every((v) => v >= MIN_MM) ? out : null
+}
+
+function cellsIn(info: GridInfo, rect: Rect): CellInfo[] | string {
+  const out: CellInfo[] = []
+  for (const c of info.cells) {
+    const hit =
+      c.r + c.rs > rect.r1 && c.r <= rect.r2 && c.c + c.cs > rect.c1 && c.c <= rect.c2
+    if (!hit) continue
+    const inside =
+      c.r >= rect.r1 &&
+      c.r + c.rs - 1 <= rect.r2 &&
+      c.c >= rect.c1 &&
+      c.c + c.cs - 1 <= rect.c2
+    if (!inside) return '선택한 범위가 칸 경계와 맞지 않아요.'
+    out.push(c)
+  }
+  return out.length === 0 ? '선택한 칸이 없어요.' : out
+}
+
+interface Out {
+  key: number
+  seq: number
+  r: number
+  c: number
+  rs: number
+  cs: number
+  parts: DefParts
+  body: string[]
+  h?: number | null
+}
+
+function header(line: string, cols: { n: number; widths: number[] } | null): string {
+  if (!cols) return line
+  const indent = /^\s*/.exec(line)?.[0] ?? ''
+  const body = line.trim().replace(/\[$/, '').trim()
+  const toks = tokenize(body)
+    .filter((t) => !/^widths=/.test(t))
+    .map((t) => (/^grid=\d+$/.test(t) ? `grid=${cols.n}` : t))
+  toks.push(`widths=${cols.widths.map(fmt).join(',')}`)
+  return `${indent}${toks.join(' ')} [`
+}
+
+function assemble(
+  info: GridInfo,
+  getLine: GetLine,
+  items: Out[],
+  cols: { n: number; widths: number[] } | null
+): GridResult {
+  items.sort((a, b) => a.key - b.key || a.seq - b.seq)
+  const lines: string[] = [header(getLine(info.head), cols)]
+  for (const it of items) {
+    lines.push(buildDef(it.parts, it.r, it.c, it.rs, it.cs, it.h))
+    lines.push(...it.body)
+  }
+  lines.push(getLine(info.close))
+  return { ok: true, from: info.head, to: info.close, lines }
+}
+
+/** 선택한 범위의 칸들을 하나로 합친다. 글자는 줄바꿈으로 이어 붙이고, 모양은 왼쪽 위 칸의 것을 쓴다. */
+export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
+  const inside = cellsIn(info, rect)
+  if (typeof inside === 'string') return fail(inside)
+  if (inside.length < 2) return fail('합칠 칸을 둘 이상 선택해 주세요.')
+  const set = new Set(inside)
+  const real = inside
+    .filter((c) => c.def !== null)
+    .sort((a, b) => a.r - b.r || a.c - b.c)
+  const rs = rect.r2 - rect.r1 + 1
+  const cs = rect.c2 - rect.c1 + 1
+  const gridIndent = (/^\s*/.exec(getLine(info.head))?.[0] ?? '') + '  '
+  const parts: DefParts =
+    real.length > 0
+      ? parseDef(getLine(real[0].def as number))
+      : { indent: gridIndent, head: [], tail: [] }
+
+  const bodyIndent = parts.indent + '  '
+  const body: string[] = []
+  for (const c of real) {
+    for (const l of bodyOf(c, getLine)) if (l.trim() !== '') body.push(bodyIndent + l.trim())
+  }
+
+  let h: number | null | undefined
+  if (rs > 1) {
+    h = Math.min(MAX_MM, r2(sum(info.heights, rect.r1, rs)))
+  } else {
+    const hs = real
+      .map((c) => hOf(parseDef(getLine(c.def as number))))
+      .filter((v): v is number => v !== null)
+    h = hs.length > 0 ? Math.max(...hs) : undefined
+  }
+
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    if (set.has(cell) || cell.def === null) continue
+    items.push({
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine)
+    })
+  }
+  items.push({
+    key: real.length > 0 ? Math.min(...real.map((c) => c.def as number)) : Number.MAX_SAFE_INTEGER,
+    seq: 0,
+    r: rect.r1,
+    c: rect.c1,
+    rs,
+    cs,
+    parts,
+    body,
+    h
+  })
+  return assemble(info, getLine, items, null)
+}
+
+/**
+ * 칸 수가 차지한 열 수보다 많을 때, 그 열들의 폭을 통째로 n등분할 수 있는지 본다.
+ * 가능하면 {시작 열 → 열 수} 목록을, 안 되면 null을 돌려준다.
+ * 다른 칸이 그 열 범위를 일부만 걸치면(범위 안쪽이거나 걸쳐 있으면) 안 된다. 범위 전체를 덮는 칸은 괜찮다.
+ */
+function equalColumns(info: GridInfo, inside: CellInfo[], nCols: number): Map<number, number> | null {
+  const groups = new Map<number, number>()
+  for (const cell of inside) {
+    if (nCols <= cell.cs) return null
+    const had = groups.get(cell.c)
+    if (had !== undefined && had !== cell.cs) return null
+    groups.set(cell.c, cell.cs)
+  }
+  const moved = new Set(inside)
+  for (const [c, len] of groups) {
+    for (const [c2, len2] of groups) {
+      if (c2 !== c && c2 < c + len && c < c2 + len2) return null
+    }
+    for (const o of info.cells) {
+      if (moved.has(o)) continue
+      const hit = o.c < c + len && o.c + o.cs > c
+      if (hit && !(o.c <= c && o.c + o.cs >= c + len)) return null
+    }
+  }
+  return groups
+}
+
+/**
+ * 선택한 범위의 칸을 각각 nCols칸 × nRows줄로 나눈다.
+ * 글자는 첫 조각(왼쪽 위)에 남고 나머지는 빈 칸이다. 모양(옵션)은 조각 모두 그대로 물려받는다.
+ * 칸이 차지한 열·줄보다 많이 나누면 격자 전체에 열·줄이 늘어나고, 다른 칸들은 그만큼 넓어진 것으로 쓴다.
+ */
+export function splitGrid(
+  info: GridInfo,
+  rect: Rect,
+  nCols: number,
+  nRows: number,
+  getLine: GetLine
+): GridResult {
+  if (!Number.isInteger(nCols) || !Number.isInteger(nRows) || nCols < 1 || nRows < 1) {
+    return fail('칸 수와 줄 수는 1 이상의 정수예요.')
+  }
+  if (nCols === 1 && nRows === 1) return fail('나눌 칸 수나 줄 수가 1보다 커야 해요.')
+  const inside = cellsIn(info, rect)
+  if (typeof inside === 'string') return fail(inside)
+
+  const rows = info.heights.length
+  const colN = Array<number>(info.cols).fill(1)
+  const rowN = Array<number>(rows).fill(1)
+  for (const cell of inside) {
+    demand(cell.cs, nCols).forEach((v, i) => {
+      colN[cell.c + i] = Math.max(colN[cell.c + i], v)
+    })
+    demand(cell.rs, nRows).forEach((v, i) => {
+      rowN[cell.r + i] = Math.max(rowN[cell.r + i], v)
+    })
+  }
+  const eff = effectiveWidths(info.widths, info.cols)
+  const eq = equalColumns(info, inside, nCols)
+  const colStart: number[] = []
+  const colEnd: number[] = []
+  let newW: number[] | null = []
+  if (eq) {
+    for (let j = 0; j < info.cols; ) {
+      const len = eq.get(j)
+      if (len !== undefined) {
+        const pieces = splitSizes([sum(eff, j, len)], [nCols])
+        if (pieces === null) {
+          newW = null
+          break
+        }
+        for (let x = j; x < j + len; x++) {
+          colStart[x] = newW.length
+          colEnd[x] = newW.length + nCols
+        }
+        newW.push(...pieces)
+        j += len
+      } else {
+        colStart[j] = newW.length
+        colEnd[j] = newW.length + 1
+        newW.push(eff[j])
+        j++
+      }
+    }
+  } else {
+    const cStart0 = starts(colN)
+    for (let j = 0; j < info.cols; j++) {
+      colStart[j] = cStart0[j]
+      colEnd[j] = cStart0[j] + colN[j]
+    }
+    newW = splitSizes(eff, colN)
+  }
+  if (newW === null) return fail('칸이 너무 좁아져서 더 나눌 수 없어요.')
+  const newCols = newW.length
+  const newRows = rowN.reduce((a, b) => a + b, 0)
+  if (newCols > MAX_COLS) return fail(`열은 ${MAX_COLS}개까지예요.`)
+  if (newRows > MAX_ROWS) return fail(`줄은 ${MAX_ROWS}개까지예요.`)
+  const addCols = newCols !== info.cols
+  const newH = splitSizes(info.heights, rowN)
+  if (newH === null) return fail('줄이 너무 낮아져서 더 나눌 수 없어요.')
+
+  const rStart = starts(rowN)
+  const moved = new Set(inside)
+  const items: Out[] = []
+  for (const cell of info.cells) {
+    const m = {
+      r: rStart[cell.r],
+      c: colStart[cell.c],
+      rs: sum(rowN, cell.r, cell.rs),
+      cs: colEnd[cell.c + cell.cs - 1] - colStart[cell.c]
+    }
+    if (!moved.has(cell)) {
+      if (cell.def !== null) {
+        items.push({
+          key: cell.def,
+          seq: 0,
+          ...m,
+          parts: parseDef(getLine(cell.def)),
+          body: bodyOf(cell, getLine)
+        })
+      }
+      continue
+    }
+    if (cell.def === null) continue
+    const parts = parseDef(getLine(cell.def))
+    const cw = partition(m.cs, nCols)
+    const rh = partition(m.rs, nRows)
+    let seq = 0
+    let rr = m.r
+    for (let ri = 0; ri < nRows; ri++) {
+      let cc = m.c
+      for (let ci = 0; ci < nCols; ci++) {
+        items.push({
+          key: cell.def,
+          seq: seq++,
+          r: rr,
+          c: cc,
+          rs: rh[ri],
+          cs: cw[ci],
+          parts,
+          body: ri === 0 && ci === 0 ? bodyOf(cell, getLine) : [],
+          h: nRows > 1 ? r2(sum(newH, rr, rh[ri])) : undefined
+        })
+        cc += cw[ci]
+      }
+      rr += rh[ri]
+    }
+  }
+  return assemble(info, getLine, items, addCols ? { n: newCols, widths: newW } : null)
+}

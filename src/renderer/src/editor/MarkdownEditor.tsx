@@ -119,6 +119,23 @@ export function replaceCellText(defLine: number, endLine: number, text: string):
   })
 }
 
+/** 격자 편집(합치기/나누기) 결과를 문서에 적용한다. 실패하면 오류 글자를, 성공하면 null을 돌려준다. */
+export function applyGridEdit(
+  compute: (getLine: (n: number) => string) => { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }
+): string | null {
+  const view = currentView
+  if (!view) return '편집기를 찾을 수 없어요'
+  const doc = view.state.doc
+  const r = compute((n) => (n >= 1 && n <= doc.lines ? doc.line(n).text : ''))
+  if (!r.ok) return r.error
+  if (r.from < 1 || r.to > doc.lines || r.from > r.to) return '격자 위치가 맞지 않아요'
+  view.dispatch({
+    changes: { from: doc.line(r.from).from, to: doc.line(r.to).to, insert: r.lines.join('\n') },
+    userEvent: 'input.cell'
+  })
+  return null
+}
+
 /** 빈 칸에 글자를 쓴다. afterLine(격자 마지막 칸의 글자 줄) 뒤에 col= 줄을 새로 끼운다. */
 export function addCellText(
   afterLine: number,

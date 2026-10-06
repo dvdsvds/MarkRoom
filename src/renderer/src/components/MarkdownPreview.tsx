@@ -6,7 +6,8 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, redoEditor, replaceCellText, selectEditorLines, undoEditor } from '../editor/MarkdownEditor'
+import { addCellText, applyGridEdit, redoEditor, replaceCellText, selectEditorLines, undoEditor } from '../editor/MarkdownEditor'
+import { mergeGrid, splitGrid, type GridInfo, type Rect } from './gridEdit'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -648,6 +649,94 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!x || x.classList.contains('tq-editing')) return
         startEdit(x, { x: e.clientX, y: e.clientY })
       }
+      const toast = (msg: string): void => {
+        const d = document.createElement('div')
+        d.textContent = msg
+        d.style.cssText =
+          'position:fixed;left:50%;bottom:40px;transform:translateX(-50%);z-index:9999;background:#333;color:#fff;padding:8px 14px;border-radius:6px;font-size:13px'
+        document.body.appendChild(d)
+        window.setTimeout(() => d.remove(), 2500)
+      }
+      const gridInfo = (): GridInfo | null => {
+        const g = gridEl()
+        if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
+        try {
+          return {
+            head: Number(g.dataset.head),
+            close: Number(g.dataset.close),
+            cols: Number(g.dataset.cols),
+            widths: JSON.parse(g.dataset.widths ?? '[]') as (number | null)[],
+            heights: JSON.parse(g.dataset.heights ?? '[]') as number[],
+            cells: cells().map((x) => ({
+              ...rcOf(x),
+              def: x.dataset.def !== undefined ? Number(x.dataset.def) : null,
+              end: x.dataset.end !== undefined ? Number(x.dataset.end) : null
+            }))
+          }
+        } catch {
+          return null
+        }
+      }
+      const doMerge = (): void => {
+        const info = gridInfo()
+        if (!info || !sel) return
+        const rect: Rect = normalize(sel)
+        const err = applyGridEdit((getLine) => mergeGrid(info, rect, getLine))
+        if (err) toast(err)
+        else select(null)
+      }
+      const askSplit = (): void => {
+        const info = gridInfo()
+        if (!info || !sel) return
+        const rect: Rect = normalize(sel)
+        const box = document.createElement('div')
+        box.style.cssText =
+          'position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:9999;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:8px;padding:12px 14px;display:flex;gap:8px;align-items:center;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.3)'
+        const mk = (label: string, max: number): HTMLInputElement => {
+          const t = document.createElement('span')
+          t.textContent = label
+          const i = document.createElement('input')
+          i.type = 'number'
+          i.min = '1'
+          i.max = String(max)
+          i.value = label === '칸 수' ? '2' : '1'
+          i.style.cssText = 'width:56px;padding:2px 4px;border:1px solid var(--color-text-tertiary);border-radius:4px;background:transparent;color:inherit'
+          box.append(t, i)
+          return i
+        }
+        const ci = mk('칸 수', 100)
+        const ri = mk('줄 수', 200)
+        const hint = document.createElement('span')
+        hint.textContent = 'Enter 확인 · Esc 취소'
+        hint.style.opacity = '0.6'
+        box.append(hint)
+        const close = (): void => box.remove()
+        const ok = (): void => {
+          const n = Math.floor(Number(ci.value))
+          const m = Math.floor(Number(ri.value))
+          if (!(n >= 1) || !(m >= 1) || n * m < 2) {
+            toast('나눌 칸 수와 줄 수를 확인해 주세요')
+            return
+          }
+          close()
+          const err = applyGridEdit((getLine) => splitGrid(info, rect, n, m, getLine))
+          if (err) toast(err)
+          else select(null)
+        }
+        box.addEventListener('keydown', (ev) => {
+          ev.stopPropagation()
+          if (ev.key === 'Enter') {
+            ev.preventDefault()
+            ok()
+          } else if (ev.key === 'Escape') {
+            ev.preventDefault()
+            close()
+          }
+        })
+        document.body.appendChild(box)
+        ci.focus()
+        ci.select()
+      } 
       const onKey = (e: KeyboardEvent): void => {
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
           const k = e.key.toLowerCase()
@@ -668,6 +757,18 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           return
         }
         if (!sel) return
+        if (editModeRef.current && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
+          if (e.code === 'KeyM') {
+            e.preventDefault()
+            doMerge()
+            return
+          }
+          if (e.code === 'KeyS') {
+            e.preventDefault()
+            askSplit()
+            return
+          }
+        }
         if (e.key === 'Escape') {
           e.preventDefault()
           select(null)
@@ -700,7 +801,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const restore = (): void => {
         const keep = sel
         editing = null
-        sel = keep && cellAt(keep.r1, keep.c1) ? keep : null
+        sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
         paint()
       }
       el.addEventListener('mousedown', onDown)

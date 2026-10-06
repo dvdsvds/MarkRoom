@@ -55,6 +55,8 @@ export type TNode =
       heights: number[]
       cells: GridCell[]
       endLine: number | null
+      head: number
+      close: number | null
     }
 export type ParsedTemplate =
   | { page: Style; nodes: TNode[]; warnings: string[] }
@@ -478,12 +480,13 @@ function parseGrid(
   colsIn: number,
   frame: FrameKind,
   widthsIn: (number | null)[] | null,
-  pageStyle: Style
+  pageStyle: Style,
+  headLine: number
 ): TNode {
   let cols = colsIn
-  if (cols < 1 || cols > 24) {
-    ctx.warn(`grid 열은 1~24개예요: ${colsIn}`)
-    cols = clamp(cols, 1, 24)
+  if (cols < 1 || cols > 100) {
+    ctx.warn(`grid 열은 1~100개예요: ${colsIn}`)
+    cols = clamp(cols, 1, 100)
   }
 
   const widths: (number | null)[] = Array<number | null>(cols).fill(null)
@@ -498,11 +501,15 @@ function parseGrid(
 
   const defs: Def[] = []
   let cur: Def | null = null
+  let close: number | null = null
   for (;;) {
     const raw = nextRaw(lines, pos)
     if (raw === null) break
     const t = raw.trim()
-    if (t === ']') break
+    if (t === ']') {
+      close = ctx.lineBase + pos.i - 1
+      break
+    }
     const ind = indentOf(raw)
     const idx = pos.i - 1
 
@@ -659,7 +666,7 @@ function parseGrid(
   const lastEnd = defs.length > 0 ? Math.max(...defs.map((d) => d.d2)) : -1
   const gridEnd = lastEnd >= 0 ? ctx.lineBase + lastEnd : null
   for (const c of cells) c.gridEnd = gridEnd
-  return { k: 'grid', cols, frame, widths, heights, cells, endLine: gridEnd }
+  return { k: 'grid', cols, frame, widths, heights, cells, endLine: gridEnd, head: headLine, close }
 }
 
 function parseNodes(
@@ -724,7 +731,7 @@ function parseNodes(
         skipBlock(lines, pos)
         continue
       }
-      const gm = /^grid=(\d{1,2})$/.exec(name)
+      const gm = /^grid=(\d{1,3})$/.exec(name)
       if (name === 'box') {
         out.push({ k: 'box', children: parseNodes(lines, pos, vars, ctx, pageStyle, false, depth + 1) })
       } else if (name === 'table') {
@@ -739,7 +746,8 @@ function parseNodes(
           else if (wm) widthsIn = parseWidths(wm[1], ctx)
           else ctx.warn(`grid: 모르는 옵션이에요 (frame=, widths=): ${tok}`)
         }
-        out.push(parseGrid(lines, pos, vars, ctx, Number(gm[1]), frame, widthsIn, pageStyle))
+        const headLine = ctx.lineBase + pos.i - 1
+        out.push(parseGrid(lines, pos, vars, ctx, Number(gm[1]), frame, widthsIn, pageStyle, headLine))
       } else {
         ctx.warn(`옛 문법은 읽지 않아요. grid=12 [ 처럼 써 주세요. 이 블록은 건너뛰었어요: ${t}`)
         skipBlock(lines, pos)
