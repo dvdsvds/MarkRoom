@@ -95,11 +95,37 @@ function applyStyle(e: HTMLElement, s: Style): void {
   if (deco.length > 0) e.style.textDecoration = deco.join(' ')
 }
 
+/** x^2^ 는 위 첨자, H~2~O 는 아래 첨자. 안에 공백이 없을 때만 첨자로 본다(3 ~ 5 같은 글은 그대로). */
+const SCRIPT_RE = /\^([^\s^]{1,20})\^|~([^\s~]{1,20})~/g
+
+function richText(target: HTMLElement, text: string): void {
+  let last = 0
+  let any = false
+  for (const m of text.matchAll(SCRIPT_RE)) {
+    const at = m.index ?? 0
+    if (at > last) target.appendChild(document.createTextNode(text.slice(last, at)))
+    const sup = m[1] !== undefined
+    const e = document.createElement(sup ? 'sup' : 'sub')
+    e.textContent = sup ? m[1] : m[2]
+    e.style.fontSize = '0.7em'
+    e.style.lineHeight = '0'
+    e.style.verticalAlign = sup ? 'super' : 'sub'
+    target.appendChild(e)
+    last = at + m[0].length
+    any = true
+  }
+  if (!any) {
+    target.textContent = text
+    return
+  }
+  if (last < text.length) target.appendChild(document.createTextNode(text.slice(last)))
+}
+
 /** 배분 정렬은 글자마다 칸을 나눠서 양 끝 사이에 고르게 벌린다. */
 function fillText(target: HTMLElement, text: string, align: Style['align']): void {
   target.style.textAlign = align === 'distribute' ? 'left' : align
   if (align !== 'distribute') {
-    target.textContent = text
+    richText(target, text)
     return
   }
   for (const line of text.split('\n')) {

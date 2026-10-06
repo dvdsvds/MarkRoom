@@ -119,6 +119,13 @@ export function replaceCellText(defLine: number, endLine: number, text: string):
   })
 }
 
+export function readGrid<T>(compute: (getLine: (n: number) => string) => T): T | null {
+  const view = currentView
+  if (!view) return null
+  const doc = view.state.doc
+  return compute((n) => doc.line(n).text)
+}
+
 /** 격자 편집(합치기/나누기) 결과를 문서에 적용한다. 실패하면 오류 글자를, 성공하면 null을 돌려준다. */
 export function applyGridEdit(
   compute: (getLine: (n: number) => string) => { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }

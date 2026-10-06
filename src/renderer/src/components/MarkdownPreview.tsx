@@ -6,7 +6,8 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, applyGridEdit, redoEditor, replaceCellText, undoEditor } from '../editor/MarkdownEditor'
+import { addCellText, applyGridEdit, readGrid, redoEditor, replaceCellText, undoEditor } from '../editor/MarkdownEditor'
+import { createToolbar, type Toolbar } from './templateToolbar'
 import {
   deleteCols,
   deleteRows,
@@ -19,6 +20,9 @@ import {
   splitGrid,
   setBorders,
   setDiagonals,
+  readCellOpts,
+  setCellOpts,
+  type CellOptChange,
   type BorderKind,
   type BorderWhere,
   type GridInfo,
@@ -223,6 +227,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             const next = editIdxRef.current === ti ? null : ti
             editIdxRef.current = next
             editModeRef.current = next !== null
+            el.dispatchEvent(new Event('snote-editmode'))
             for (const w of Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))) {
               w.classList.remove('tq-editmode')
               const b = w.querySelector<HTMLButtonElement>('.tp-edit-btn')
@@ -253,7 +258,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const fit = (): void => {
         const cs = getComputedStyle(el)
         const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-        const availH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 2
+        const bar = el.querySelector<HTMLElement>('.tq-toolbar')
+        const barH = bar && bar.offsetHeight > 0 ? bar.offsetHeight + 6 : 0
+        const availH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 2 - barH
         for (const page of pages) {
           page.style.setProperty('zoom', '1')
           const h = Math.max(PAGE_H, page.offsetHeight)
@@ -268,6 +275,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
       fit()
       const ro = new ResizeObserver(schedule)
+      el.addEventListener('snote-editmode', schedule)
       ro.observe(el)
       void document.fonts.ready.then(schedule)
       el.dispatchEvent(new Event('snote-rendered'))
@@ -275,6 +283,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         el.style.padding = ''
         cancelAnimationFrame(raf)
         ro.disconnect()
+        el.removeEventListener('snote-editmode', schedule)
       }
     }, [html])
 
@@ -391,6 +400,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       let sel: Sel | null = null
       let editing: HTMLElement | null = null
       let drag: { r: number; c: number; moved: boolean } | null = null
+      let toolbar: Toolbar | null = null
 
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
@@ -442,6 +452,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }
       const paint = (): void => {
         for (const n of Array.from(el.querySelectorAll('.tq-selected'))) n.classList.remove('tq-selected')
+        toolbar?.refresh()
+        el.dispatchEvent(new Event('snote-editmode'))
         if (!sel) return
         for (const x of cells()) {
           const p = rcOf(x)
@@ -490,6 +502,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const box = editing
         if (!box) return
         editing = null
+        toolbar?.refresh()
         const cell = box.closest<HTMLElement>('.tq-cell')
         box.removeEventListener('keydown', onEditKey)
         box.removeEventListener('blur', commit)
@@ -516,6 +529,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         box.contentEditable = 'plaintext-only'
         box.spellcheck = false
         editing = box
+        toolbar?.refresh()
         box.addEventListener('keydown', onEditKey)
         box.addEventListener('blur', commit)
         box.focus()
@@ -1128,6 +1142,85 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
         paint()
       }
+      const targetRect = (): Sel | null => {
+        if (sel) return normalize(sel)
+        const c = editing?.closest<HTMLElement>('.tq-cell')
+        return c ? whole(c) : null
+      }
+      const onceRendered = (fn: () => void): void => {
+        const h = (): void => {
+          el.removeEventListener('snote-rendered', h)
+          fn()
+        }
+        el.addEventListener('snote-rendered', h)
+      }
+      const runCell = (t: Sel, ch: CellOptChange): boolean => {
+        const info = gridInfo()
+        if (!info) return false
+        const err = applyGridEdit((getLine) => setCellOpts(info, t, ch, getLine))
+        if (err) toast(err)
+        return !err
+      }
+      toolbar = createToolbar({
+        apply: (ch) => {
+          const t = targetRect()
+          if (!t) {
+            toast('칸을 먼저 선택해 주세요')
+            return
+          }
+          const box = editing
+          if (!box) {
+            runCell(t, ch)
+            return
+          }
+          // 편집 중이면: 입력한 글자를 먼저 저장 → 다시 그려진 뒤 옵션 적용 → 다시 그려진 뒤 그 칸 편집 재개
+          const cell = box.closest<HTMLElement>('.tq-cell')
+          const changed = box.innerText.replace(/\n$/, '') !== (cell?.dataset.raw ?? '')
+          const reopen = (): void => {
+            const x = cellAt(t.r1, t.c1)
+            if (x) startEdit(x)
+          }
+          commit()
+          if (changed) onceRendered(() => { if (runCell(t, ch)) onceRendered(reopen) })
+          else if (runCell(t, ch)) onceRendered(reopen)
+        },
+        script: (kind) => {
+          const box = editing
+          const s = window.getSelection()
+          if (!box || !s || !box.contains(s.anchorNode)) {
+            toast('칸을 편집하는 중에 글자를 선택하고 눌러 주세요')
+            return
+          }
+          const mark = kind === 'sup' ? '^' : '~'
+          const picked = s.toString()
+          if (/\s/.test(picked)) {
+            toast('공백이 든 글자는 첨자가 안 돼요')
+            return
+          }
+          if (picked === '') {
+            document.execCommand('insertText', false, mark + mark)
+            ;(s as Selection & { modify?: (a: string, b: string, c: string) => void }).modify?.('move', 'backward', 'character')
+          } else if (picked.length >= 3 && picked.startsWith(mark) && picked.endsWith(mark)) {
+            document.execCommand('insertText', false, picked.slice(1, -1))
+          } else {
+            document.execCommand('insertText', false, mark + picked + mark)
+          }
+        },
+        read: () => {
+          const t = targetRect()
+          const info = gridInfo()
+          if (!t || !info) return null
+          return readGrid((getLine) => readCellOpts(info, t, getLine))
+        }
+      })
+      const mountBar = (): void => {
+        if (!toolbar) return
+        if (!toolbar.el.isConnected) el.prepend(toolbar.el)
+        toolbar.setVisible(editModeRef.current)
+      }
+      mountBar()
+      el.addEventListener('snote-rendered', mountBar)
+      el.addEventListener('snote-editmode', mountBar)
       const resetPageScroll = (): void => {
         const root = document.scrollingElement
         if (root && root.scrollTop !== 0) root.scrollTop = 0
@@ -1154,6 +1247,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         window.removeEventListener('mousemove', onResizeMove)
         window.removeEventListener('mouseup', onResizeUp)
         el.removeEventListener('snote-rendered', restore)
+        el.removeEventListener('snote-rendered', mountBar)
+        el.removeEventListener('snote-editmode', mountBar)
+        toolbar?.el.remove()
       }
     }, [])
 
