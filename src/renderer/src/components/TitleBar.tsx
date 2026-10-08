@@ -57,7 +57,7 @@ export function TitleBar({ children }: TitleBarProps): React.JSX.Element {
 
   return (
     <header
-      className={`titlebar-drag flex h-11 shrink-0 items-center border-b border-border bg-bg-soft ${
+      className={`titlebar-drag flex h-7 shrink-0 items-center border-b border-border bg-bg-soft ${
         isMac ? 'flex-row-reverse' : ''
       }`}
       onDoubleClick={() => void window.api.window.toggleMaximize()}

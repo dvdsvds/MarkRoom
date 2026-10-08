@@ -1,3 +1,7 @@
+import { button as uiButton, closeMenus, dropdown, HOVER_BG, icon, LINE, PALETTE, registerMenu, setOn, type DropItem } from './uiKit'
+import katex from 'katex'
+import minusIcon from '../icons/minus.svg?raw'
+import plusIcon from '../icons/plus.svg?raw'
 import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from './gridEdit'
 
 export interface ToolbarApi {
@@ -5,6 +9,14 @@ export interface ToolbarApi {
   apply: (ch: CellOptChange) => void
   /** 편집 중인 칸에서 선택한 글자를 위/아래 첨자 표시로 감싼다. */
   script: (kind: 'sup' | 'sub') => void
+  /** 지금 커서가 들어 있는 첨자 종류. 없으면 null. */
+  scriptState?: () => 'sup' | 'sub' | null
+  /** 선택한 칸에 실제로 적용돼 있는 글자 크기(pt)와 글꼴. 칸마다 다르면 그 항목은 null. */
+  effective?: () => { fs: string | null; ff: string | null } | null
+  /** 칸을 편집 중일 때 커서·선택한 글자의 스타일(글자 일부 스타일). 없으면 null. */
+  selStyle?: () => { fs: string | null; fc: string | null; ff: string | null; flags: Record<string, boolean> | null } | null
+  /** 편집 중인 칸에 수식 상자를 넣는다. latex 가 비면 빈 수식 상자. */
+  math: (latex: string) => void
   /** 지금 대상이 된 칸들의 상태. 대상이 없으면 null. */
   read: () => CellOptState | null
 }
@@ -13,24 +25,18 @@ export interface Toolbar {
   el: HTMLElement
   refresh: () => void
   setVisible: (on: boolean) => void
+  syncScript: () => void
 }
 
 const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
 const COLOR_KO: Record<string, string> = {
   red: '빨강', orange: '주황', yellow: '노랑', green: '초록', blue: '파랑', purple: '보라', gray: '회색'
 }
-const SIZES = ['8', '9', '10', '11', '12', '14', '16', '18', '20', '24', '28', '32', '36', '48']
 const BASE_FONTS = [
   '맑은 고딕', '굴림', '돋움', '바탕', '궁서', '함초롬바탕', '함초롬돋움', '나눔고딕', '나눔명조',
   'Arial', 'Times New Roman', 'Consolas'
 ]
 
-const BTN =
-  'min-width:28px;height:26px;padding:0 6px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:5px;background:transparent;color:inherit;cursor:pointer;font-size:13px;white-space:nowrap'
-const ON = 'color-mix(in srgb, var(--color-text) 20%, transparent)'
-
-const icon = (inner: string): string =>
-  `<svg width="16" height="16" viewBox="0 0 16 16" style="display:block" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none">${inner}</svg>`
 
 const ALIGN_ICON: Record<HAlign, string> = {
   left: icon('<path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/>'),
@@ -49,117 +55,52 @@ const VALIGN_ICON: Record<VAlign, string> = {
 }
 const VALIGN_KO: Record<VAlign, string> = { top: '위쪽', middle: '가운데', bottom: '아래쪽' }
 
+const PH = '\\placeholder{}'
+const MATH_ITEMS: { name: string; tex: string }[] = [
+  { name: '빈 수식', tex: '' },
+  { name: '분수', tex: `\\frac{${PH}}{${PH}}` },
+  { name: '제곱근', tex: `\\sqrt{${PH}}` },
+  { name: '거듭제곱', tex: `${PH}^{${PH}}` },
+  { name: '아래 첨자', tex: `${PH}_{${PH}}` },
+  { name: '극한', tex: `\\lim_{${PH}\\to ${PH}}${PH}` },
+  { name: '합', tex: `\\sum_{${PH}}^{${PH}}${PH}` },
+  { name: '적분', tex: `\\int_{${PH}}^{${PH}}${PH}\\,d${PH}` },
+  { name: '괄호', tex: `\\left(${PH}\\right)` },
+  { name: '절댓값', tex: `\\left|${PH}\\right|` }
+]
+function mathItemHtml(m: { name: string; tex: string }): string {
+  const view = katex.renderToString(m.tex.split(PH).join('\\square'), { throwOnError: false, output: 'html', strict: 'ignore' })
+  return `<span style="display:inline-flex;align-items:center;gap:12px"><span style="min-width:54px">${m.name}</span>${view}</span>`
+}
+
 function bar(): HTMLElement {
   const e = document.createElement('div')
   e.className = 'tq-toolbar'
-  e.style.cssText =
-    'position:sticky;top:0;z-index:50;display:none;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 8px;margin:0 0 6px;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:8px;font-size:13px;user-select:none;font-family:system-ui,sans-serif'
+  e.style.cssText = `position:sticky;top:0;z-index:50;display:none;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 8px;margin:0 0 6px;background:var(--tq-bar);color:var(--tq-text);border:${LINE};border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
   // 막대를 눌러도 편집 중인 칸의 입력 위치와 글자 선택이 풀리지 않게 한다.
-  e.addEventListener('mousedown', (ev) => ev.preventDefault())
+  e.addEventListener('mousedown', (ev) => {
+    if (ev.target instanceof HTMLInputElement) return
+    ev.preventDefault()
+  })
   return e
 }
 
 function sep(): HTMLElement {
   const s = document.createElement('span')
-  s.style.cssText = 'width:1px;height:18px;background:var(--color-text-tertiary);opacity:.5;margin:0 4px'
+  s.style.cssText = 'width:1px;height:18px;background:var(--tq-divider);margin:0 4px'
   return s
 }
 
-interface Item {
-  text: string
-  value: string | null
-  css?: string
-  swatch?: string
-}
+const SIZE_PRESETS = [6, 7, 8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96]
 
 export function createToolbar(api: ToolbarApi): Toolbar {
   const root = bar()
-  const closers: (() => void)[] = []
-  const closeAll = (): void => closers.forEach((f) => f())
-  document.addEventListener(
-    'mousedown',
-    (e) => {
-      if (!(e.target instanceof Node) || !root.contains(e.target)) closeAll()
-    },
-    true
-  )
 
-  const button = (html: string, title: string, onClick: () => void): HTMLButtonElement => {
-    const b = document.createElement('button')
-    b.type = 'button'
-    b.title = title
-    b.style.cssText = BTN
-    b.innerHTML = html
-    b.addEventListener('click', () => {
-      closeAll()
+  const button = (html: string, title: string, onClick: () => void): HTMLButtonElement =>
+    uiButton(html, title, () => {
+      closeMenus()
       onClick()
-    })
-    return b
-  }
-
-  const dropdown = (
-    label: string,
-    title: string,
-    width: number,
-    items: () => Item[],
-    pick: (v: string | null) => void
-  ): { wrap: HTMLElement; set: (text: string, swatch?: string | null) => void } => {
-    const wrap = document.createElement('div')
-    wrap.style.cssText = 'position:relative'
-    const b = document.createElement('button')
-    b.type = 'button'
-    b.title = title
-    b.style.cssText = `${BTN};justify-content:space-between;gap:6px;min-width:${width}px;border-color:var(--color-text-tertiary)`
-    const txt = document.createElement('span')
-    txt.textContent = label
-    txt.style.cssText = 'overflow:hidden;text-overflow:ellipsis;max-width:' + (width + 40) + 'px'
-    const dot = document.createElement('span')
-    dot.style.cssText = 'display:none;width:12px;height:12px;border-radius:3px;border:1px solid var(--color-text-tertiary)'
-    const caret = document.createElement('span')
-    caret.textContent = '▾'
-    caret.style.fontSize = '10px'
-    b.append(dot, txt, caret)
-    const menu = document.createElement('div')
-    menu.style.cssText =
-      'display:none;position:absolute;left:0;top:100%;margin-top:3px;z-index:60;min-width:100%;max-height:280px;overflow-y:auto;padding:4px;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.35)'
-    const close = (): void => {
-      menu.style.display = 'none'
-    }
-    closers.push(close)
-    b.addEventListener('click', () => {
-      const open = menu.style.display !== 'none'
-      closeAll()
-      if (open) return
-      menu.replaceChildren()
-      for (const it of items()) {
-        const row = document.createElement('div')
-        row.style.cssText = `display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;${it.css ?? ''}`
-        if (it.swatch) {
-          const sw = document.createElement('span')
-          sw.style.cssText = `width:14px;height:14px;border-radius:3px;border:1px solid var(--color-text-tertiary);background:${it.swatch}`
-          row.appendChild(sw)
-        }
-        row.appendChild(document.createTextNode(it.text))
-        row.addEventListener('mouseenter', () => (row.style.background = ON))
-        row.addEventListener('mouseleave', () => (row.style.background = ''))
-        row.addEventListener('click', () => {
-          close()
-          pick(it.value)
-        })
-        menu.appendChild(row)
-      }
-      menu.style.display = 'block'
-    })
-    wrap.append(b, menu)
-    return {
-      wrap,
-      set: (text, swatch) => {
-        txt.textContent = text
-        dot.style.display = swatch ? 'block' : 'none'
-        if (swatch) dot.style.background = swatch
-      }
-    }
-  }
+    }, { square: true })
 
   // 글꼴 목록: 기본 후보에, 컴퓨터에 설치된 글꼴을 읽을 수 있으면 합친다.
   let fonts = [...BASE_FONTS]
@@ -174,18 +115,98 @@ export function createToolbar(api: ToolbarApi): Toolbar {
       .catch(() => undefined)
   }
 
-  const font = dropdown(
-    '글꼴', '글꼴', 110,
-    () => [
-      { text: '기본 글꼴', value: null },
-      ...fonts.map((f) => ({ text: f, value: f, css: `font-family:"${f}",sans-serif` }))
-    ],
-    (v) => api.apply({ kv: { ff: v } })
-  )
-  const size = dropdown(
-    '크기', '글자 크기(pt)', 46,
-    () => [{ text: '기본', value: null }, ...SIZES.map((s) => ({ text: s, value: s }))],
-    (v) => api.apply({ kv: { fs: v } })
+  const font = dropdown({
+    label: '글꼴', title: '글꼴', width: 110, flat: true,
+    items: () => {
+      const d = api.effective?.()?.ff
+      const list = d && !fonts.includes(d) ? [d, ...fonts] : fonts
+      return list.map((f): DropItem => ({ text: f, value: f, css: `font-family:"${f}",sans-serif` }))
+    },
+    pick: (v) => api.apply({ kv: { ff: v } })
+  })
+  // 글자 크기: − [숫자] +  (숫자는 직접 쓰고 Enter)
+  let shownSize = ''
+  const sizeInput = document.createElement('input')
+  sizeInput.type = 'text'
+  sizeInput.inputMode = 'decimal'
+  sizeInput.title = '글자 크기(pt): 숫자를 쓰고 Enter'
+  sizeInput.style.cssText =
+    'width:30px;height:24px;box-sizing:border-box;padding:0 2px;text-align:center;border:1px solid var(--tq-field-border);border-radius:4px;background:transparent;color:inherit;font-size:13px;font-family:inherit;outline:none'
+  const syncSize = (): void => {
+    sizeInput.value = shownSize
+  }
+  // 숫자를 누르면 목록이 열린다.
+  const sizeBox = document.createElement('div')
+  sizeBox.style.cssText = 'position:relative;display:flex'
+  const sizeMenu = document.createElement('div')
+  sizeMenu.style.cssText =
+    'display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:3px;z-index:10001;min-width:56px;max-height:240px;overflow-y:auto;scrollbar-width:none;padding:4px;background:var(--tq-panel);color:var(--tq-text);border:' + LINE + ';border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.45);box-sizing:border-box'
+  const closeSizeMenu = (): void => {
+    sizeMenu.style.display = 'none'
+  }
+  const openSizeMenu = (): void => {
+    closeMenus()
+    sizeMenu.replaceChildren()
+    for (const n of SIZE_PRESETS) {
+      const row = document.createElement('div')
+      row.textContent = String(n)
+      row.style.cssText = 'padding:5px 10px;border-radius:6px;cursor:pointer;text-align:center;font-size:13px'
+      if (String(n) === shownSize) row.style.fontWeight = '700'
+      row.addEventListener('mouseenter', () => (row.style.background = HOVER_BG))
+      row.addEventListener('mouseleave', () => (row.style.background = ''))
+      row.addEventListener('mousedown', (e) => e.preventDefault())
+      row.addEventListener('click', () => {
+        closeSizeMenu()
+        api.apply({ kv: { fs: String(n) } })
+        sizeInput.blur()
+      })
+      sizeMenu.appendChild(row)
+    }
+    sizeMenu.style.display = 'block'
+  }
+  registerMenu(sizeBox, closeSizeMenu)
+  sizeBox.append(sizeInput, sizeMenu)
+  sizeInput.addEventListener('focus', () => {
+    sizeInput.select()
+    openSizeMenu()
+  })
+  sizeInput.addEventListener('click', () => {
+    if (sizeMenu.style.display === 'none') openSizeMenu()
+  })
+  sizeInput.addEventListener('keydown', (ev) => {
+    ev.stopPropagation()
+    if (ev.key === 'Enter') {
+      ev.preventDefault()
+      const n = Number(sizeInput.value.replace(',', '.'))
+      if (!Number.isFinite(n) || n <= 0) {
+        syncSize()
+        return
+      }
+      api.apply({ kv: { fs: String(Math.min(400, Math.max(1, Math.round(n * 10) / 10))) } })
+      closeSizeMenu()
+      sizeInput.blur()
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault()
+      syncSize()
+      closeSizeMenu()
+      sizeInput.blur()
+    }
+  })
+  sizeInput.addEventListener('blur', () => {
+    syncSize()
+    closeSizeMenu()
+  })
+  const stepSize = (dir: 1 | -1): void => {
+    const cur = Number(shownSize) || 10
+    const next = Math.min(400, Math.max(1, Math.round((cur + dir) * 10) / 10))
+    if (next !== cur) api.apply({ kv: { fs: String(next) } })
+  }
+  const sizeWrap = document.createElement('div')
+  sizeWrap.style.cssText = 'display:flex;align-items:center;gap:2px'
+  sizeWrap.append(
+    button(minusIcon.trim(), '글자 크기 줄이기', () => stepSize(-1)),
+    sizeBox,
+    button(plusIcon.trim(), '글자 크기 키우기', () => stepSize(1))
   )
 
   const flagBtn: Partial<Record<FlagName, HTMLButtonElement>> = {}
@@ -198,17 +219,13 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     return b
   }
 
-  const colorItems = (none: string): Item[] => [
-    { text: none, value: null },
-    ...COLORS.map((c) => ({ text: COLOR_KO[c], value: c, swatch: `var(--c-${c})` }))
-  ]
-  const fc = dropdown('글자색', '글자 색', 64, () => colorItems('기본(검정)'), (v) => api.apply({ kv: { fc: v } }))
-  const bg = dropdown('배경색', '칸 배경 색', 64, () => colorItems('없음'), (v) => api.apply({ kv: { bg: v } }))
+  const fc = dropdown({ flat: true, label: '글자색', title: '글자 색', width: 0, icon: '<b style="font-size:14px;font-family:serif;line-height:14px">A</b>', colorBar: true, palette: PALETTE, noneText: '기본(검정)', items: () => [], pick: (v) => api.apply({ kv: { fc: v } }) })
+  const bg = dropdown({ flat: true, label: '배경색', title: '칸 배경 색', width: 0, icon: icon('<path d="M3 9.5l5-5.5 4.5 4.5-5.5 5z"/><path d="M12.5 11c.8 1 1 1.6 1 2a1 1 0 0 1-2 0c0-.4.2-1 1-2z"/>', 14), colorBar: true, palette: PALETTE, noneText: '없음', items: () => [], pick: (v) => api.apply({ kv: { bg: v } }) })
 
   const alignBtn: Partial<Record<HAlign, HTMLButtonElement>> = {}
   const valignBtn: Partial<Record<VAlign, HTMLButtonElement>> = {}
 
-  root.append(font.wrap, size.wrap, sep())
+  root.append(font.wrap, sep(), sizeWrap, sep())
   root.append(
     flag('bold', '<b>B</b>', '굵게'),
     flag('italic', '<i style="font-family:serif">I</i>', '기울임'),
@@ -236,15 +253,23 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     valignBtn[v] = b
     root.appendChild(b)
   }
-  root.append(
-    sep(),
-    button('x<sup style="font-size:9px">2</sup>', '위 첨자: 글자를 선택하고 누르면 ^글자^', () => api.script('sup')),
-    button('x<sub style="font-size:9px">2</sub>', '아래 첨자: 글자를 선택하고 누르면 ~글자~', () => api.script('sub'))
-  )
+  const supBtn = button('<span>x<sup style="font-size:9px">2</sup></span>', '위 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sup'))
+  const subBtn = button('<span>x<sub style="font-size:9px">2</sub></span>', '아래 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sub'))
+  const mathDrop = dropdown({
+    flat: true, label: '', title: '수식 넣기: 칸을 편집하는 중에 고르면 그 자리에 수식 상자가 생겨요', width: 0, icon: '<span style="font-size:15px;font-weight:600;line-height:16px">Σ</span>', maxHeight: 360,
+    items: () => MATH_ITEMS.map((m): DropItem => m.tex === ''
+      ? { text: m.name, value: '' }
+      : { text: m.name, value: m.tex, html: mathItemHtml(m) }),
+    pick: (v) => api.math(v ?? '')
+  })
+  root.append(sep(), supBtn, subBtn, sep(), mathDrop.wrap)
 
-  const mark = (b: HTMLButtonElement | undefined, on: boolean): void => {
-    if (b) b.style.background = on ? ON : 'transparent'
+  const syncScript = (): void => {
+    const k = api.scriptState?.() ?? null
+    setOn(supBtn, k === 'sup')
+    setOn(subBtn, k === 'sub')
   }
+
   const refresh = (): void => {
     let st: CellOptState | null = null
     try {
@@ -252,19 +277,33 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     } catch {
       st = null
     }
-    root.style.opacity = st ? '1' : '0.55'
-    for (const f of Object.keys(flagBtn) as FlagName[]) mark(flagBtn[f], !!st?.flags[f])
-    for (const a of Object.keys(alignBtn) as HAlign[]) mark(alignBtn[a], st?.align === a)
-    for (const v of Object.keys(valignBtn) as VAlign[]) mark(valignBtn[v], st?.valign === v)
-    font.set(st?.ff ?? '글꼴')
-    size.set(st?.fs ?? '크기')
-    fc.set(st?.fc ? COLOR_KO[st.fc] ?? st.fc : '글자색', st?.fc ? (COLORS.includes(st.fc) ? `var(--c-${st.fc})` : st.fc) : null)
+    let sel: ReturnType<NonNullable<ToolbarApi['selStyle']>> = null
+    try {
+      sel = api.selStyle?.() ?? null
+    } catch {
+      sel = null
+    }
+    for (const f of Object.keys(flagBtn) as FlagName[]) setOn(flagBtn[f], !!(sel?.flags ? sel.flags[f] : st?.flags[f]))
+    for (const a of Object.keys(alignBtn) as HAlign[]) setOn(alignBtn[a], st?.align === a)
+    for (const v of Object.keys(valignBtn) as VAlign[]) setOn(valignBtn[v], st?.valign === v)
+    let eff: { fs: string | null; ff: string | null } | null = null
+    try {
+      eff = api.effective?.() ?? null
+    } catch {
+      eff = null
+    }
+    font.set(sel?.ff ?? st?.ff ?? eff?.ff ?? '글꼴')
+    shownSize = sel?.fs ?? st?.fs ?? eff?.fs ?? ''
+    if (document.activeElement !== sizeInput) syncSize()
+    const fcv = sel?.fc ?? st?.fc ?? null
+    fc.set(fcv ? COLOR_KO[fcv] ?? fcv : '글자색', fcv ? (COLORS.includes(fcv) ? `var(--c-${fcv})` : fcv) : null)
     bg.set(st?.bg ? COLOR_KO[st.bg] ?? st.bg : '배경색', st?.bg ? (COLORS.includes(st.bg) ? `var(--c-${st.bg})` : st.bg) : null)
+    syncScript()
   }
   const setVisible = (on: boolean): void => {
     root.style.display = on ? 'flex' : 'none'
-    if (!on) closeAll()
+    if (!on) closeMenus()
     else refresh()
   }
-  return { el: root, refresh, setVisible }
+  return { el: root, refresh, setVisible, syncScript }
 }

@@ -61,6 +61,7 @@ function createWindow(): void {
   mainWindow.on('unmaximize', sendMaximizedChanged)
 
   mainWindow.on('ready-to-show', () => {
+    mainWindow.maximize()
     mainWindow.show()
   })
 

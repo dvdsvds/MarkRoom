@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import './theme.css';
 @import 'pretendard/dist/web/static/pretendard-dynamic-subset.css';
+@import 'katex/dist/katex.min.css';
 
 @theme inline {
   --color-bg: var(--color-bg);
@@ -71,7 +72,6 @@ body {
 }
 .prose-preview {
   max-width: 44rem;
-  margin: 0 auto;
 }
 .prose-preview h1,
 .prose-preview h2,
@@ -190,10 +190,10 @@ body {
 }
 .prose-preview th { background: var(--color-bg-mute); font-weight: 600; }
 .prose-preview hr { border: none; border-top: 1px solid var(--color-border); margin: 1.5em 0; }
+.snote-math-block { overflow-x: auto; overflow-y: hidden; }
 .prose-preview img { max-width: 100%; border-radius: 4px; }
 .prose-preview .footnotes { font-size: 0.85em; color: var(--color-text-secondary); margin-top: 2em; }
 
-/* 스크롤바를 얇게 (Electron은 Chromium 기반이라 webkit 스크롤바 속성 사용). */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -247,18 +247,22 @@ button:not(:disabled) {
   padding: 0;
 }
 .cm-fat-cursor {
-  height: calc(var(--editor-line-height) * 1em) !important;
-  line-height: calc(var(--editor-line-height) * 1em) !important;
-  margin-top: 0 !important;
-  transform: translateY(-3px);
   color: #000 !important;
 }
 .cm-fat-cursor * { color: var(--color-bg) !important; }
 .cm-cursorLayer .cm-cursor,
 .cm-cursorLayer .cm-cursor-primary {
   border-left-color: var(--color-text) !important;
-  height: calc(var(--editor-line-height) * 1em) !important;
-  transform: translateY(-3.2px);
+  height: var(--cm-line-hs, 20px) !important;
+  margin-top: calc(-1 * var(--cm-cur-tops, 0px)) !important;
+}
+.cm-cursorLayer .cm-fat-cursor,
+.cm-vimCursorLayer .cm-fat-cursor {
+  box-sizing: content-box !important;
+  height: var(--cm-cur-h, 16px) !important;
+  padding-top: var(--cm-cur-top, 0px) !important;
+  padding-bottom: max(0px, calc(var(--cm-line-h, 22.4px) - var(--cm-cur-top, 0px) - var(--cm-cur-h, 16px))) !important;
+  margin-top: calc(-1 * var(--cm-cur-top, 0px)) !important;
 }
 .cm-focused .cm-fat-cursor { background: var(--color-text) !important; }
 .cm-editor:not(.cm-focused) .cm-fat-cursor {
@@ -847,4 +851,47 @@ select option::checkmark {
 }
 .tq-editmode .tq-grid.tq-frame-none {
   outline: 1px dashed #e5484d;
+}
+.snote-page .tq-math .katex { font-size: 1.1em; }
+.katex .msupsub { font-size: 0.8em; }
+.snote-page math-field.tq-mf {
+  display: inline-block;
+  font-size: 1em;
+  padding: 0 3px;
+  color: inherit;
+  background: transparent;
+  border: 1px dashed #9ca3af;
+  border-radius: 3px;
+  vertical-align: middle;
+  --caret-color: var(--tp-ink);
+  --selection-background-color: rgba(59, 130, 246, 0.3);
+  --selection-color: inherit;
+}
+.snote-page math-field.tq-mf:focus-within { border-color: #3b82f6; outline: none; }
+.snote-page math-field.tq-mf::part(virtual-keyboard-toggle),
+.snote-page math-field.tq-mf::part(menu-toggle) { display: none; }
+.snote-page .tp-block { margin: 6px 0; }
+.snote-page .code-chart {
+  --color-bg: #fff;
+  --color-text-secondary: #444;
+  --color-text-tertiary: #666;
+  --color-border: #ddd;
+  --color-border-strong: #999;
+}
+.cm-codeblock-first { position: relative; }
+.cm-codebar {
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.cm-codebar .cm-codebar-copy {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
 }

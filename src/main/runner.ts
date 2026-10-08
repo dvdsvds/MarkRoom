@@ -22,7 +22,6 @@ function __fmtResult(v) {
 var console = {
   log: function () { __logs.push(Array.prototype.map.call(arguments, __fmt).join(' ')); }
 };
-console.info = console.log;
 console.warn = console.log;
 console.error = console.log;
 
@@ -74,6 +73,23 @@ function readCSV(name) {
   return parseCSV(readFile(name), /\.tsv$/i.test(name) ? '\t' : ',');
 }
 var __blocks = [];
+var __values = {};
+function setValue(name, v) {
+  if (typeof name !== 'string' || name.trim() === '') throw new Error('setValue(): 이름은 글자로 적어 주세요. 예: setValue("합계", 100)');
+  if (!/^[\p{L}\p{N}_][\p{L}\p{N}_.-]*$/u.test(name)) throw new Error('setValue(): 이름에 쓸 수 없는 글자가 있어요: ' + name);
+  var s;
+  if (typeof v === 'number') {
+    if (!isFinite(v)) throw new Error('setValue(): 숫자가 올바르지 않아요: ' + String(v));
+    s = String(v);
+  } else if (typeof v === 'string') {
+    s = v;
+  } else {
+    throw new Error('setValue(): 값은 숫자나 글자만 돼요: ' + name);
+  }
+  if (s.indexOf('\n') !== -1 || s.length > 200) throw new Error('setValue(): 값은 한 줄, 200자 이하예요: ' + name);
+  if (Object.keys(__values).length >= 100 && !Object.prototype.hasOwnProperty.call(__values, name)) throw new Error('setValue()는 100개까지예요.');
+  __values[name] = s;
+}
 function __cell(v) {
   if (v === null || v === undefined) return '';
   if (typeof v === 'number') return isFinite(v) ? v : String(v);
@@ -261,5 +277,11 @@ process.parentPort.on('message', async (event) => {
   } catch {
     blocks = []
   }
-  process.parentPort.postMessage({ output, result, error, timedOut: false, blocks })
+  let values: Record<string, string> = {}
+  try {
+    values = JSON.parse(String(runInContext('JSON.stringify(__values)', ctx)))
+  } catch {
+    values = {}
+  }
+  process.parentPort.postMessage({ output, result, error, timedOut: false, blocks, values })
 })

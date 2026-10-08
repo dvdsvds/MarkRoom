@@ -44,6 +44,9 @@ interface SettingsState {
   resetEditorFont: () => void
   resetPreviewFont: () => void
 
+  splitRatio: number
+  setSplitRatio: (value: number) => void
+
   uiZoom: number
   setUiZoom: (value: number) => void
 
@@ -119,6 +122,9 @@ export const useSettingsStore = create<SettingsState>()(
           previewFontSize: 15,
           previewLineHeight: 1.7
         }),
+
+      splitRatio: 0.5,
+      setSplitRatio: (value) => set({ splitRatio: Math.min(0.8, Math.max(0.2, value)) }),
 
       uiZoom: 100,
       setUiZoom: (value) =>

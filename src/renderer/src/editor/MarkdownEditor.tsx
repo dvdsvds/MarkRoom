@@ -1,4 +1,6 @@
-import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
+import { mdToolbar } from './editorToolbar'
+import { HighlightStyle, syntaxHighlighting, syntaxTree, foldable, foldedRanges, foldEffect, unfoldEffect } from '@codemirror/language'
+import chevronSvg from '../icons/chevron.svg?raw'
 import { tags } from "@lezer/highlight"
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Annotation, ChangeSet, Compartment, EditorState, Prec, RangeSetBuilder, StateEffect, StateField, RangeSet, type Text, type Extension } from '@codemirror/state'
@@ -426,6 +428,61 @@ function changeGutter(base: string, onClick: () => void): Extension {
   ]
 }
 
+class FoldChevron extends GutterMarker {
+  constructor(readonly folded: boolean) {
+    super()
+  }
+  eq(other: GutterMarker): boolean {
+    return other instanceof FoldChevron && other.folded === this.folded
+  }
+  toDOM(): HTMLElement {
+    const el = document.createElement('span')
+    el.className = `cm-snote-chevron${this.folded ? ' folded' : ''}`
+    el.innerHTML = chevronSvg
+    return el
+  }
+}
+
+const chevronOpen = new FoldChevron(false)
+const chevronFolded = new FoldChevron(true)
+
+function foldedAt(state: EditorState, from: number, to: number): { from: number; to: number } | null {
+  let found = null as { from: number; to: number } | null
+  foldedRanges(state).between(from, to, (a, b) => {
+    if (a >= from && a <= to) {
+      found = { from: a, to: b }
+      return false
+    }
+    return undefined
+  })
+  return found
+}
+
+function foldChevronGutter(): Extension {
+  return gutter({
+    class: 'cm-snote-fold',
+    lineMarker(view, line) {
+      if (foldedAt(view.state, line.from, line.to)) return chevronFolded
+      return foldable(view.state, line.from, line.to) ? chevronOpen : null
+    },
+    lineMarkerChange: (u) =>
+      u.transactions.some((tr) => tr.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect))),
+    initialSpacer: () => chevronOpen,
+    domEventHandlers: {
+      mousedown(view, line) {
+        const folded = foldedAt(view.state, line.from, line.to)
+        if (folded) {
+          view.dispatch({ effects: unfoldEffect.of(folded) })
+          return true
+        }
+        const range = foldable(view.state, line.from, line.to)
+        if (range) view.dispatch({ effects: foldEffect.of(range) })
+        return true
+      }
+    }
+  })
+}
+
 function computeRenumberChanges(
   state: EditorState
 ): { from: number; to: number; insert: string }[] | null {
@@ -491,14 +548,40 @@ function buildExtensions(
           this.sync(u.view)
         }
         sync(view: EditorView): void {
-          const h = view.defaultLineHeight
-          view.dom.style.setProperty('--cm-line-h', `${h}px`)
+          view.requestMeasure({
+            read: () => {
+              const sy = parseFloat(getComputedStyle(document.body).zoom) || 1
+              const lineHs = view.defaultLineHeight
+              const lineH = lineHs / sy
+              const head = view.state.selection.main.head
+              const c = view.coordsAtPos(head)
+              const node = view.domAtPos(head).node
+              const el = (node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest('.cm-line')
+              let topS = 0
+              let chS = lineHs
+              if (c && el) {
+                const lr = el.getBoundingClientRect()
+                topS = Math.max(0, ((((c.top - lr.top) % lineHs) + lineHs) % lineHs))
+                chS = c.bottom - c.top
+              }
+              return { lineHs, lineH, topS, chS, sy }
+            },
+            write: ({ lineHs, lineH, topS, chS, sy }) => {
+              const s = view.dom.style
+              s.setProperty('--cm-line-hs', `${lineHs}px`)
+              s.setProperty('--cm-cur-tops', `${topS}px`)
+              s.setProperty('--cm-line-h', `${lineH}px`)
+              s.setProperty('--cm-cur-top', `${topS / sy}px`)
+              s.setProperty('--cm-cur-h', `${chS / sy}px`)
+            }
+          })
         }
       }
     ),
     vimCompartment.of(vimModeInitial ? [vim()] : []),
     changeGutter(baseContent, onChangeClick),
     basicSetup,
+    foldChevronGutter(),
     drawSelection({ cursorBlinkRate: 0 }),
     history(),
     blockIndent,
@@ -531,6 +614,7 @@ function buildExtensions(
     syntaxHighlighting(markdownHighlight),
     Prec.highest(markdownSymbolColors),
     selectionToolbar(),
+    mdToolbar,
     EditorView.domEventHandlers({
       keydown: (e, view) => {
         const vs = getCM(view)?.state.vim
@@ -686,13 +770,27 @@ function buildExtensions(
         alignItems: 'flex-start',
         justifyContent: 'flex-end'
       },
-      '.cm-foldGutter .cm-gutterElement': {
+      '.cm-gutters > .cm-gutter.cm-foldGutter': { display: 'none !important' },
+      '.cm-snote-fold': { minWidth: '16px' },
+      '.cm-snote-fold .cm-gutterElement': {
+        padding: '0',
         display: 'flex',
-        alignItems: 'flex-start'
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        cursor: 'pointer'
       },
-      '.cm-change-gutter': { minWidth: '7px' },
+      '.cm-snote-chevron': {
+        display: 'flex',
+        alignItems: 'center',
+        height: 'calc(1em * var(--editor-line-height))',
+        color: 'var(--color-text-tertiary)'
+      },
+      '.cm-snote-chevron:hover': { color: 'var(--color-text)' },
+      '.cm-snote-chevron svg': { width: '12px', height: '12px', transform: 'rotate(90deg)' },
+      '.cm-snote-chevron.folded svg': { transform: 'none' },
+      '.cm-change-gutter': { minWidth: '6px' },
       '.cm-change-gutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
-      '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '2px', borderRadius: '1px' },
+      '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '0', borderRadius: '1px' },
       '.cm-change-add': { backgroundColor: 'var(--color-diff-add-text)' },
       '.cm-change-mod': {
         backgroundColor: 'color-mix(in srgb, var(--color-diff-add-text) 55%, transparent)'

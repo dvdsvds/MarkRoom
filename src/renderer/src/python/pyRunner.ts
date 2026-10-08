@@ -19,7 +19,8 @@ const failure = (error: string, timedOut = false): RunResult => ({
   result: null,
   error,
   timedOut,
-  blocks: []
+  blocks: [],
+  values: {}
 })
 
 function dropSession(s: Session): void {
@@ -66,12 +67,19 @@ function normalize(d: Record<string, unknown>): RunResult {
         .filter((b) => b && (b.kind === 'table' || b.kind === 'chart'))
         .slice(0, 50)
     : []
+  const values: Record<string, string> = {}
+  if (d.values && typeof d.values === 'object') {
+    for (const [k, v] of Object.entries(d.values as Record<string, unknown>).slice(0, 100)) {
+      if (typeof v === 'string' && v.length <= 200) values[k] = v
+    }
+  }
   return {
     output: typeof d.output === 'string' ? d.output.slice(0, MAX_OUTPUT_LENGTH) : '',
     result: typeof d.result === 'string' ? d.result.slice(0, MAX_OUTPUT_LENGTH) : null,
     error: typeof d.error === 'string' ? d.error : null,
     timedOut: false,
-    blocks
+    blocks,
+    values
   }
 }
 

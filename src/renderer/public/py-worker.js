@@ -2,6 +2,7 @@ let pyodide = null
 let logs = []
 let logSize = 0
 let blocks = []
+let values = Object.create(null)
 
 function pushLog(s) {
   if (logSize > 1000000) return
@@ -180,9 +181,40 @@ function snoteBlock(kind, aJson, bJson) {
   }
 }
 
+function snoteValue(nameJson, valueJson) {
+  try {
+    const name = JSON.parse(nameJson)
+    const v = JSON.parse(valueJson)
+    if (typeof name !== 'string' || !/^[\p{L}\p{N}_][\p{L}\p{N}_.-]*$/u.test(name)) {
+      throw new Error('set_value(): 이름은 글자·숫자·_·.·- 만 쓸 수 있고 공백은 안 돼요: ' + String(name))
+    }
+    let s
+    if (typeof v === 'number') {
+      if (!isFinite(v)) throw new Error('set_value(): 숫자가 올바르지 않아요.')
+      s = String(v)
+    } else if (typeof v === 'string') {
+      s = v
+    } else {
+      throw new Error('set_value(): 값은 숫자나 문자열이어야 해요.')
+    }
+    if (s.indexOf('\n') !== -1 || s.indexOf('\r') !== -1) {
+      throw new Error('set_value(): 값에는 줄바꿈을 쓸 수 없어요.')
+    }
+    if (s.length > 200) throw new Error('set_value(): 값은 200자까지예요.')
+    if (!(name in values) && Object.keys(values).length >= 100) {
+      throw new Error('set_value()는 100개까지 쓸 수 있어요.')
+    }
+    values[name] = s
+    return ''
+  } catch (err) {
+    return String(err && err.message ? err.message : err)
+  }
+}
+
 const PRELUDE = String.raw`
 import json as __json
 from js import _snote_block as __block
+from js import _snote_value as __setv
 
 __files = __json.loads(__files_json)
 __file_errors = __json.loads(__file_errors_json)
@@ -217,6 +249,10 @@ def chart(spec=None, **kw):
     s.update(kw)
     __emit('chart', s, None)
 
+def set_value(name, value):
+  msg = __setv(__dump(name), __dump(value))
+  if msg:
+      raise __SnoteError(msg)
 
 def read_file(name):
     if name in __file_errors:
@@ -323,6 +359,7 @@ async function init(indexURL) {
       /* 무시 */
     }
     self._snote_block = snoteBlock
+    self._snote_value = snoteValue
     lock()
     self.postMessage({ type: 'ready' })
   } catch (err) {
@@ -334,6 +371,7 @@ function run(d) {
   logs = []
   logSize = 0
   blocks = []
+  value = Object.create(null)
   const reply = (r) => self.postMessage(Object.assign({ type: 'result', id: d.id }, r))
   let ns = null
   try {
@@ -351,7 +389,8 @@ function run(d) {
       output: logs.join('\n'),
       result: null,
       error: '실행하지 못했어요: ' + String(err && err.message ? err.message : err),
-      blocks: blocks
+      blocks: blocks,
+      values: Object.assign({}, values)
     })
   } finally {
     try {

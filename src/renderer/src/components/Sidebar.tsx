@@ -24,7 +24,7 @@ interface SidebarProps {
   onCompareChanges: (filePath: string) => void
   onOpenHistory: (filePath: string) => void
   selectedFolderPath: string | null
-  onSelectFolder: (path: string) => void
+  onSelectFolder: (path: string | null) => void
   className?: string
   style?: React.CSSProperties
 }
@@ -42,6 +42,8 @@ interface DeleteTarget {
 interface RowContext {
   activeFilePath: string | null
   selectedFolderPath: string | null
+  highlightOff: boolean
+  showRing: boolean
   dirtyFilePaths: string[]
   editingPath: string | null
   newFolderIn: string | null
@@ -180,7 +182,9 @@ function TreeRow({
                 ctx.onToggleExpand(node.path)
                 ctx.onSelectFolder(node.path)
               }}
-              className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${
+              className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none ${
+                ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent' : ''
+              } ${
                 ctx.selectedFolderPath === node.path
                   ? 'bg-bg-mute text-text'
                   : 'text-text-secondary'
@@ -253,7 +257,7 @@ function TreeRow({
     )
   }
 
-  const isActive = node.path === ctx.activeFilePath && !ctx.selectedFolderPath
+  const isActive = node.path === ctx.activeFilePath && !ctx.selectedFolderPath && !ctx.highlightOff
   const isDirty = ctx.dirtyFilePaths.includes(node.path)
   return (
     <button
@@ -264,7 +268,9 @@ function TreeRow({
       onDragEnd={ctx.onDragEnd}
       onContextMenu={(e) => ctx.onContextMenu(e, node)}
       onClick={() => ctx.onOpenFile(node.path)}
-      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent ${
+      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none ${
+        ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent' : ''
+      } ${
         isActive ? 'bg-bg-mute' : ''
       } ${isDirty ? 'text-yellow-500' : isActive ? 'text-text' : 'text-text-secondary'} ${
         ctx.draggingPath === node.path ? 'opacity-40' : ''
@@ -330,6 +336,11 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     if (el) rowRefs.current.set(path, el)
     else rowRefs.current.delete(path)
   }
+  const [showRing, setShowRing] = useState(false)
+  const [highlightOff, setHighlightOff] = useState(false)
+  useEffect(() => {
+    setHighlightOff(false)
+  }, [activeFilePath])
   const [focusedPath, setFocusedPath] = useState<string | null>(null)
   useEffect(() => {
     if(!focusedPath) return
@@ -341,11 +352,15 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     }
   }, [focusedPath, tree])
   const handleRowOpenFile = (path: string): void => {
+    setShowRing(false)
+    setHighlightOff(false)
     setFocusedPath(path)
     rowRefs.current.get(path)?.focus()
     onOpenFile(path)
   }
   const handleRowSelectFolder = (path: string): void => {
+    setFocusedPath(path)
+    setHighlightOff(false)
     setFocusedPath(path)
     rowRefs.current.get(path)?.focus()
     onSelectFolder(path)
@@ -378,7 +393,13 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const handleTreeKeyDown = (e: React.KeyboardEvent): void => {
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-
+    if (e.key === 'Escape') {
+      setFocusedPath(null)
+      setHighlightOff(true)
+      setShowRing(false)
+      if (rootDir) onSelectFolder(rootDir)
+      return
+    }
     if (e.key === 'Delete') {
       const selectedPath = focusedPath ?? selectedFolderPath ?? activeFilePath
       if (!selectedPath) return
@@ -387,8 +408,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       openDeleteConfirm(node)
       return
     }
-
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      setShowRing(true)
       if (visibleNodes.length === 0) return
       e.preventDefault()
       const currentPath = focusedPath ?? selectedFolderPath ?? activeFilePath
@@ -501,6 +522,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const ctx: RowContext = {
     activeFilePath,
     selectedFolderPath,
+    highlightOff,
+    showRing,
     dirtyFilePaths,
     editingPath,
     newFolderIn,
@@ -646,7 +669,18 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         </button>
       </div>
       </div>
-      <div className="flex-1 overflow-auto px-1.5 pt-1.5 pb-2">
+        <div
+          className="flex-1 overflow-auto px-1.5 pt-1.5 pb-2"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setFocusedPath(null)
+              setHighlightOff(true)
+              setShowRing(false)
+              if (rootDir) onSelectFolder(rootDir)
+              e.currentTarget.parentElement?.focus()
+            }
+          }}
+        >
         {newFolderIn === rootDir && rootDir && (
           <div className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs" style={{ paddingLeft: 12 }}>
             <ChevronIcon width={10} height={10} style={{ width:10, height:10 }} className="shrink-0 opacity-0"/>

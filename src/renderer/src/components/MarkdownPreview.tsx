@@ -1,3 +1,4 @@
+import { applyValues } from '../markdown/valueBlock'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
 import { renderBlocks } from './outputBlocks'
@@ -23,12 +24,16 @@ import {
   readCellOpts,
   setCellOpts,
   type CellOptChange,
-  type BorderKind,
-  type BorderWhere,
   type GridInfo,
   type GridResult,
   type Rect
 } from './gridEdit'
+import { toast } from './uiKit'
+import { openBorderPanel, openSplitPanel, type BorderState } from './templatePanels'
+import { readEdges } from './templateRead'
+import { renderMath } from './mathText'
+import { applyCaret, applyInline, fillCell, inlineAt, mkScript, serializeCell, styleScript, textChangeOf, type TextChange } from './cellInline'
+import { enterMath, insertMath, isMath, mathBeside, texOf } from './cellMath'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -246,11 +251,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
       const pages = Array.from(el.querySelectorAll<HTMLElement>('.snote-page'))
       el.style.maxWidth = pages.length > 0 ? 'none' : ''
-      el.style.padding = pages.length > 0 ? '4px' : ''
+      el.style.padding = pages.length > 0 ? '0' : ''
       if (pages.length === 0) return
 
       const PAGE_W = (210 / 25.4) * 96
-      const PAGE_H = (297 / 25.4) * 96
       const MAX_SCALE = 2
       const MIN_SCALE = 0.1
       let raf = 0
@@ -258,13 +262,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const fit = (): void => {
         const cs = getComputedStyle(el)
         const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-        const bar = el.querySelector<HTMLElement>('.tq-toolbar')
-        const barH = bar && bar.offsetHeight > 0 ? bar.offsetHeight + 6 : 0
-        const availH = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - 2 - barH
         for (const page of pages) {
           page.style.setProperty('zoom', '1')
-          const h = Math.max(PAGE_H, page.offsetHeight)
-          const scale = Math.min(MAX_SCALE, availW / PAGE_W, availH / h)
+          const scale = Math.min(MAX_SCALE, availW / PAGE_W)
           page.style.setProperty('zoom', String(Math.max(MIN_SCALE, scale)))
         }
       }
@@ -334,6 +334,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const isPython = /\blanguage-(python|py)\b/.test(code.className)
         let saved: string[][] | null = null
 
+        let pendingValues: Record<string, string> = {}
+        const valueBtn = document.createElement('button')
+        valueBtn.type = 'button'
+        valueBtn.className = 'code-run-btn'
+        valueBtn.textContent = '값 적용'
+        valueBtn.hidden = true
+        bar.append(valueBtn)
+
         const onClick = async (): Promise<void> => {
           button.disabled = true
           button.textContent = isPython ? '실행 중… (처음엔 몇 초 걸려요)' : '실행 중…'
@@ -352,6 +360,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           blocksBox.replaceChildren(...renderBlocks(r.blocks))
           button.disabled = false
           button.textContent = '▶ 다시 실행'
+          pendingValues = r.error ? {} : (r.values ?? {})
+          const n = Object.keys(pendingValues).length
+          valueBtn.hidden = n === 0
+          valueBtn.textContent = `값 적용 (${n})`
+          valueBtn.disabled = false
 
           const textLines: string[] = []
           if (r.output) textLines.push(r.output)
@@ -375,11 +388,22 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           onReplaceSourceRef.current?.(next)
         }
 
+        const onApplyValues = (): void => {
+        const next = applyValues(sourceRef.current, pendingValues)
+        if (next === null) {
+          valueBtn.textContent = 'template을 못 찾았어요'
+          return
+        }
+        onReplaceSourceRef.current?.(next)
+      }
+
         button.addEventListener('click', onClick)
         saveBtn?.addEventListener('click', onSave)
+        valueBtn.addEventListener('click', onApplyValues)
         cleanups.push(() => {
           button.removeEventListener('click', onClick)
           saveBtn?.removeEventListener('click', onSave)
+          valueBtn.removeEventListener('click', onApplyValues)
           box.remove()
         })
       }
@@ -400,7 +424,41 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       let sel: Sel | null = null
       let editing: HTMLElement | null = null
       let drag: { r: number; c: number; moved: boolean } | null = null
+      let f5Whole = false
       let toolbar: Toolbar | null = null
+      const ZWRE = /\u200b/g
+      const ZW = '\u200b'
+      const fillBox = fillCell
+      const serializeBox = serializeCell
+      const spanOf = (n: Node | null): HTMLElement | null => {
+        const box = editing
+        if (!box || !n || !box.contains(n)) return null
+        const el = n instanceof Element ? n : n.parentElement
+        const sp = el?.closest<HTMLElement>('[data-s]') ?? null
+        return sp && box.contains(sp) ? sp : null
+      }
+      const caretIn = (node: Node, offset: number): void => {
+        const s = window.getSelection()
+        if (!s) return
+        const r = document.createRange()
+        r.setStart(node, offset)
+        r.collapse(true)
+        s.removeAllRanges()
+        s.addRange(r)
+      }
+      const leaveScript = (sp: HTMLElement): void => {
+        const after = document.createTextNode(ZW)
+        if ((sp.textContent ?? '').replace(ZWRE, '') === '') sp.replaceWith(after)
+        else sp.after(after)
+        caretIn(after, 1)
+      }
+      const enterScript = (kind: 'sup' | 'sub'): void => {
+        const s = window.getSelection()
+        if (!s || s.rangeCount === 0) return
+        const sp = mkScript(kind, ZW)
+        s.getRangeAt(0).insertNode(sp)
+        if (sp.firstChild) caretIn(sp.firstChild, 1)
+      }
 
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
@@ -453,6 +511,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const paint = (): void => {
         for (const n of Array.from(el.querySelectorAll('.tq-selected'))) n.classList.remove('tq-selected')
         toolbar?.refresh()
+        refreshBorderPanel()
         el.dispatchEvent(new Event('snote-editmode'))
         if (!sel) return
         for (const x of cells()) {
@@ -483,6 +542,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         a?: { r: number; c: number },
         h?: { r: number; c: number }
       ): void => {
+        f5Whole = false
         sel = s ? normalize(s) : null
         if (!sel) {
           anchor = null
@@ -505,8 +565,18 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         toolbar?.refresh()
         const cell = box.closest<HTMLElement>('.tq-cell')
         box.removeEventListener('keydown', onEditKey)
-        box.removeEventListener('blur', commit)
-        const value = box.innerText.replace(/\n$/, '')
+        box.removeEventListener('focusout', onFocusOut)
+        const value = serializeBox(box)
+        // 편집용 수식 상자를 평소 보기(KaTeX)로 되돌린다
+        for (const mf of Array.from(box.querySelectorAll('math-field'))) {
+          const t = isMath(mf) ? texOf(mf) : ''
+          if (t) {
+            const sp = document.createElement('span')
+            sp.className = 'tq-math'
+            renderMath(sp, t)
+            mf.replaceWith(sp)
+          } else mf.remove()
+        }
         box.contentEditable = 'false'
         cell?.classList.remove('tq-editing')
         if (!cell || value === (cell.dataset.raw ?? '')) return
@@ -525,13 +595,13 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         sel = null
         paint()
         cell.classList.add('tq-editing')
-        box.textContent = cell.dataset.raw ?? ''
+        fillBox(box, cell.dataset.raw ?? '')
         box.contentEditable = 'plaintext-only'
         box.spellcheck = false
         editing = box
         toolbar?.refresh()
         box.addEventListener('keydown', onEditKey)
-        box.addEventListener('blur', commit)
+        box.addEventListener('focusout', onFocusOut)
         box.focus()
         const s = window.getSelection()
         if (!s) return
@@ -560,6 +630,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           s.removeAllRanges()
           s.addRange(range)
         }
+        if (at) {
+          const hit = document.elementFromPoint(at.x, at.y)?.closest('math-field')
+          if (isMath(hit)) enterMath(hit, 'end')
+        }
       }
       const moveTab = (from: { r: number; c: number; rs: number; cs: number }, dir: number): void => {
         const { rows, cols } = size()
@@ -577,30 +651,59 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           c += dir
         }
       }
+      // 칸 편집창 밖으로 포커스가 나갈 때만 저장한다(수식 상자로 옮겨 가는 것은 제외)
+      function onFocusOut(e: FocusEvent): void {
+        const to = e.relatedTarget as Node | null
+        if (to && editing && (editing.contains(to) || toolbar?.el.contains(to))) return
+        commit()
+      }
       function onEditKey(e: KeyboardEvent): void {
         e.stopPropagation()
         if (e.isComposing) return
+        // 수식 상자 안의 키는 MathLive가 처리한다(Esc, F5만 칸 편집 종료로 쓴다)
+        if ((e.target as Element | null)?.closest?.('math-field') && e.key !== 'Escape' && e.key !== 'F5') return
+        if ((e.key === ' ' || e.key === 'Enter') && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          const s0 = window.getSelection()
+          const sp = s0 && s0.isCollapsed ? spanOf(s0.anchorNode) : null
+          if (s0 && sp && s0.anchorNode) {
+            const rr = document.createRange()
+            rr.selectNodeContents(sp)
+            rr.setStart(s0.anchorNode, s0.anchorOffset)
+            if (rr.toString().replace(ZWRE, '') === '') leaveScript(sp)
+          }
+        }
         const box = e.currentTarget as HTMLElement
         const cell = box.closest<HTMLElement>('.tq-cell')
         if (!cell) return
         const p = rcOf(cell)
         if (e.key === 'Escape' || e.key === 'F5') {
           e.preventDefault()
+          if (e.repeat) return
           const here = whole(cell)
+          const viaF5 = e.key === 'F5'
           commit()
-          window.setTimeout(() => select(here), 0)
+          window.setTimeout(() => {
+            select(here)
+            if (viaF5) f5Whole = true
+          }, 0)
         } else if (e.key === 'Tab') {
           e.preventDefault()
           commit()
           window.setTimeout(() => moveTab(p, e.shiftKey ? -1 : 1), 0)
         } else if (e.key.startsWith('Arrow') && !e.shiftKey && !e.ctrlKey && !e.altKey) {
+          const near = e.key === 'ArrowRight' ? mathBeside(box, 1) : e.key === 'ArrowLeft' ? mathBeside(box, -1) : null
+          if (near) {
+            e.preventDefault()
+            enterMath(near, e.key === 'ArrowRight' ? 'start' : 'end')
+            return
+          }
           const s = window.getSelection()
           if (!s || !s.isCollapsed || !s.anchorNode) return
-          const full = box.innerText.replace(/\n$/, '')
+          const full = box.innerText.replace(/\n$/, '').replace(ZWRE, '')
           const range = document.createRange()
           range.selectNodeContents(box)
           range.setEnd(s.anchorNode, s.anchorOffset)
-          const off = range.toString().length
+          const off = range.toString().replace(ZWRE, '').length
           const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
           const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
           const edge =
@@ -677,14 +780,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!x || x.classList.contains('tq-editing')) return
         startEdit(x, { x: e.clientX, y: e.clientY })
       }
-      const toast = (msg: string): void => {
-        const d = document.createElement('div')
-        d.textContent = msg
-        d.style.cssText =
-          'position:fixed;left:50%;bottom:40px;transform:translateX(-50%);z-index:9999;background:#333;color:#fff;padding:8px 14px;border-radius:6px;font-size:13px'
-        document.body.appendChild(d)
-        window.setTimeout(() => d.remove(), 2500)
-      }
       const gridInfo = (): GridInfo | null => {
         const g = gridEl()
         if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
@@ -717,54 +812,19 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const info = gridInfo()
         if (!info || !sel) return
         const rect: Rect = normalize(sel)
-        const box = document.createElement('div')
-        box.style.cssText =
-          'position:fixed;left:50%;top:30%;transform:translateX(-50%);z-index:9999;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:8px;padding:12px 14px;display:flex;gap:8px;align-items:center;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.3)'
-        const mk = (label: string, max: number): HTMLInputElement => {
-          const t = document.createElement('span')
-          t.textContent = label
-          const i = document.createElement('input')
-          i.type = 'number'
-          i.min = '1'
-          i.max = String(max)
-          i.value = label === '칸 수' ? '2' : '1'
-          i.style.cssText = 'width:56px;padding:2px 4px;border:1px solid var(--color-text-tertiary);border-radius:4px;background:transparent;color:inherit'
-          box.append(t, i)
-          return i
-        }
-        const ci = mk('칸 수', 100)
-        const ri = mk('줄 수', 200)
-        const hint = document.createElement('span')
-        hint.textContent = 'Enter 확인 · Esc 취소'
-        hint.style.opacity = '0.6'
-        box.append(hint)
-        const close = (): void => box.remove()
-        const ok = (): void => {
-          const n = Math.floor(Number(ci.value))
-          const m = Math.floor(Number(ri.value))
-          if (!(n >= 1) || !(m >= 1) || n * m < 2) {
-            toast('나눌 칸 수와 줄 수를 확인해 주세요')
-            return
-          }
-          close()
-          const err = applyGridEdit((getLine) => splitGrid(info, rect, n, m, getLine))
-          if (err) toast(err)
-          else select(null)
-        }
-        box.addEventListener('keydown', (ev) => {
-          ev.stopPropagation()
-          if (ev.key === 'Enter') {
-            ev.preventDefault()
-            ok()
-          } else if (ev.key === 'Escape') {
-            ev.preventDefault()
-            close()
+        openSplitPanel({
+          onOk: (n, m) => {
+            if (!(n >= 1) || !(m >= 1) || n * m < 2) {
+              toast('나눌 칸 수와 줄 수를 확인해 주세요')
+              return false
+            }
+            const err = applyGridEdit((getLine) => splitGrid(info, rect, n, m, getLine))
+            if (err) toast(err)
+            else select(null)
+            return true
           }
         })
-        document.body.appendChild(box)
-        ci.focus()
-        ci.select()
-      } 
+      }
       const doEdit = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): void => {
         const info = gridInfo()
         if (!info || !sel) return
@@ -774,6 +834,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         else select(null)
       }
       const onKey = (e: KeyboardEvent): void => {
+        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+        if ((e.target as Element | null)?.closest?.('math-field')) return
+        if ((e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement))
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
           const k = e.key.toLowerCase()
           if (k === 'z' || k === 'y') {
@@ -793,8 +856,16 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
         if (e.key === 'F5') {
           e.preventDefault()
+          if (e.repeat) return
+          if (!sel) return
           const { rows, cols } = size()
-          if (sel) select({ r1: 0, c1: 0, r2: rows - 1, c2: cols - 1 })
+          if (f5Whole) {
+            select({ r1: 0, c1: 0, r2: rows - 1, c2: cols - 1 })
+          } else {
+            const x = cellAt(sel.r1, sel.c1)
+            if (x) select(whole(x))
+            f5Whole = true
+          }
           return
         }
         if (!sel) return
@@ -843,6 +914,21 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         } else if (e.key.startsWith('Arrow') && !e.ctrlKey && !e.altKey) {
           e.preventDefault()
           const { rows, cols } = size()
+          if (!e.shiftKey) {
+            const all = sel.r1 === 0 && sel.c1 === 0 && sel.r2 === rows - 1 && sel.c2 === cols - 1
+            if (all) return
+            const base = head ?? { r: sel.r1, c: sel.c1 }
+            const from = cellAt(base.r, base.c)
+            if (!from) return
+            const p = rcOf(from)
+            const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+            const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
+            const nr = dy > 0 ? p.r + p.rs : dy < 0 ? p.r - 1 : p.r
+            const nc = dx > 0 ? p.c + p.cs : dx < 0 ? p.c - 1 : p.c
+            const t = nr >= 0 && nc >= 0 && nr < rows && nc < cols ? cellAt(nr, nc) : null
+            if (t) select(whole(t))
+            return
+          }
           const a = anchor ?? { r: sel.r1, c: sel.c1 }
           const h = { ...(head ?? { r: sel.r2, c: sel.c2 }) }
           if (e.key === 'ArrowRight') h.c = Math.min(cols - 1, h.c + 1)
@@ -986,155 +1072,40 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           undoStyle()
         }
       }
-      let bs: { kind: BorderKind; w: number | null; c: string | null } = { kind: 'solid', w: null, c: null }
-      let borderPanel: HTMLElement | null = null
+      const bs: BorderState = { kind: 'solid', w: null, c: null}
+      let borderPanel: ReturnType<typeof openBorderPanel> | null = null
       const closeBorderPanel = (): void => {
-        borderPanel?.remove()
+        borderPanel?.box.remove()
         borderPanel = null
       }
-      const runBorder = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): void => {
+      const refreshBorderPanel = (): void => {
+        if (!borderPanel) return
+        const g = gridEl()
+        borderPanel.setEdges(g && sel ? readEdges(g, normalize(sel)) : {})
+      }
+      const runBorder = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): boolean => {
         const info = gridInfo()
         if (!info || !sel) {
           toast('칸을 먼저 선택해 주세요')
-          return
+          return false
         }
         const rect: Rect = normalize(sel)
         const err = applyGridEdit((getLine) => fn(info, rect, getLine))
         if (err) toast(err)
+        return !err
       }
       const toggleBorderPanel = (): void => {
         if (borderPanel) {
           closeBorderPanel()
           return
         }
-        const BTN =
-          'width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;cursor:pointer'
-        const SEL =
-          'width:100%;padding:3px 4px;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;color-scheme:light dark'
-        const box = document.createElement('div')
-        box.style.cssText =
-          'position:fixed;left:50%;top:10%;transform:translateX(-50%);z-index:9999;background:var(--color-bg);color:var(--color-text);border:1px solid var(--color-text-tertiary);border-radius:10px;padding:14px;display:flex;gap:18px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.35);user-select:none'
-
-        const icon = (draw: string): string =>
-          `<svg width="18" height="18" viewBox="0 0 18 18" style="display:block"><rect x="2" y="2" width="14" height="14" fill="none" stroke="currentColor" stroke-opacity=".35" stroke-dasharray="2 2"/>${draw}</svg>`
-        const ln = (x1: number, y1: number, x2: number, y2: number): string =>
-          `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="currentColor" stroke-width="2.2"/>`
-        const frame = '<rect x="2" y="2" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"/>'
-        const cross = ln(9, 2, 9, 16) + ln(2, 9, 16, 9)
-        const mk = (html: string, title: string, on: () => void, css = BTN): HTMLButtonElement => {
-          const b = document.createElement('button')
-          b.type = 'button'
-          b.title = title
-          b.style.cssText = css
-          b.innerHTML = html
-          b.addEventListener('mousedown', (ev) => ev.preventDefault())
-          b.addEventListener('click', on)
-          return b
-        }
-        const at = (b: HTMLElement, x: number, y: number): HTMLElement => {
-          b.style.position = 'absolute'
-          b.style.left = `${x}px`
-          b.style.top = `${y}px`
-          return b
-        }
-
-        // 왼쪽: 종류 / 굵기 / 색
-        const left = document.createElement('div')
-        left.style.cssText = 'width:140px;display:flex;flex-direction:column;gap:8px'
-        const head = document.createElement('div')
-        head.textContent = '테두리'
-        head.style.cssText = 'font-weight:600;border-bottom:1px solid var(--color-text-tertiary);padding-bottom:4px'
-        left.appendChild(head)
-        const field = (label: string, opts: [string, string][], cur: string, on: (v: string) => void): void => {
-          const wrap = document.createElement('label')
-          wrap.style.cssText = 'display:flex;flex-direction:column;gap:3px'
-          const t = document.createElement('span')
-          t.textContent = label
-          t.style.opacity = '.7'
-          const s = document.createElement('select')
-          s.style.cssText = SEL
-          for (const [v, l] of opts) {
-            const o = document.createElement('option')
-            o.value = v
-            o.textContent = l
-            s.appendChild(o)
-          }
-          s.value = cur
-          s.addEventListener('change', () => on(s.value))
-          wrap.append(t, s)
-          left.appendChild(wrap)
-        }
-        field(
-          '종류',
-          [['solid', '실선'], ['dashed', '점선'], ['double', '이중선'], ['none', '없음']],
-          bs.kind,
-          (v) => (bs = { ...bs, kind: v as BorderKind })
-        )
-        field(
-          '굵기',
-          [['', '기본'], ...['0.1', '0.15', '0.2', '0.3', '0.4', '0.5', '0.7', '1', '1.5', '2', '3'].map((w): [string, string] => [w, `${w}mm`])],
-          bs.w === null ? '' : String(bs.w),
-          (v) => (bs = { ...bs, w: v === '' ? null : Number(v) })
-        )
-        field(
-          '색',
-          [['', '기본(검정)'], ['red', '빨강'], ['orange', '주황'], ['yellow', '노랑'], ['green', '초록'], ['blue', '파랑'], ['purple', '보라'], ['gray', '회색']],
-          bs.c ?? '',
-          (v) => (bs = { ...bs, c: v === '' ? null : v })
-        )
-
-        // 오른쪽: 미리보기 네모와 1~6 버튼
-        const right = document.createElement('div')
-        const area = document.createElement('div')
-        area.style.cssText = 'position:relative;width:200px;height:150px'
-        const pv = document.createElement('div')
-        pv.style.cssText =
-          'position:absolute;left:28px;top:34px;width:120px;height:90px;border:1px solid var(--color-text-tertiary);box-sizing:border-box'
-        pv.innerHTML =
-          '<div style="position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed var(--color-text-tertiary)"></div><div style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed var(--color-text-tertiary)"></div>'
-        area.appendChild(pv)
-        const w = (where: BorderWhere) => (): void => runBorder((i, r, g) => setBorders(i, r, where, { ...bs }, g))
-        area.appendChild(at(mk(icon(ln(2, 2, 2, 16)), '왼쪽', w('left')), 14, 2))
-        area.appendChild(at(mk(icon(ln(9, 2, 9, 16)), '세로 가운데', w('vmid')), 74, 2))
-        area.appendChild(at(mk(icon(ln(16, 2, 16, 16)), '오른쪽', w('right')), 134, 2))
-        area.appendChild(at(mk(icon(ln(2, 2, 16, 2)), '위쪽', w('top')), 160, 20))
-        area.appendChild(at(mk(icon(ln(2, 9, 16, 9)), '가로 가운데', w('hmid')), 160, 64))
-        area.appendChild(at(mk(icon(ln(2, 16, 16, 16)), '아래쪽', w('bottom')), 160, 108))
-        right.appendChild(area)
-
-        const row = (): HTMLElement => {
-          const r = document.createElement('div')
-          r.style.cssText = 'display:flex;gap:6px;align-items:center;margin-top:6px'
-          return r
-        }
-        const wide = 'height:28px;padding:0 8px;display:flex;align-items:center;gap:5px;border:1px solid var(--color-text-tertiary);border-radius:5px;background:transparent;color:inherit;cursor:pointer'
-        const r1 = row()
-        r1.append(
-          mk(icon(frame + cross) + '모두', '모두 (바깥쪽 + 안쪽)', w('all'), wide),
-          mk(icon(frame) + '바깥쪽', '바깥쪽', w('outer'), wide),
-          mk(icon(cross) + '안쪽', '안쪽', w('inner'), wide)
-        )
-        const r2 = row()
-        const dg = (dir: 'down' | 'up') => (): void =>
-          runBorder((i, r, g) => setDiagonals(i, r, dir, { ...bs }, g))
-        const dl = document.createElement('span')
-        dl.textContent = '대각선'
-        dl.style.opacity = '.7'
-        r2.append(
-          dl,
-          mk(icon(ln(2, 2, 16, 16)), '대각선 ↘', dg('down')),
-          mk(icon(ln(2, 16, 16, 2)), '대각선 ↗', dg('up'))
-        )
-        right.append(r1, r2)
-
-        const hint = document.createElement('div')
-        hint.textContent = '버튼을 누르면 바로 적용돼요 · L 또는 Esc: 닫기'
-        hint.style.cssText = 'opacity:.6;font-size:12px;margin-top:8px'
-        right.appendChild(hint)
-
-        box.append(left, right)
-        document.body.appendChild(box)
-        borderPanel = box
+        borderPanel = openBorderPanel({
+          st: bs,
+          borders: (where) => runBorder((i, r, g) => setBorders(i, r, where, { ...bs }, g)),
+          diagonal: (dir) => runBorder((i, r, g) => setDiagonals(i, r, dir, { ...bs }, g)),
+          onClose: closeBorderPanel
+        })
+        refreshBorderPanel()
       }
       const restore = (): void => {
         const keep = sel
@@ -1161,6 +1132,32 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (err) toast(err)
         return !err
       }
+      // 편집 중 고른 글자(툴바 숫자 칸으로 포커스가 가도 기억해 둔다)
+      let lastRange: Range | null = null
+      const curRange = (): Range | null => {
+        const box = editing
+        if (!box) return null
+        const s = window.getSelection()
+        if (s && s.rangeCount > 0 && box.contains(s.anchorNode)) return s.getRangeAt(0)
+        if (lastRange && box.contains(lastRange.startContainer) && box.contains(lastRange.endContainer)) return lastRange
+        return null
+      }
+      const applyText = (box: HTMLElement, tc: TextChange): void => {
+        const r = curRange()
+        if (!r) return
+        // 글자를 고르지 않았으면 커서 자리부터 이어서 치는 글자에 적용한다
+        const out = r.collapsed ? applyCaret(box, r, tc) : applyInline(box, r, tc)
+        if (!out) {
+          if (r.collapsed) toast('첨자 안에서는 글자 모양을 바꿀 수 없어요')
+          return
+        }
+        box.focus()
+        const s = window.getSelection()
+        s?.removeAllRanges()
+        s?.addRange(out)
+        lastRange = out.cloneRange()
+        toolbar?.refresh()
+      }
       toolbar = createToolbar({
         apply: (ch) => {
           const t = targetRect()
@@ -1173,9 +1170,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             runCell(t, ch)
             return
           }
-          // 편집 중이면: 입력한 글자를 먼저 저장 → 다시 그려진 뒤 옵션 적용 → 다시 그려진 뒤 그 칸 편집 재개
+          // 편집 중에는 글자 크기·색·글꼴·굵게 등은 고른 글자에만 적용한다
+          const tc = textChangeOf(ch)
+          if (tc) {
+            applyText(box, tc)
+            return
+          }
           const cell = box.closest<HTMLElement>('.tq-cell')
-          const changed = box.innerText.replace(/\n$/, '') !== (cell?.dataset.raw ?? '')
+          const changed = serializeBox(box) !== (cell?.dataset.raw ?? '')
           const reopen = (): void => {
             const x = cellAt(t.r1, t.c1)
             if (x) startEdit(x)
@@ -1187,24 +1189,84 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         script: (kind) => {
           const box = editing
           const s = window.getSelection()
-          if (!box || !s || !box.contains(s.anchorNode)) {
-            toast('칸을 편집하는 중에 글자를 선택하고 눌러 주세요')
+          if (!box || !s || s.rangeCount === 0 || !box.contains(s.anchorNode)) {
+            toast('칸을 편집하는 중에 눌러 주세요')
             return
           }
-          const mark = kind === 'sup' ? '^' : '~'
-          const picked = s.toString()
-          if (/\s/.test(picked)) {
-            toast('공백이 든 글자는 첨자가 안 돼요')
-            return
-          }
-          if (picked === '') {
-            document.execCommand('insertText', false, mark + mark)
-            ;(s as Selection & { modify?: (a: string, b: string, c: string) => void }).modify?.('move', 'backward', 'character')
-          } else if (picked.length >= 3 && picked.startsWith(mark) && picked.endsWith(mark)) {
-            document.execCommand('insertText', false, picked.slice(1, -1))
+          const r = s.getRangeAt(0)
+          const inSp = spanOf(r.commonAncestorContainer)
+          if (!r.collapsed) {
+            if (inSp) {
+              if (inSp.dataset.s === kind) {
+                const t = document.createTextNode((inSp.textContent ?? '').replace(ZWRE, ''))
+                inSp.replaceWith(t)
+                caretIn(t, t.length)
+              } else {
+                styleScript(inSp, kind)
+              }
+            } else {
+              const picked = r.toString().replace(ZWRE, '')
+              if (/\s/.test(picked)) {
+                toast('공백이 든 글자는 첨자가 안 돼요')
+                return
+              }
+              if (picked === '') return
+              r.deleteContents()
+              const sp = mkScript(kind, picked)
+              r.insertNode(sp)
+              leaveScript(sp)
+            }
+          } else if (inSp) {
+            const cur = inSp.dataset.s
+            leaveScript(inSp)
+            if (cur !== kind) enterScript(kind)
           } else {
-            document.execCommand('insertText', false, mark + picked + mark)
+            enterScript(kind)
           }
+          toolbar?.syncScript()
+        },
+        math: (latex) => {
+          const box = editing
+          if (!box) {
+            toast('칸을 편집하는 중에 눌러 주세요')
+            return
+          }
+          const now = document.activeElement
+          if (isMath(now) && box.contains(now)) {
+            if (latex) now.insert(latex, { selectionMode: 'placeholder' })
+            return
+          }
+          if (!insertMath(box, latex)) toast('칸을 편집하는 중에 눌러 주세요')
+        },
+        selStyle: () => {
+          const box = editing
+          const r = curRange()
+          return box && r ? inlineAt(box, r) : null
+        },
+        scriptState: () => {
+          const s = window.getSelection()
+          const sp = editing && s ? spanOf(s.anchorNode) : null
+          const k = sp?.dataset.s
+          return k === 'sup' || k === 'sub' ? k : null
+        },
+        effective: () => {
+          const t = targetRect()
+          let xs: HTMLElement[] = t
+            ? cells().filter((x) => {
+                const p = rcOf(x)
+                return p.r + p.rs > t.r1 && p.r <= t.r2 && p.c + p.cs > t.c1 && p.c <= t.c2
+              })
+            : []
+          // 선택한 칸이 없으면 편집 중인 서식의 첫 칸을 기준으로 보여 준다
+          if (xs.length === 0) {
+            const first = grid()?.querySelector<HTMLElement>('.tq-cell')
+            if (first) xs = [first]
+          }
+          if (xs.length === 0) return null
+          const same = (a: string[]): string | null => (a.every((v) => v === a[0]) ? a[0] : null)
+          const fs = same(xs.map((x) => String(Math.round(parseFloat(x.style.fontSize) * 100) / 100)))
+          const ff = same(xs.map((x) => getComputedStyle(x).fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '')))
+          return { fs: fs === 'NaN' ? null : fs, ff }
         },
         read: () => {
           const t = targetRect()
@@ -1219,8 +1281,21 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         toolbar.setVisible(editModeRef.current)
       }
       mountBar()
+      // 툴바의 숫자 칸으로 포커스가 옮겨 가도 칸 편집은 유지하고, 툴바 밖으로 나가면 저장한다
+      toolbar.el.addEventListener('focusout', (e) => {
+        const to = e.relatedTarget as Node | null
+        if (editing && !(to && (editing.contains(to) || toolbar?.el.contains(to)))) commit()
+      })
       el.addEventListener('snote-rendered', mountBar)
       el.addEventListener('snote-editmode', mountBar)
+      const onSel = (): void => {
+        if (!editing) return
+        const s = window.getSelection()
+        if (s && s.rangeCount > 0 && editing.contains(s.anchorNode)) lastRange = s.getRangeAt(0).cloneRange()
+        toolbar?.syncScript()
+        toolbar?.refresh()
+      }
+      document.addEventListener('selectionchange', onSel)
       const resetPageScroll = (): void => {
         const root = document.scrollingElement
         if (root && root.scrollTop !== 0) root.scrollTop = 0
@@ -1249,6 +1324,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         el.removeEventListener('snote-rendered', restore)
         el.removeEventListener('snote-rendered', mountBar)
         el.removeEventListener('snote-editmode', mountBar)
+        document.removeEventListener('selectionchange', onSel)
         toolbar?.el.remove()
       }
     }, [])

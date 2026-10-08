@@ -10,12 +10,13 @@ import { wikilinkPlugin } from './wikilinkPlugin'
 import { blockPlugin } from './blockPlugin'
 import { colorSpanPlugin } from './colorSpanPlugin'
 import { templatePlugin } from './templatePlugin'
+import { mathPlugin } from './mathPlugin'
 
 function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
   const md = new MarkdownIt({
     html: false,
     linkify: true,
-    breaks: false,
+    breaks: true,
     typographer: false
   })
 
@@ -37,6 +38,7 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
   md.use(wikilinkPlugin)
   md.use(blockPlugin)
   md.use(templatePlugin)
+  md.use(mathPlugin)
   md.use(colorSpanPlugin)
   md.core.ruler.push('fence-lines', (state) => {
     for (const token of state.tokens) {

@@ -36,87 +36,115 @@ import BacklinksIcon from './icons/backlinks.svg?react'
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 
 function resolveNotePath(filePath: string): string {
-  const norm = (p: string): string => p.replace(/\\/g, '/')
-  const note = flattenNotes(useWorkspaceStore.getState().tree).find(
-    (n) => norm(n.path) === norm(filePath)
-  )
-  return note?.path ?? filePath
+const norm = (p: string): string => p.replace(/\\/g, '/')
+const note = flattenNotes(useWorkspaceStore.getState().tree).find(
+  (n) => norm(n.path) === norm(filePath)
+)
+return note?.path ?? filePath
 }
 
 interface RecoverableItem {
-  tmpPath: string
-  targetPath: string
-  tmpContent: string
-  currentContent: string | null
+tmpPath: string
+targetPath: string
+tmpContent: string
+currentContent: string | null
 }
 
 interface DiffPopupState {
-  oldContent: string
-  newContent: string
-  oldLabel: string
-  newLabel: string
-  onApply: () => void
-  onRestore: () => void
+oldContent: string
+newContent: string
+oldLabel: string
+newLabel: string
+onApply: () => void
+onRestore: () => void
 }
 
 function App(): React.JSX.Element {
-  useAppliedTheme()
-  useAppliedFonts()
-  useAppliedZoom()
+useAppliedTheme()
+useAppliedFonts()
+useAppliedZoom()
 
-  const rootDir = useWorkspaceStore((s) => s.rootDir)
-  const tree = useWorkspaceStore((s) => s.tree)
-  const setTree = useWorkspaceStore((s) => s.setTree)
-  const setRootDir = useWorkspaceStore((s) => s.setRootDir)
-  const tabs = useTabsStore((s) => s.tabs)
-  const activeTabId = useTabsStore((s) => s.activeTabId)
-  const openFile = useTabsStore((s) => s.openFile)
-  const setActiveTab = useTabsStore((s) => s.setActiveTab)
-  const setContent = useTabsStore((s) => s.setContent)
-  const markSaved = useTabsStore((s) => s.markSaved)
-  const closeTab = useTabsStore((s) => s.closeTab)
-  const syncExternalChange = useTabsStore((s) => s.syncExternalChange)
-  const renamePath = useTabsStore((s) => s.renamePath)
-  const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
-  const [sidebarWidth, setSidebarWidth] = useState(224)
-  const sidebarResizing = useRef(false)
-  const sidebarRef = useRef<SidebarHandle>(null)
+const rootDir = useWorkspaceStore((s) => s.rootDir)
+const tree = useWorkspaceStore((s) => s.tree)
+const setTree = useWorkspaceStore((s) => s.setTree)
+const setRootDir = useWorkspaceStore((s) => s.setRootDir)
+const tabs = useTabsStore((s) => s.tabs)
+const activeTabId = useTabsStore((s) => s.activeTabId)
+const openFile = useTabsStore((s) => s.openFile)
+const setActiveTab = useTabsStore((s) => s.setActiveTab)
+const setContent = useTabsStore((s) => s.setContent)
+const markSaved = useTabsStore((s) => s.markSaved)
+const closeTab = useTabsStore((s) => s.closeTab)
+const syncExternalChange = useTabsStore((s) => s.syncExternalChange)
+const renamePath = useTabsStore((s) => s.renamePath)
+const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
+const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
+const [sidebarWidth, setSidebarWidth] = useState(224)
+const sidebarResizing = useRef(false)
+const sidebarRef = useRef<SidebarHandle>(null)
 
-  const handleSidebarResizeStart = useCallback((e: React.MouseEvent): void => {
+const splitRatio = useSettingsStore((s) => s.splitRatio)
+const setSplitRatio = useSettingsStore((s) => s.setSplitRatio)
+const [splitDraft, setSplitDraft] = useState<number | null>(null)
+const splitRef = useRef<HTMLDivElement>(null)
+
+const handleSplitResizeStart = useCallback(
+  (e: React.MouseEvent): void => {
     e.preventDefault()
-    sidebarResizing.current = true
+    const box = splitRef.current
+    if (!box) return
+    const rect = box.getBoundingClientRect()
+    let latest = useSettingsStore.getState().splitRatio
     const onMouseMove = (ev: MouseEvent): void => {
-      if (!sidebarResizing.current) return
-      setSidebarWidth(Math.min(480, Math.max(180, ev.clientX)))
+      latest = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / rect.width))
+      setSplitDraft(latest)
     }
     const onMouseUp = (): void => {
-      sidebarResizing.current = false
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
+      setSplitRatio(latest)
+      setSplitDraft(null)
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-  }, [])
+  },
+  [setSplitRatio]
+)
 
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
-  const [vimModeLabel, setVimModeLabel] = useState('NORMAL')
-  const [diffPopup, setDiffPopup] = useState<DiffPopupState | null>(null)
-  const [historyTarget, setHistoryTarget] = useState<{ filePath: string; content: string } | null>(
-    null
-  )
-  const [recoveryItems, setRecoveryItems] = useState<RecoverableItem[] | null>(null)
-  const [changelog, setChangelog] = useState<string | null>(null)
-  const [tocOpen, setTocOpen] = useState(false)
-  const [tocFocusToken, setTocFocusToken] = useState(0)
-  const [todoOpen, setTodoOpen] = useState(false)
-  const [backlinksOpen, setBacklinksOpen] = useState(false)
-  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
-  const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; title: string } | null>(null)
-  const pushToast = useToastStore((s) => s.push)
-  const editorRef = useRef<MarkdownEditorHandle>(null)
+const handleSidebarResizeStart = useCallback((e: React.MouseEvent): void => {
+  e.preventDefault()
+  sidebarResizing.current = true
+  const onMouseMove = (ev: MouseEvent): void => {
+    if (!sidebarResizing.current) return
+    setSidebarWidth(Math.min(480, Math.max(180, ev.clientX)))
+  }
+  const onMouseUp = (): void => {
+    sidebarResizing.current = false
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+  }
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+}, [])
+
+const [searchOpen, setSearchOpen] = useState(false)
+const [settingsOpen, setSettingsOpen] = useState(false)
+const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
+const [vimModeLabel, setVimModeLabel] = useState('NORMAL')
+const [diffPopup, setDiffPopup] = useState<DiffPopupState | null>(null)
+const [historyTarget, setHistoryTarget] = useState<{ filePath: string; content: string } | null>(
+  null
+)
+const [recoveryItems, setRecoveryItems] = useState<RecoverableItem[] | null>(null)
+const [changelog, setChangelog] = useState<string | null>(null)
+const [tocOpen, setTocOpen] = useState(false)
+const [tocFocusToken, setTocFocusToken] = useState(0)
+const [todoOpen, setTodoOpen] = useState(false)
+const [backlinksOpen, setBacklinksOpen] = useState(false)
+const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
+const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; title: string } | null>(null)
+const pushToast = useToastStore((s) => s.push)
+const editorRef = useRef<MarkdownEditorHandle>(null)
   const previewRef = useRef<MarkdownPreviewHandle>(null)
   const scrollSourceRef = useRef<'editor' | 'preview' | null>(null)
   const handleEditorScrollRatio = useCallback((ratio: number) => {
@@ -752,27 +780,39 @@ function App(): React.JSX.Element {
           />
           {activeTab ? (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex min-h-0 flex-1">
-                <MarkdownEditor
-                  ref={editorRef}
-                  tabId={activeTab.id}
-                  value={activeTab.content}
-                  onChange={handleEditorChange}
-                  getNoteIndex={getNoteIndex}
-                  getAttachmentDir={getAttachmentDir}
-                  vimMode={vimMode}
-                  vimMouse={vimMouse}
-                  baseContent={activeTab.baseContent}
-                  onOpenBaseDiff={handleOpenBaseDiff}
-                  onSave={() => {
-                    const id = useTabsStore.getState().activeTabId
-                    if (id) void saveTab(id)
-                  }}
-                  onVimModeChange={setVimModeLabel}
-                  onCursorChange={handleCursorChange}
-                  onScrollRatio={handleEditorScrollRatio}
-                  className="min-w-0 flex-1 overflow-auto border-r border-border"
-                />
+              <div ref={splitRef} className="flex min-h-0 flex-1">
+                <div
+                  className="flex min-w-0 shrink-0"
+                  style={{ width: `${(splitDraft ?? splitRatio) * 100}%` }}
+                >
+                  <MarkdownEditor
+                    ref={editorRef}
+                    tabId={activeTab.id}
+                    value={activeTab.content}
+                    onChange={handleEditorChange}
+                    getNoteIndex={getNoteIndex}
+                    getAttachmentDir={getAttachmentDir}
+                    vimMode={vimMode}
+                    vimMouse={vimMouse}
+                    baseContent={activeTab.baseContent}
+                    onOpenBaseDiff={handleOpenBaseDiff}
+                    onSave={() => {
+                      const id = useTabsStore.getState().activeTabId
+                      if (id) void saveTab(id)
+                    }}
+                    onVimModeChange={setVimModeLabel}
+                    onCursorChange={handleCursorChange}
+                    onScrollRatio={handleEditorScrollRatio}
+                    className="min-w-0 flex-1 overflow-auto"
+                  />
+                </div>
+                <div className="relative w-px shrink-0 bg-border">
+                  <div
+                    onMouseDown={handleSplitResizeStart}
+                    onDoubleClick={() => setSplitRatio(0.5)}
+                    className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize"
+                  />
+                </div>
                 <MarkdownPreview
                   ref={previewRef}
                   source={activeTab.content}

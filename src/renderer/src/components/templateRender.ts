@@ -1,5 +1,8 @@
 import type { Diag, EdgeKind, Edges, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
 import { fontCandidates } from '../utils/systemFonts'
+import { plainInline, splitInline, type InlineOpts } from './inlineText'
+import { renderMath, splitMath } from './mathText'
+import { renderBlocks } from './outputBlocks'
 
 type Ok = Exclude<ParsedTemplate, { error: string }>
 
@@ -29,11 +32,15 @@ function fontFamily(name: string): string {
   return `${list.join(', ')}, ${serif ? 'serif' : 'Pretendard, sans-serif'}`
 }
 
-function edgeCss(kind: EdgeKind, color: string | null, mm: number | null = null): string {
-  if (kind === 'none') return '0'
+function edgeWidth(kind: EdgeKind, mm: number | null): string {
   const base = kind === 'thick' || kind === 'double' ? '3px' : '1px'
   // 이중선은 3px보다 얇으면 한 줄로 보이므로 굵기를 정해도 최소 0.8mm로 그린다.
-  const w = mm === null ? base : `${kind === 'double' ? Math.max(mm, 0.8) : mm}mm`
+  return mm === null ? base : `${kind === 'double' ? Math.max(mm, 0.8) : mm}mm`
+}
+
+function edgeCss(kind: EdgeKind, color: string | null, mm: number | null = null): string {
+  if (kind === 'none') return '0'
+  const w = edgeWidth(kind, mm)
   const st = kind === 'dashed' ? 'dashed' : kind === 'double' ? 'double' : 'solid'
   return `${w} ${st} ${textColor(color) ?? 'var(--tp-ink)'}`
 }
@@ -95,10 +102,9 @@ function applyStyle(e: HTMLElement, s: Style): void {
   if (deco.length > 0) e.style.textDecoration = deco.join(' ')
 }
 
-/** x^2^ 는 위 첨자, H~2~O 는 아래 첨자. 안에 공백이 없을 때만 첨자로 본다(3 ~ 5 같은 글은 그대로). */
 const SCRIPT_RE = /\^([^\s^]{1,20})\^|~([^\s~]{1,20})~/g
 
-function richText(target: HTMLElement, text: string): void {
+function scriptText(target: HTMLElement, text: string): void {
   let last = 0
   let any = false
   for (const m of text.matchAll(SCRIPT_RE)) {
@@ -109,26 +115,67 @@ function richText(target: HTMLElement, text: string): void {
     e.textContent = sup ? m[1] : m[2]
     e.style.fontSize = '0.7em'
     e.style.lineHeight = '0'
-    e.style.verticalAlign = sup ? 'super' : 'sub'
+    e.style.verticalAlign = 'baseline'
+    e.style.position = 'relative'
+    e.style.top = sup ? '-0.45em' : '0.12em'
     target.appendChild(e)
     last = at + m[0].length
     any = true
   }
   if (!any) {
-    target.textContent = text
+    target.appendChild(document.createTextNode(text))
     return
   }
   if (last < text.length) target.appendChild(document.createTextNode(text.slice(last)))
 }
 
-/** 배분 정렬은 글자마다 칸을 나눠서 양 끝 사이에 고르게 벌린다. */
+function richPlain(target: HTMLElement, text: string): void {
+  const pieces = splitMath(text)
+  if (!pieces.some((p) => 'tex' in p)) {
+    scriptText(target, text)
+    return
+  }
+  for (const p of pieces) {
+    if ('tex' in p) {
+      const m = document.createElement('span')
+      m.className = 'tq-math'
+      renderMath(m, p.tex)
+      target.appendChild(m)
+    } else scriptText(target, p.text)
+  }
+}
+export function applyInlineCss(e: HTMLElement, o: InlineOpts): void {
+  if (o.fs) e.style.fontSize = `${o.fs}pt`
+  if (o.fc) { const c = textColor(o.fc); if (c) e.style.color = c }
+  if (o.ff) e.style.fontFamily = fontFamily(o.ff)
+  if ('bold' in o) e.style.fontWeight = '700'
+  if ('italic' in o) e.style.fontStyle = 'italic'
+  const deco: string[] = []
+  if ('underline' in o) deco.push('underline')
+  if ('strike' in o) deco.push('line-through')
+  if (deco.length > 0) e.style.textDecoration = deco.join(' ')
+}
+
+function richText(target: HTMLElement, text: string): void {
+  const pieces = splitInline(text)
+  if (!pieces.some((p) => 'opts' in p)) { richPlain(target, text); return }
+  for (const p of pieces) {
+    if ('opts' in p) {
+      const sp = document.createElement('span')
+      applyInlineCss(sp, p.opts)
+      richPlain(sp, p.inner)
+      target.appendChild(sp)
+      } else richPlain(target, p.text)
+    }
+}
+
 function fillText(target: HTMLElement, text: string, align: Style['align']): void {
   target.style.textAlign = align === 'distribute' ? 'left' : align
   if (align !== 'distribute') {
     richText(target, text)
     return
   }
-  for (const line of text.split('\n')) {
+  for (const line of plainInline(text).split('\n')) {
     const row = el('div', 'tq-dist')
     const chars = Array.from(line)
     if (chars.length <= 1) row.style.justifyContent = 'center'
@@ -138,8 +185,31 @@ function fillText(target: HTMLElement, text: string, align: Style['align']): voi
   }
 }
 
+/** 읽을 때 쓰는 값을 선 조각에 붙인다. o: v(세로선)/h(가로선), b: 선 위치(0이 맨 앞), a1~a2: 걸친 줄/열 */
+function tag(
+  d: HTMLElement,
+  o: 'v' | 'h',
+  b: number,
+  a1: number,
+  a2: number,
+  e: { kind: EdgeKind; color: string | null; w: number | null }
+): void {
+  d.dataset.o = o
+  d.dataset.b = String(b)
+  d.dataset.a1 = String(a1)
+  d.dataset.a2 = String(a2)
+  d.dataset.kind = e.kind
+  d.dataset.w = e.w === null ? '' : String(e.w)
+  d.dataset.c = e.color ?? ''
+}
+
 function build(n: TNode): HTMLElement {
   switch (n.k) {
+    case 'block': {
+      const d = el('div', 'tp-block')
+      d.append(...renderBlocks([n.block]))
+      return d
+    }
     case 'line': {
       const kind: LineKind = n.kind
       return el('div', `tp-line tp-line-${kind}`)
@@ -190,7 +260,12 @@ function build(n: TNode): HTMLElement {
         ? n.widths.map((w) => (w !== null ? `${Number(w)}mm` : `${share}mm`)).join(' ')
         : `repeat(${Number(n.cols)}, minmax(0, 1fr))`
       g.style.gridTemplateRows = n.heights.map((h) => `minmax(${Number(h)}mm, auto)`).join(' ')
+      g.dataset.frame = n.frame
+      g.dataset.frameW = n.frameW === null ? '' : String(n.frameW)
+      g.dataset.frameC = n.frameC ?? ''
       g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, n.frameC, n.frameW)
+      // 격자 맨 바깥 테두리 두께(칸이 바깥 선을 따로 정할 때 그 부분을 덮어 가리는 데 쓴다)
+      const fw = n.frame === 'none' ? '0px' : edgeWidth(n.frame, n.frameW)
       if (n.frame === 'none') g.classList.add('tq-frame-none')
       const rows = n.heights.length
 
@@ -204,7 +279,8 @@ function build(n: TNode): HTMLElement {
         left: number,
         lSide: keyof Edges,
         right: number,
-        rSide: keyof Edges
+        rSide: keyof Edges,
+        vertical: boolean
       ): { kind: EdgeKind; color: string | null; w: number | null } | null => {
         if (left < 0 || right < 0 || left === right) return null
         const A = n.cells[left]
@@ -214,7 +290,10 @@ function build(n: TNode): HTMLElement {
         let kind: EdgeKind = 'solid'
         let src = B.ord >= A.ord ? B : A
         if (a !== undefined && b !== undefined) {
-          src = B.ord > A.ord ? B : A
+          // 둘 다 직접 정했으면 선에 닿는 길이가 짧은 칸(더 구체적인 칸)이 이기고, 같으면 문서에서 나중 칸이 이긴다.
+          const sa = vertical ? A.rs : A.cs
+          const sb = vertical ? B.rs : B.cs
+          src = sa !== sb ? (sa < sb ? A : B) : B.ord > A.ord ? B : A
           kind = src === B ? b : a
         } else if (a !== undefined) {
           kind = a
@@ -226,6 +305,20 @@ function build(n: TNode): HTMLElement {
         const side = src === A ? lSide : rSide
         const x = src.style.ex[side]
         return { kind, color: x?.c ?? src.style.ec, w: x?.w ?? null }
+      }
+
+      // 가장자리 칸이 바깥 선을 직접 정했는지(선이 격자 테두리 자리까지 이어져야 하는지 판단)
+      const outerExplicit = (i: number, side: 'l' | 'r' | 't' | 'b'): boolean => {
+        if (i < 0) return false
+        const k = n.cells[i]
+        const touch = side === 'l' ? k.c === 0 : side === 'r' ? k.c + k.cs === n.cols : side === 't' ? k.r === 0 : k.r + k.rs === rows
+        return touch && k.style.set[side] !== undefined
+      }
+      // 안쪽 선이 바깥 선이 없어진 모서리까지 이어지도록 테두리 두께만큼 늘린다
+      const reach = (d: HTMLElement, prop: 'marginLeft' | 'marginRight' | 'marginTop' | 'marginBottom'): void => {
+        if (fw === '0px') return
+        d.style[prop] = `-${fw}`
+        d.style.zIndex = '1'
       }
 
       n.cells.forEach((c) => {
@@ -257,11 +350,13 @@ function build(n: TNode): HTMLElement {
         if (s.dd || s.du) d.style.position = 'relative'
         if (s.dd) addDiag(d, 'down', s.dd)
         if (s.du) addDiag(d, 'up', s.du)
+        if (s.dd) d.dataset.dd = `${s.dd.kind},${s.dd.w ?? ''},${s.dd.c ?? ''}`
+        if (s.du) d.dataset.du = `${s.du.kind},${s.du.w ?? ''},${s.du.c ?? ''}`
         g.appendChild(d)
       })
       for (let r = 0; r < rows; r++) {
         for (let c = 1; c < n.cols; c++) {
-          const e = edgeOf(map[r][c - 1], 'r', map[r][c], 'l')
+          const e = edgeOf(map[r][c - 1], 'r', map[r][c], 'l', true)
           if (!e) continue
           const d = el('div', e.kind === 'none' ? 'tq-edge tq-guide' : 'tq-edge')
           d.style.gridColumn = String(c)
@@ -270,12 +365,15 @@ function build(n: TNode): HTMLElement {
           d.style.width = '0'
           d.style.borderLeft = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
+          if (r === 0 && (outerExplicit(map[r][c - 1], 't') || outerExplicit(map[r][c], 't'))) reach(d, 'marginTop')
+          if (r === rows - 1 && (outerExplicit(map[r][c - 1], 'b') || outerExplicit(map[r][c], 'b'))) reach(d, 'marginBottom')
+          tag(d, 'v', c, r, r, e)
           g.appendChild(d)
         }
       }
       for (let r = 1; r < rows; r++) {
         for (let c = 0; c < n.cols; c++) {
-          const e = edgeOf(map[r - 1][c], 'b', map[r][c], 't')
+          const e = edgeOf(map[r - 1][c], 'b', map[r][c], 't', false)
           if (!e) continue
           const d = el('div', e.kind === 'none' ? 'tq-edge tq-guide' : 'tq-edge')
           d.style.gridColumn = String(c + 1)
@@ -284,7 +382,76 @@ function build(n: TNode): HTMLElement {
           d.style.height = '0'
           d.style.borderTop = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
+          if (c === 0 && (outerExplicit(map[r - 1][c], 'l') || outerExplicit(map[r][c], 'l'))) reach(d, 'marginLeft')
+          if (c === n.cols - 1 && (outerExplicit(map[r - 1][c], 'r') || outerExplicit(map[r][c], 'r'))) reach(d, 'marginRight')
+          tag(d, 'h', r, c, c, e)
           g.appendChild(d)
+        }
+      }
+
+      // 격자 맨 바깥 쪽: 가장자리 칸이 그 쪽 선을 직접 정했으면 테두리 위에 덧그린다.
+      const tagOuter = (d: HTMLElement, o: 'v' | 'h', b: number, a1: number, a2: number, e: { kind: EdgeKind; color: string | null; w: number | null }): void => {
+        tag(d, o, b, a1, a2, e)
+        d.dataset.outer = '1'
+      }
+      for (const c of n.cells) {
+        const s = c.style
+        const sides: ('l' | 'r' | 't' | 'b')[] = []
+        if (c.c === 0) sides.push('l')
+        if (c.c + c.cs === n.cols) sides.push('r')
+        if (c.r === 0) sides.push('t')
+        if (c.r + c.rs === rows) sides.push('b')
+        for (const side of sides) {
+          const kind = s.set[side]
+          if (kind === undefined) continue
+          const x = s.ex[side]
+          const e = { kind, color: x?.c ?? s.ec, w: x?.w ?? null }
+          const vert = side === 'l' || side === 'r'
+          const area = (d: HTMLElement): void => {
+            if (vert) {
+              d.style.gridColumn = side === 'l' ? '1' : String(n.cols)
+              d.style.gridRow = `${c.r + 1} / span ${c.rs}`
+              d.style.justifySelf = side === 'l' ? 'start' : 'end'
+            } else {
+              d.style.gridRow = side === 't' ? '1' : String(rows)
+              d.style.gridColumn = `${c.c + 1} / span ${c.cs}`
+              d.style.alignSelf = side === 't' ? 'start' : 'end'
+            }
+            d.style.pointerEvents = 'none'
+          }
+          const MARGIN = { l: 'marginLeft', r: 'marginRight', t: 'marginTop', b: 'marginBottom' } as const
+          const BORDER = { l: 'borderLeft', r: 'borderRight', t: 'borderTop', b: 'borderBottom' } as const
+          if (fw !== '0px') {
+            const under = el('div', 'tq-edge')
+            area(under)
+            // 화면 배율 때문에 격자 테두리가 반올림으로 더 굵게 그려질 수 있어 1px 더 넓게(바깥쪽으로) 덮는다
+            const cover = `calc(${fw} + 1px)`
+            if (vert) under.style.width = cover
+            else under.style.height = cover
+            under.style[MARGIN[side]] = `calc(-1 * ${cover})`
+            // 모서리: 이어지는 두 변이 모두 '없음'이면 모서리 점도 같이 덮는다
+            if (kind === 'none') {
+              const none = (k: 'l' | 'r' | 't' | 'b'): boolean => sides.includes(k) && s.set[k] === 'none'
+              const [m1, k1, m2, k2] = vert ? (['marginTop', 't', 'marginBottom', 'b'] as const) : (['marginLeft', 'l', 'marginRight', 'r'] as const)
+              if (none(k1)) under.style[m1] = `calc(-1 * ${cover})`
+              if (none(k2)) under.style[m2] = `calc(-1 * ${cover})`
+            }
+            under.style.background = '#fff'
+            g.appendChild(under)
+          }
+          const line = el('div', e.kind === 'none' ? 'tq-edge tq-guide' : 'tq-edge')
+          area(line)
+          if (vert) line.style.width = '0'
+          else line.style.height = '0'
+          // 선이 격자 테두리와 같은 자리에 오도록 옮긴다. 화면 배율에서는 테두리 두께가 반올림되므로
+          // 자기 크기 기준(%)으로 옮겨서 반올림 값과 상관없이 맞춘다. 굵기가 같으면 테두리 바로 위에, 다르면 가운데 맞춤.
+          const ew = e.kind === 'none' ? '1px' : edgeWidth(e.kind, e.w)
+          const out = side === 'l' || side === 't' ? -1 : 1
+          const axis = vert ? 'translateX' : 'translateY'
+          line.style.transform = ew === fw ? `${axis}(${out * 100}%)` : `${axis}(calc(${out * 50}% + ${out} * ${fw} / 2))`
+          line.style[BORDER[side]] = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
+          tagOuter(line, vert ? 'v' : 'h', side === 'l' || side === 't' ? 0 : vert ? n.cols : rows, vert ? c.r : c.c, vert ? c.r + c.rs - 1 : c.c + c.cs - 1, e)
+          g.appendChild(line)
         }
       }
       return g

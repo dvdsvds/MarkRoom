@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it'
-import { splitCells } from './blockPlugin'
+import { parseBlock, splitCells } from './blockPlugin'
+import type { OutputBlock } from '../components/outputBlocks'
 
 type MD = InstanceType<typeof MarkdownIt>
 
@@ -49,6 +50,7 @@ export type GridCell = {
   gridEnd: number | null
 }
 export type TNode =
+  | { k: 'block'; block: OutputBlock}
   | { k: 'line'; kind: LineKind }
   | { k: 'space'; n: number }
   | { k: 'text'; text: string; style: Style }
@@ -82,7 +84,7 @@ type Scope = 'page' | 'cell' | 'text'
 
 const OPEN_RE = /^template\s*\[$/
 const VALUE_OPEN_RE = /^value\s*\[$/
-const OPENER_RE = /^(?:box|table|grid|row|value|template)\b[^[\]]*\[$/
+const OPENER_RE = /^(?:box|table|chart|grid|row|value|template)\b[^[\]]*\[$/
 const DEF_RE = /^(?:col|row)\s*=/
 const MAX_LINES = 1500
 const MAX_DEPTH = 4
@@ -786,6 +788,18 @@ function parseNodes(
       const gm = /^grid=(\d{1,3})$/.exec(name)
       if (name === 'box') {
         out.push({ k: 'box', children: parseNodes(lines, pos, vars, ctx, pageStyle, false, depth + 1) })
+        } else if (name === 'chart') {
+          const body: string[] = []
+          for (;;) {
+            const l = nextRaw(lines, pos)
+            if (l === null) break
+            const x = l.trim()
+            if (x === ']') break
+            body.push(x)
+          }
+          const r = parseBlock('chart', body)
+          if ('error' in r) ctx.warn(r.error)
+          else out.push({ k: 'block', block: r.block })
       } else if (name === 'table') {
         out.push(parseTable(lines, pos, vars, ctx))
       } else if (gm) {

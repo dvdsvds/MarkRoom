@@ -734,6 +734,9 @@ export function setBorders(
   const rows = info.heights.length
   const value = borderValue(st)
   const picked = new Set(inside)
+  const wholeGrid = rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
+  // 격자 전체를 골라 전체/바깥쪽을 정하면 맨 바깥 선은 frame= 하나로 정한다. 그 밖에는 가장자리 칸이 자기 쪽 선을 직접 갖는다.
+  const frame = wholeGrid && (where === 'all' || where === 'outer')
   const edits = new Map<CellInfo, Partial<Record<Side, string>>>()
   const put = (c: CellInfo, s: Side): void => {
     const e = edits.get(c) ?? {}
@@ -775,7 +778,7 @@ export function setBorders(
         (s === 'b' && c.r + c.rs === rows) ||
         (s === 'l' && c.c === 0) ||
         (s === 'r' && c.c + c.cs === info.cols)
-      if (atGrid) continue
+      if (atGrid && frame) continue
       put(c, s)
       for (const n of info.cells) {
         if (picked.has(n) || n === c) continue
@@ -785,14 +788,18 @@ export function setBorders(
           : s === 'l' ? n.c + n.cs === c.c && n.r < c.r + c.rs && n.r + n.rs > c.r
           : n.c === c.c + c.cs && n.r < c.r + c.rs && n.r + n.rs > c.r
         const p = touches ? defOf(n) : null
-        if (p && hasExplicit(p, OPPOSITE[s])) put(n, OPPOSITE[s])
+        // 이웃이 이 선에 더 길게 걸쳐 있으면(둘이 부딪힐 때 내 쪽이 이기므로) 이웃 값은 그대로 둔다.
+        const horizEdge = s === 't' || s === 'b'
+        const nSpan = horizEdge ? n.cs : n.rs
+        const cSpan = horizEdge ? c.cs : c.rs
+        if (p && nSpan <= cSpan && hasExplicit(p, OPPOSITE[s])) put(n, OPPOSITE[s])
       }
     }
   }
-  const wholeGrid = rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
-  const frame = wholeGrid && (where === 'all' || where === 'outer')
-  if (edits.size === 0 && !frame) {
-    return fail('이 위치에는 바꿀 선이 없어요. 안쪽 선은 칸을 둘 이상 선택해야 하고, 격자 맨 바깥 선은 격자 전체를 선택해야 바뀌어요.')
+  // 모두 + 없음은 대각선까지 포함해 칸 안의 선을 전부 지운다.
+  const wipe = where === 'all' && st.kind === 'none'
+  if (edits.size === 0 && !frame && !wipe) {
+    return fail('이 위치에는 바꿀 선이 없어요. 안쪽 선은 칸을 둘 이상 선택해야 해요.')
   }
   const items: Out[] = []
   for (const cell of info.cells) {
@@ -809,9 +816,11 @@ export function setBorders(
       continue
     }
     const parts = parseDef(getLine(cell.def))
+    const clear = wipe && picked.has(cell)
     items.push({
       key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: e ? withOpts(parts, opts) : parts, body: bodyOf(cell, getLine)
+      parts: e || clear ? withOpts(parts, opts, clear ? ['diag-down', 'diag-up'] : []) : parts,
+      body: bodyOf(cell, getLine)
     })
   }
   const res = assemble(info, getLine, items, null)

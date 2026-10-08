@@ -1,32 +1,17 @@
 import { HighlightStyle, syntaxHighlighting, syntaxTree } from '@codemirror/language'
-import type { Extension, Range as CmRange } from '@codemirror/state'
+import { Prec, type Extension, type Range as CmRange } from '@codemirror/state'
 import {
   Decoration,
   type DecorationSet,
   EditorView,
   ViewPlugin,
   type ViewUpdate,
-  WidgetType
+  WidgetType,
+  keymap
 } from '@codemirror/view'
 import { tags as t } from '@lezer/highlight'
 
-const FENCE_OPEN = /^(\s*(?:`{3,}|~{3,})[ \t]*)(\S*)/
 const FENCE_CLOSE = /^\s*(?:`{3,}|~{3,})\s*$/
-
-const LANGS: { id: string; label: string; runnable?: boolean }[] = [
-  { id: '', label: '언어 없음' },
-  { id: 'js', label: 'js', runnable: true },
-  { id: 'python', label: 'python', runnable: true },
-  { id: 'ts', label: 'ts' },
-  { id: 'json', label: 'json' },
-  { id: 'css', label: 'css' },
-  { id: 'html', label: 'html' },
-  { id: 'bash', label: 'bash' },
-  { id: 'sql', label: 'sql' },
-  { id: 'md', label: 'md' },
-  { id: 'csv', label: 'csv' },
-  { id: 'mermaid', label: 'mermaid' }
-]
 
 const ICON_COPY =
   '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>'
@@ -54,83 +39,6 @@ export const codeHighlight = syntaxHighlighting(
   ])
 )
 
-let menuEl: HTMLElement | null = null
-let stopListening: (() => void) | null = null
-
-function closeMenu(): void {
-  stopListening?.()
-  stopListening = null
-  menuEl?.remove()
-  menuEl = null
-}
-
-function fenceInfo(view: EditorView, pos: number): { from: number; to: number } | null {
-  const line = view.state.doc.lineAt(pos)
-  const m = FENCE_OPEN.exec(line.text)
-  if (!m) return null
-  const from = line.from + m[1].length
-  return { from, to: from + m[2].length }
-}
-
-function openMenu(view: EditorView, anchor: HTMLElement, pos: number): void {
-  closeMenu()
-  const info = fenceInfo(view, pos)
-  if (!info) return
-  const current = view.state.doc.sliceString(info.from, info.to)
-
-  const r = anchor.getBoundingClientRect()
-  const menu = document.createElement('div')
-  menu.className = 'cm-lang-menu'
-  menu.style.left = `${Math.max(8, Math.min(r.left, window.innerWidth - 168))}px`
-  menu.style.top = `${Math.max(8, Math.min(r.bottom + 4, window.innerHeight - 400))}px`
-
-  const apply = (id: string): void => {
-    view.dispatch({ changes: { from: info.from, to: info.to, insert: id }, userEvent: 'input.lang' })
-    closeMenu()
-    view.focus()
-  }
-
-  for (const l of LANGS) {
-    const item = document.createElement('button')
-    item.type = 'button'
-    item.className = 'cm-lang-item' + (l.id === current ? ' active' : '')
-    item.textContent = l.label
-    item.addEventListener('mousedown', (e) => e.preventDefault())
-    item.addEventListener('click', () => apply(l.id))
-    menu.appendChild(item)
-  }
-
-  const input = document.createElement('input')
-  input.className = 'cm-lang-input'
-  input.placeholder = '직접 입력'
-  input.spellcheck = false
-  input.addEventListener('keydown', (e) => {
-    e.stopPropagation()
-    if (e.key === 'Enter') {
-      const v = input.value.trim().replace(/[^A-Za-z0-9_+#.-]/g, '')
-      if (v) apply(v)
-    } else if (e.key === 'Escape') {
-      closeMenu()
-      view.focus()
-    }
-  })
-  menu.appendChild(input)
-
-  document.body.appendChild(menu)
-  menuEl = menu
-  const onDown = (e: MouseEvent): void => {
-    if (!menu.contains(e.target as Node)) closeMenu()
-  }
-  const onKey = (e: KeyboardEvent): void => {
-    if (e.key === 'Escape') closeMenu()
-  }
-  document.addEventListener('mousedown', onDown, true)
-  document.addEventListener('keydown', onKey, true)
-  stopListening = () => {
-    document.removeEventListener('mousedown', onDown, true)
-    document.removeEventListener('keydown', onKey, true)
-  }
-}
 
 function blockText(view: EditorView, pos: number): string {
   const doc = view.state.doc
@@ -145,29 +53,19 @@ function blockText(view: EditorView, pos: number): string {
 }
 
 class BarWidget extends WidgetType {
-  constructor(readonly lang: string) {
-    super()
-  }
-  eq(o: BarWidget): boolean {
-    return o.lang === this.lang
+  eq(o: WidgetType): boolean {
+    return o instanceof BarWidget
   }
   toDOM(view: EditorView): HTMLElement {
     const bar = document.createElement('span')
     bar.className = 'cm-codebar'
-
-    const chip = document.createElement('button')
-    chip.type = 'button'
-    chip.className = 'cm-codebar-chip'
-    chip.textContent = this.lang || '언어 없음'
 
     const copy = document.createElement('button')
     copy.type = 'button'
     copy.className = 'cm-codebar-copy'
     copy.title = '복사'
     copy.innerHTML = ICON_COPY
-
-    for (const b of [chip, copy]) b.addEventListener('mousedown', (e) => e.preventDefault())
-    chip.addEventListener('click', () => openMenu(view, chip, view.posAtDOM(bar)))
+    copy.addEventListener('mousedown', (e) => e.preventDefault())
     copy.addEventListener('click', () => {
       void navigator.clipboard.writeText(blockText(view, view.posAtDOM(bar)))
       copy.innerHTML = ICON_CHECK
@@ -176,7 +74,7 @@ class BarWidget extends WidgetType {
       }, 1200)
     })
 
-    bar.append(chip, copy)
+    bar.append(copy)
     return bar
   }
   ignoreEvent(): boolean {
@@ -210,14 +108,7 @@ function build(view: EditorView): DecorationSet {
         }
         if (!seen.has(first.number)) {
           seen.add(first.number)
-          const m = FENCE_OPEN.exec(first.text)
-          decos.push(
-            Decoration.widget({ widget: new BarWidget(m ? m[2] : ''), side: 1 }).range(first.to)
-          )
-          if (m && m[2]) {
-            const infoFrom = first.from + m[1].length
-            decos.push(Decoration.replace({}).range(infoFrom, infoFrom + m[2].length))
-          }
+          decos.push(Decoration.widget({ widget: new BarWidget(), side: 1 }).range(first.to))
         }
         return false
       }
@@ -225,6 +116,38 @@ function build(view: EditorView): DecorationSet {
   }
   return Decoration.set(decos, true)
 }
+
+const FENCE_LINE = /^(\s*)(`{3,}|~{3,})[ \t]*\S*[ \t]*$/
+
+const fenceEnter = Prec.high(
+  keymap.of([
+    {
+      key: 'Enter',
+      run: (view) => {
+        const state = view.state
+        const sel = state.selection.main
+        if (!sel.empty) return false
+        const doc = state.doc
+        const line = doc.lineAt(sel.head)
+        const m = FENCE_LINE.exec(line.text)
+        if (!m || sel.head !== line.to) return false
+
+        let node = syntaxTree(state).resolveInner(line.to, -1)
+        while (node.name !== 'FencedCode' && node.parent) node = node.parent
+        if (node.name !== 'FencedCode' || doc.lineAt(node.from).number !== line.number) return false
+        const last = doc.lineAt(node.to)
+        if (last.number !== line.number && FENCE_CLOSE.test(last.text)) return false
+
+        view.dispatch({
+          changes: { from: line.to, insert: '\n' + m[1] + '\n' + m[1] + m[2] },
+          selection: { anchor: line.to + 1 + m[1].length },
+          userEvent: 'input'
+        })
+        return true
+      }
+    }
+  ])
+)
 
 const codeBlockPlugin = ViewPlugin.fromClass(
   class {
@@ -241,4 +164,4 @@ const codeBlockPlugin = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations }
 )
 
-export const codeBlocks: Extension = [codeBlockPlugin, codeHighlight]
+export const codeBlocks: Extension = [codeBlockPlugin, codeHighlight, fenceEnter]

@@ -26,6 +26,7 @@ export interface RunResult {
   error: string | null
   timedOut: boolean
   blocks: OutputBlock[]
+  values: Record<string, string>
 }
 
 const TIMEOUT_MS = 5000
@@ -85,19 +86,25 @@ function runCode(code: string, baseDir: string): Promise<RunResult> {
           error: `${TIMEOUT_MS / 1000}초 안에 끝나지 않아서 중단했어요.`,
           timedOut: true,
           blocks: [],
+          values: {}
         }),
       TIMEOUT_MS
     )
-    child.on('message', (msg: RunResult) => 
-      finish({ ...msg, blocks: Array.isArray(msg.blocks) ? msg.blocks : []})
+    child.on('message', (msg: RunResult) =>
+      finish({
+        ...msg,
+        blocks: Array.isArray(msg.blocks) ? msg.blocks : [],
+        values: msg.values && typeof msg.values === 'object' ? msg.values : {}
+      })
     )
     child.on('exit', () =>
-      finish({ 
-        output: '', 
-        result: null, 
-        error: '실행이 예기치 않게 종료됐어요.', 
-        timedOut: false, 
-        blocks: []
+      finish({
+        output: '',
+        result: null,
+        error: '실행이 예기치 않게 종료됐어요.',
+        timedOut: false,
+        blocks: [],
+        values: {}
       })
     )
     child.postMessage({ code, files, fileErrors })
@@ -115,12 +122,13 @@ export function registerCodeRunner(): void {
     'code:run',
     (_event, code: unknown, baseDir: unknown): Promise<RunResult> | RunResult => {
       if (typeof code !== 'string' || code.length > MAX_CODE_LENGTH) {
-        return { 
-          output: '', 
-          result: null, 
-          error: '코드가 너무 길어요.', 
+        return {
+          output: '',
+          result: null,
+          error: '코드가 너무 길어요.',
           timedOut: false,
-          blocks: []
+          blocks: [],
+          values: {}
         }
       }
       return runCode(code, typeof baseDir === 'string' ? baseDir : '')

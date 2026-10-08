@@ -86,6 +86,7 @@ interface RunResult {
   error: string | null
   timedOut: boolean
   blocks: OutputBlock[]
+  values: Record<string, string>
 }
 
 const api = {
