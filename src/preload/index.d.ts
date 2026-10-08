@@ -105,6 +105,13 @@ export interface SyntaxNoteApi {
     hide: () => Promise<void>
     onShown: (callback: () => void) => () => void
   }
+  export: {
+    pdf: (payload: {
+      title: string
+      html: string
+      css: string
+    }) => Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }>
+  }
   code: {
     run: (code: string, baseDir: string) => Promise<RunResult>
     readFiles: (

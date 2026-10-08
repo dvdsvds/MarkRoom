@@ -9,6 +9,7 @@ import { assertInsideRoot, getLastSeenVersion, setLastSeenVersion } from './work
 import { readChangelogFor } from './updateInfo'
 import { registerQuickCapture, destroyQuickCapture } from './quickCapture'
 import { registerCodeRunner } from './codeRunner'
+import { registerPdfExport } from './pdfExport'
 
 app.disableHardwareAcceleration()
 
@@ -94,6 +95,7 @@ app.whenReady().then(() => {
   registerWorkspaceIpc(() => mainWindowRef)
   registerQuickCapture()
   registerCodeRunner()
+  registerPdfExport(() => mainWindowRef)
 
   ipcMain.handle('window:minimize', () => mainWindowRef?.minimize())
   ipcMain.handle('window:toggleMaximize', () => {

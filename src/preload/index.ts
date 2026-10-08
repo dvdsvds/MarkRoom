@@ -114,6 +114,14 @@ const api = {
       return () => ipcRenderer.removeListener('quick:shown', listener)
     }
   },
+  export: {
+    pdf: (payload: {
+      title: string
+      html: string
+      css: string
+    }): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> =>
+      ipcRenderer.invoke('export:pdf', payload)
+  },
   code: {
     run: (code: string, baseDir: string): Promise<RunResult> =>
       ipcRenderer.invoke('code:run', code, baseDir),

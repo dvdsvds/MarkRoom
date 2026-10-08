@@ -9,6 +9,8 @@ import FileIcon from '../icons/file.svg?react'
 import FolderIcon from '../icons/folder.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
+import { exportPreviewPdf } from './exportPdf'
+import { toast } from './uiKit'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -502,6 +504,13 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     setDeleteTarget(null)
   }
 
+  const exportActivePdf = async (): Promise<void> => {
+    if (!activeFilePath) return
+    const name = activeFilePath.split(/[\\/]/).pop() ?? '문서'
+    const r = await exportPreviewPdf(name.replace(/\.md$/i, ''))
+    if (r.ok) toast('PDF로 저장했어요')
+    else if (!r.canceled) toast(r.error ?? 'PDF를 만들지 못했어요')
+  }
   const handleContextMenu = (e: React.MouseEvent, node: TreeNode): void => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, node })
@@ -626,48 +635,57 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       <div className="flex h-7 shrink-0 items-center justify-between border-b border-border pl-2 pr-0">
         <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">탐색</span>
         <div className="flex items-center gap-0">
-        <button
-          type="button"
-          onClick={() =>
-            rootDir && setExportTarget({ folderPath: rootDir, isRoot: true, label: '전체' })
-          }
-          title="전체 내보내기"
-          disabled={!rootDir}
-          className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
-        >
-          <ExportIcon width={16} height={16}/>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const dir = resolveToolbarDir()
-            if (dir) {
-              expandPath(dir)
-              setNewFolderIn(dir)
+          <button
+            type="button"
+            onClick={() =>
+              rootDir && setExportTarget({ folderPath: rootDir, isRoot: true, label: '전체' })
             }
-          }}
-          title="새 폴더"
-          disabled={!rootDir}
-          className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
-        >
-          <NewFolderIcon width={16} height={16}/>
-        </button>
-        <button
-          type="button"
-          onClick={() => { 
-            const dir = resolveToolbarDir()
-            if (dir) {
-              expandPath(dir)
-              setNewFileIn(dir)
-            }
-          }}
-          title="새 파일"
-          disabled={!rootDir}
-          className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
-        >
-          <NewFileIcon/>
-        </button>
-      </div>
+            title="전체 내보내기"
+            disabled={!rootDir}
+            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+          >
+            <ExportIcon width={16} height={16}/>
+          </button>
+          <button
+            type="button"
+            onClick={() => void exportActivePdf()}
+            title="현재 문서를 PDF로 내보내기"
+            disabled={!activeFilePath || !activeFilePath.toLowerCase().endsWith('.md')}
+            className="flex items-center justify-center rounded px-1.5 text-[10px] font-medium text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+          >
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const dir = resolveToolbarDir()
+              if (dir) {
+                expandPath(dir)
+                setNewFolderIn(dir)
+              }
+            }}
+            title="새 폴더"
+            disabled={!rootDir}
+            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+          >
+            <NewFolderIcon width={16} height={16}/>
+          </button>
+          <button
+            type="button"
+            onClick={() => { 
+              const dir = resolveToolbarDir()
+              if (dir) {
+                expandPath(dir)
+                setNewFileIn(dir)
+              }
+            }}
+            title="새 파일"
+            disabled={!rootDir}
+            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+          >
+            <NewFileIcon/>
+          </button>
+        </div>
       </div>
         <div
           className="flex-1 overflow-auto px-1.5 pt-1.5 pb-2"
