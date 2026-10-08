@@ -916,3 +916,7 @@ select option::checkmark {
 .snote-page .tp-text:empty::after {
   content: '\200b';
 }
+.snote-page math-field.tq-mf {
+  --placeholder-color: #9ca3af;
+  --placeholder-opacity: 0.6;
+}

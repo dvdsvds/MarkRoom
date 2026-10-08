@@ -1,5 +1,4 @@
 import { button as uiButton, closeMenus, dropdown, HOVER_BG, icon, LINE, PALETTE, registerMenu, setOn, type DropItem } from './uiKit'
-import katex from 'katex'
 import minusIcon from '../icons/minus.svg?raw'
 import plusIcon from '../icons/plus.svg?raw'
 import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from './gridEdit'
@@ -15,8 +14,6 @@ export interface ToolbarApi {
   effective?: () => { fs: string | null; ff: string | null } | null
   /** 칸을 편집 중일 때 커서·선택한 글자의 스타일(글자 일부 스타일). 없으면 null. */
   selStyle?: () => { fs: string | null; fc: string | null; ff: string | null; flags: Record<string, boolean> | null } | null
-  /** 편집 중인 칸에 수식 상자를 넣는다. latex 가 비면 빈 수식 상자. */
-  math: (latex: string) => void
   /** 지금 대상이 된 칸들의 상태. 대상이 없으면 null. */
   read: () => CellOptState | null
 }
@@ -54,24 +51,6 @@ const VALIGN_ICON: Record<VAlign, string> = {
   bottom: icon('<path d="M2 13.5h12"/><path d="M8 2v8.5M5 7.5l3 3 3-3"/>')
 }
 const VALIGN_KO: Record<VAlign, string> = { top: '위쪽', middle: '가운데', bottom: '아래쪽' }
-
-const PH = '\\placeholder{}'
-const MATH_ITEMS: { name: string; tex: string }[] = [
-  { name: '빈 수식', tex: '' },
-  { name: '분수', tex: `\\frac{${PH}}{${PH}}` },
-  { name: '제곱근', tex: `\\sqrt{${PH}}` },
-  { name: '거듭제곱', tex: `${PH}^{${PH}}` },
-  { name: '아래 첨자', tex: `${PH}_{${PH}}` },
-  { name: '극한', tex: `\\lim_{${PH}\\to ${PH}}${PH}` },
-  { name: '합', tex: `\\sum_{${PH}}^{${PH}}${PH}` },
-  { name: '적분', tex: `\\int_{${PH}}^{${PH}}${PH}\\,d${PH}` },
-  { name: '괄호', tex: `\\left(${PH}\\right)` },
-  { name: '절댓값', tex: `\\left|${PH}\\right|` }
-]
-function mathItemHtml(m: { name: string; tex: string }): string {
-  const view = katex.renderToString(m.tex.split(PH).join('\\square'), { throwOnError: false, output: 'html', strict: 'ignore', displayMode: true })
-  return `<span style="display:flex;align-items:center;gap:14px;width:100%"><span style="flex:none;display:flex;align-items:center;justify-content:flex-start;width:110px;height:34px;font-size:1.25em;line-height:1;overflow:visible">${view}</span><span style="font-size:11px;color:var(--tq-text3);white-space:nowrap">${m.name}</span></span>`
-}
 
 function bar(): HTMLElement {
   const e = document.createElement('div')
@@ -256,14 +235,7 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   }
   const supBtn = button('<span>x<sup style="font-size:9px">2</sup></span>', '위 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sup'))
   const subBtn = button('<span>x<sub style="font-size:9px">2</sub></span>', '아래 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sub'))
-  const mathDrop = dropdown({
-    flat: true, label: '', title: '수식 넣기: 칸을 편집하는 중에 고르면 그 자리에 수식 상자가 생겨요', width: 0, icon: '<span style="font-size:15px;font-weight:600;line-height:16px">Σ</span>', maxHeight: 360,
-    items: () => MATH_ITEMS.map((m): DropItem => m.tex === ''
-      ? { text: m.name, value: '' }
-      : { text: m.name, value: m.tex, html: mathItemHtml(m) }),
-    pick: (v) => api.math(v ?? '')
-  })
-  root.append(sep(), supBtn, subBtn, sep(), mathDrop.wrap)
+  root.append(sep(), supBtn, subBtn)
 
   const syncScript = (): void => {
     const k = api.scriptState?.() ?? null

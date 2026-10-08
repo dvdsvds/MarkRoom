@@ -7,7 +7,7 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, applyGridEdit, readGrid, redoEditor, replaceCellText, replaceTextLine, splitTextLine, undoEditor } from '../editor/MarkdownEditor'
+import { addCellText, applyGridEdit, deleteEmptyTextLine, readGrid, redoEditor, replaceCellText, replaceTextLine, splitTextLine, undoEditor } from '../editor/MarkdownEditor'
 import { createToolbar, type Toolbar } from './templateToolbar'
 import {
   deleteCols,
@@ -33,7 +33,7 @@ import { openBorderPanel, openSplitPanel, type BorderState } from './templatePan
 import { readEdges } from './templateRead'
 import { renderMath } from './mathText'
 import { applyCaret, applyInline, fillCell, inlineAt, mkScript, serializeCell, styleScript, textChangeOf, type TextChange } from './cellInline'
-import { enterMath, insertMath, isMath, mathBeside, texOf } from './cellMath'
+import { enterMath, isMath, mathBeside, texOf } from './cellMath'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -729,15 +729,18 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const x = t instanceof Element ? t.closest<HTMLElement>('.tq-cell') : null
         return x && grid()?.contains(x) ? x : null
       }
+
       let tEdit: HTMLElement | null = null
       let tStart = ''
       let tHtml = ''
+
       const tNorm = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+
       const tCommit = (): void => {
         const box = tEdit
         if (!box) return
         tEdit = null
-        box.removeEventListener('blur', tCommit)
+        box.removeEventListener('focusout', tOut)
         box.removeEventListener('keydown', tKey)
         box.contentEditable = 'false'
         const value = tNorm(box.innerText ?? '')
@@ -747,33 +750,64 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
         replaceTextLine(Number(box.dataset.tline), value)
       }
+
       const openText = (t: HTMLElement, at: { x: number; y: number } | null, where: 'start' | 'end'): void => {
-      if (tEdit) tCommit()
-      tEdit = t
-      tHtml = t.innerHTML
-      tStart = tNorm(t.innerText)
-      t.contentEditable = 'plaintext-only'
-      t.spellcheck = false
-      t.addEventListener('blur', tCommit)
-      t.addEventListener('keydown', tKey)
-      t.focus()
-      const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }
-      let rg = at ? (d.caretRangeFromPoint?.(at.x, at.y) ?? null) : null
-      if (!rg || !t.contains(rg.startContainer)) {
-        rg = document.createRange()
-        rg.selectNodeContents(t)
-        rg.collapse(where === 'start')
+        if (tEdit) tCommit()
+        tEdit = t
+        tHtml = t.innerHTML
+        t.innerText = (t.dataset.raw ?? '').replace(/\\n/g, '\n')
+        tStart = tNorm(t.innerText)
+        t.contentEditable = 'plaintext-only'
+        t.spellcheck = false
+        t.addEventListener('focusout', tOut)
+        t.addEventListener('keydown', tKey)
+        t.focus()
+        const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }
+        let rg = at ? (d.caretRangeFromPoint?.(at.x, at.y) ?? null) : null
+        if (!rg || !t.contains(rg.startContainer)) {
+          rg = document.createRange()
+          rg.selectNodeContents(t)
+          rg.collapse(where === 'start')
       }
       const s = window.getSelection()
       s?.removeAllRanges()
       s?.addRange(rg)
     }
+
+    function tOut(e: FocusEvent): void {
+      const to = e.relatedTarget as Node | null
+      if (to && tEdit && (tEdit.contains(to) || toolbar?.el.contains(to))) return
+      tCommit()
+    }
+
     function tKey(e: KeyboardEvent): void {
       e.stopPropagation()
       if (e.isComposing) return
       if (e.key === 'Escape') {
         e.preventDefault()
         tCommit()
+        return
+      }
+      if (e.key === 'Backspace') {
+        const bx = e.currentTarget as HTMLElement
+        const sl = window.getSelection()
+        if (!sl || !sl.isCollapsed) return
+        if (bx.innerText.replace(/[\s\u200b]/g, '') !== '') return
+        e.preventDefault()
+        const ln = Number(bx.dataset.tline)
+        let removed = true
+        const root = el
+        onceRendered(() => {
+          if (!removed) return
+          const prev = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${ln - 1}"]`)
+          if (prev) openText(prev, null, 'end')
+        })
+        removed = deleteEmptyTextLine(ln)
+        if (!removed) return
+        tEdit = null
+        bx.removeEventListener('focusout', tOut)
+        bx.removeEventListener('keydown', tKey)
+        bx.contentEditable = 'false'
         return
       }
       if (e.key !== 'Enter') return
@@ -793,7 +827,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const after = full.slice(upTo.toString().length)
       const line = Number(box.dataset.tline)
       tEdit = null
-      box.removeEventListener('blur', tCommit)
+      box.removeEventListener('focusout', tOut)
       box.removeEventListener('keydown', tKey)
       box.contentEditable = 'false'
       const root = el
@@ -1265,7 +1299,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             runCell(t, ch)
             return
           }
-          // 편집 중에는 글자 크기·색·글꼴·굵게 등은 고른 글자에만 적용한다
           const tc = textChangeOf(ch)
           if (tc) {
             applyText(box, tc)
@@ -1319,19 +1352,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             enterScript(kind)
           }
           toolbar?.syncScript()
-        },
-        math: (latex) => {
-          const box = editing
-          if (!box) {
-            toast('칸을 편집하는 중에 눌러 주세요')
-            return
-          }
-          const now = document.activeElement
-          if (isMath(now) && box.contains(now)) {
-            if (latex) now.insert(latex, { selectionMode: 'placeholder' })
-            return
-          }
-          if (!insertMath(box, latex)) toast('칸을 편집하는 중에 눌러 주세요')
         },
         selStyle: () => {
           const box = editing

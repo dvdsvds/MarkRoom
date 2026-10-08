@@ -184,6 +184,20 @@ export function splitTextLine(line: number, before: string, after: string): void
   })
 }
 
+/** 내용이 빈 text 줄을 통째로 지운다. 지웠으면 true. */
+export function deleteEmptyTextLine(line: number): boolean {
+  const view = currentView
+  if (!view) return false
+  const doc = view.state.doc
+  if (line < 1 || line > doc.lines) return false
+  const l = doc.line(line)
+  if (!/^\s*text[^:]*:\s*$/.test(l.text)) return false
+  const from = line > 1 ? l.from - 1 : l.from
+  const to = line > 1 ? l.to : Math.min(l.to + 1, doc.length)
+  view.dispatch({ changes: { from, to }, userEvent: 'delete.cell' })
+  return true
+}
+
 /** 빈 칸에 글자를 쓴다. afterLine(격자 마지막 칸의 글자 줄) 뒤에 col= 줄을 새로 끼운다. */
 export function addCellText(
   afterLine: number,
