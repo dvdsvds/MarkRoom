@@ -895,3 +895,24 @@ select option::checkmark {
   top: 50% !important;
   transform: translateY(-50%) !important;
 }
+.katex-display { margin: 0 !important; text-align: left !important; }
+.snote-page .tp-text[contenteditable] {
+  outline: none;
+  background: none;
+}
+.tq-editmode .tp-text[data-tline] {
+  cursor: text;
+}
+.tq-editmode .tp-text[contenteditable] {
+  outline: none;
+}
+.tq-editmode .snote-page {
+  cursor: text;
+}
+.tq-editmode .tq-cell,
+.tq-editmode .tp-edit-btn {
+  cursor: default;
+}
+.snote-page .tp-text:empty::after {
+  content: '\200b';
+}

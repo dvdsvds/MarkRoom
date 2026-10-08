@@ -53,7 +53,7 @@ export type TNode =
   | { k: 'block'; block: OutputBlock}
   | { k: 'line'; kind: LineKind }
   | { k: 'space'; n: number }
-  | { k: 'text'; text: string; style: Style }
+  | { k: 'text'; text: string; style: Style; line: number | null; raw: string }
   | { k: 'box'; children: TNode[] }
   | { k: 'table'; columns: string[]; rows: string[][] }
   | {
@@ -768,7 +768,9 @@ function parseNodes(
       out.push({
         k: 'text',
         text: unesc(fill(tail.trim(), vars)),
-        style: merge(pageStyle, opt)
+        style: merge(pageStyle, opt),
+        line: ctx.lineBase + pos.i - 1,
+        raw: tail.trim()
       })
       continue
     }

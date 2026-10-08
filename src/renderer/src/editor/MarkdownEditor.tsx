@@ -145,6 +145,45 @@ export function applyGridEdit(
   return null
 }
 
+/** text 노드 줄(line)에서 첫 ':' 뒤를 새 글자로 바꾼다. */
+export function replaceTextLine(line: number, text: string): void {
+  const view = currentView
+  if (!view) return
+  const doc = view.state.doc
+  if (line < 1 || line > doc.lines) return
+  const l = doc.line(line)
+  const i = l.text.indexOf(':')
+  if (i < 0) return
+  const body = text.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+  view.dispatch({
+    changes: { from: l.from + i + 1, to: l.to, insert: ' ' + body },
+    userEvent: 'input.cell'
+  })
+}
+
+/** text 노드 줄을 커서 기준으로 둘로 나눈다. 앞 글자는 그 줄에, 뒤 글자는 같은 머리말의 새 줄에 넣는다. */
+export function splitTextLine(line: number, before: string, after: string): void {
+  const view = currentView
+  if (!view) return
+  const doc = view.state.doc
+  if (line < 1 || line > doc.lines) return
+  const l = doc.line(line)
+  const i = l.text.indexOf(':')
+  if (i < 0) return
+  const head = l.text.slice(0, i + 1)
+  const one = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+  const a = one(before)
+  const b = one(after)
+  view.dispatch({
+    changes: {
+      from: l.from + i + 1,
+      to: l.to,
+      insert: (a === '' ? '' : ' ' + a) + '\n' + head + (b === '' ? '' : ' ' + b)
+    },
+    userEvent: 'input.cell'
+  })
+}
+
 /** 빈 칸에 글자를 쓴다. afterLine(격자 마지막 칸의 글자 줄) 뒤에 col= 줄을 새로 끼운다. */
 export function addCellText(
   afterLine: number,

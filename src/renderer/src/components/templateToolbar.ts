@@ -69,15 +69,14 @@ const MATH_ITEMS: { name: string; tex: string }[] = [
   { name: '절댓값', tex: `\\left|${PH}\\right|` }
 ]
 function mathItemHtml(m: { name: string; tex: string }): string {
-  const view = katex.renderToString(m.tex.split(PH).join('\\square'), { throwOnError: false, output: 'html', strict: 'ignore' })
-  return `<span style="display:inline-flex;align-items:center;gap:12px"><span style="min-width:54px">${m.name}</span>${view}</span>`
+  const view = katex.renderToString(m.tex.split(PH).join('\\square'), { throwOnError: false, output: 'html', strict: 'ignore', displayMode: true })
+  return `<span style="display:flex;align-items:center;gap:14px;width:100%"><span style="flex:none;display:flex;align-items:center;justify-content:flex-start;width:110px;height:34px;font-size:1.25em;line-height:1;overflow:visible">${view}</span><span style="font-size:11px;color:var(--tq-text3);white-space:nowrap">${m.name}</span></span>`
 }
 
 function bar(): HTMLElement {
   const e = document.createElement('div')
   e.className = 'tq-toolbar'
-  e.style.cssText = `position:sticky;top:0;z-index:50;display:none;flex-wrap:wrap;align-items:center;gap:4px;padding:5px 8px;margin:0 0 6px;background:var(--tq-bar);color:var(--tq-text);border:${LINE};border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.18);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
-  // 막대를 눌러도 편집 중인 칸의 입력 위치와 글자 선택이 풀리지 않게 한다.
+  e.style.cssText = `position:sticky;top:0;z-index:50;display:none;flex-wrap:wrap;align-items:center;gap:2px;padding:3px 6px;margin:0;background:var(--tq-bar);color:var(--tq-text);border-bottom:1px solid var(--tq-edge);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
   e.addEventListener('mousedown', (ev) => {
     if (ev.target instanceof HTMLInputElement) return
     ev.preventDefault()
@@ -87,10 +86,12 @@ function bar(): HTMLElement {
 
 function sep(): HTMLElement {
   const s = document.createElement('span')
-  s.style.cssText = 'width:1px;height:18px;background:var(--tq-divider);margin:0 4px'
+  s.style.cssText = 'width:1px;height:18px;background:var(--tq-divider);margin:0 4px;flex:none'
   return s
 }
 
+const DEFAULT_FONT = 'Pretendard'
+const DEFAULT_SIZE = '10'
 const SIZE_PRESETS = [6, 7, 8, 9, 10, 11, 12, 14, 18, 24, 30, 36, 48, 60, 72, 96]
 
 export function createToolbar(api: ToolbarApi): Toolbar {
@@ -292,8 +293,8 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     } catch {
       eff = null
     }
-    font.set(sel?.ff ?? st?.ff ?? eff?.ff ?? '글꼴')
-    shownSize = sel?.fs ?? st?.fs ?? eff?.fs ?? ''
+    font.set(sel?.ff ?? st?.ff ?? eff?.ff ?? DEFAULT_FONT)
+    shownSize = sel?.fs ?? st?.fs ?? eff?.fs ?? DEFAULT_SIZE
     if (document.activeElement !== sizeInput) syncSize()
     const fcv = sel?.fc ?? st?.fc ?? null
     fc.set(fcv ? COLOR_KO[fcv] ?? fcv : '글자색', fcv ? (COLORS.includes(fcv) ? `var(--c-${fcv})` : fcv) : null)

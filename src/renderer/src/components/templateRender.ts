@@ -221,6 +221,10 @@ function build(n: TNode): HTMLElement {
     }
     case 'text': {
       const d = el('div', 'tp-text')
+      if (n.line !== null) {
+        d.dataset.tline = String(n.line)
+        d.dataset.raw = n.raw
+      }
       applyStyle(d, n.style)
       const bg = backColor(n.style.bg)
       if (bg) d.style.background = bg

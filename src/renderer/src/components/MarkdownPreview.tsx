@@ -7,7 +7,7 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, applyGridEdit, readGrid, redoEditor, replaceCellText, undoEditor } from '../editor/MarkdownEditor'
+import { addCellText, applyGridEdit, readGrid, redoEditor, replaceCellText, replaceTextLine, splitTextLine, undoEditor } from '../editor/MarkdownEditor'
 import { createToolbar, type Toolbar } from './templateToolbar'
 import {
   deleteCols,
@@ -729,6 +729,102 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const x = t instanceof Element ? t.closest<HTMLElement>('.tq-cell') : null
         return x && grid()?.contains(x) ? x : null
       }
+      let tEdit: HTMLElement | null = null
+      let tStart = ''
+      let tHtml = ''
+      const tNorm = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+      const tCommit = (): void => {
+        const box = tEdit
+        if (!box) return
+        tEdit = null
+        box.removeEventListener('blur', tCommit)
+        box.removeEventListener('keydown', tKey)
+        box.contentEditable = 'false'
+        const value = tNorm(box.innerText ?? '')
+        if (value === tStart) {
+          box.innerHTML = tHtml
+          return
+        }
+        replaceTextLine(Number(box.dataset.tline), value)
+      }
+      const openText = (t: HTMLElement, at: { x: number; y: number } | null, where: 'start' | 'end'): void => {
+      if (tEdit) tCommit()
+      tEdit = t
+      tHtml = t.innerHTML
+      tStart = tNorm(t.innerText)
+      t.contentEditable = 'plaintext-only'
+      t.spellcheck = false
+      t.addEventListener('blur', tCommit)
+      t.addEventListener('keydown', tKey)
+      t.focus()
+      const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }
+      let rg = at ? (d.caretRangeFromPoint?.(at.x, at.y) ?? null) : null
+      if (!rg || !t.contains(rg.startContainer)) {
+        rg = document.createRange()
+        rg.selectNodeContents(t)
+        rg.collapse(where === 'start')
+      }
+      const s = window.getSelection()
+      s?.removeAllRanges()
+      s?.addRange(rg)
+    }
+    function tKey(e: KeyboardEvent): void {
+      e.stopPropagation()
+      if (e.isComposing) return
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        tCommit()
+        return
+      }
+      if (e.key !== 'Enter') return
+      e.preventDefault()
+      const box = e.currentTarget as HTMLElement
+      const s = window.getSelection()
+      if (!s || s.rangeCount === 0 || !box.contains(s.anchorNode)) return
+      const r = s.getRangeAt(0)
+      const full = box.innerText.replace(/\n$/, '')
+      const pre = document.createRange()
+      pre.selectNodeContents(box)
+      pre.setEnd(r.startContainer, r.startOffset)
+      const upTo = document.createRange()
+      upTo.selectNodeContents(box)
+      upTo.setEnd(r.endContainer, r.endOffset)
+      const before = full.slice(0, pre.toString().length)
+      const after = full.slice(upTo.toString().length)
+      const line = Number(box.dataset.tline)
+      tEdit = null
+      box.removeEventListener('blur', tCommit)
+      box.removeEventListener('keydown', tKey)
+      box.contentEditable = 'false'
+      const root = el
+      onceRendered(() => {
+        const next = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${line + 1}"]`)
+        if (next) openText(next, null, 'start')
+      })
+      splitTextLine(line, before, after)
+    }
+    const onTextClick = (e: MouseEvent): void => {
+      if (!editModeRef.current || e.button !== 0) return
+      const tg = e.target instanceof Element ? e.target : null
+      if (!tg || tg.closest('.tq-cell, .tp-edit-btn')) return
+      let t = tg.closest<HTMLElement>('.tp-text[data-tline]')
+      const direct = t !== null
+      if (!t) {
+        const page = tg.closest<HTMLElement>('.snote-page')
+        if (!page) return
+        let bestD = Infinity
+        for (const x of Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))) {
+          const r = x.getBoundingClientRect()
+          const d = e.clientY < r.top ? r.top - e.clientY : e.clientY > r.bottom ? e.clientY - r.bottom : 0
+          if (d < bestD) {
+            bestD = d
+            t = x
+          }
+        }
+      }
+      if (!t || t === tEdit) return
+      openText(t, direct ? { x: e.clientX, y: e.clientY } : null, 'end')
+    }
       const onDown = (e: MouseEvent): void => {
         if (!editModeRef.current || e.button !== 0) return
         const x = cellOf(e.target)
@@ -836,7 +932,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const onKey = (e: KeyboardEvent): void => {
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         if ((e.target as Element | null)?.closest?.('math-field')) return
-        if ((e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement))
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
           const k = e.key.toLowerCase()
           if (k === 'z' || k === 'y') {
@@ -1306,11 +1401,13 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       window.addEventListener('mousemove', onResizeMove)
       window.addEventListener('mouseup', onResizeUp)
       el.addEventListener('mousedown', onDown)
+      el.addEventListener('click', onTextClick)
       el.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
       window.addEventListener('keydown', onKey, true)
       el.addEventListener('snote-rendered', restore)
       return () => {
+        el.removeEventListener('click', onTextClick)
         el.removeEventListener('mousedown', onDown)
         el.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
