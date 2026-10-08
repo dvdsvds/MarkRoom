@@ -774,6 +774,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       s?.addRange(rg)
     }
 
+    const root0 = (): HTMLElement => el as HTMLElement
     function tOut(e: FocusEvent): void {
       const to = e.relatedTarget as Node | null
       if (to && tEdit && (tEdit.contains(to) || toolbar?.el.contains(to))) return
@@ -809,6 +810,23 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         bx.removeEventListener('keydown', tKey)
         bx.contentEditable = 'false'
         return
+      }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const ax = e.currentTarget as HTMLElement
+        const sa = window.getSelection()
+        if (!sa || !sa.isCollapsed || !sa.anchorNode || !ax.contains(sa.anchorNode)) return
+        const all = ax.innerText.replace(/\n$/, '')
+        const rr = document.createRange()
+        rr.selectNodeContents(ax)
+        rr.setEnd(sa.anchorNode, sa.anchorOffset)
+        const off = rr.toString().length
+        const up = e.key === 'ArrowUp'
+        if (up ? all.slice(0, off).includes('\n') : all.slice(off).includes('\n')) return
+        const list = Array.from(root0().querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
+        const nx = list[list.indexOf(ax) + (up ? -1 : 1)]
+        if (!nx) return
+        e.preventDefault()
+        openText(nx, null, up ? 'end' : 'end')
       }
       if (e.key !== 'Enter') return
       e.preventDefault()
@@ -1315,7 +1333,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           else if (runCell(t, ch)) onceRendered(reopen)
         },
         script: (kind) => {
-          const box = editing
+          const box = editing ?? tEdit
           const s = window.getSelection()
           if (!box || !s || s.rangeCount === 0 || !box.contains(s.anchorNode)) {
             toast('칸을 편집하는 중에 눌러 주세요')

@@ -44,7 +44,8 @@ export function registerPdfExport(getWindow: () => BrowserWindow | null): void {
             sandbox: true,
             contextIsolation: true,
             nodeIntegration: false,
-            javascript: false
+            javascript: false,
+            devTools: false
           }
         })
         win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))

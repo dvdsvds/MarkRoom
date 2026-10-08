@@ -24,7 +24,7 @@ function createQuickWindow(): BrowserWindow {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: is.dev
+      devTools: false
     }
   })
 
