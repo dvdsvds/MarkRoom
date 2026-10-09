@@ -45,5 +45,5 @@ npmRebuild: false
 publish:
   provider: github
   owner: dvdsvds
-  repos: syntaxnote-releases
+  repo: syntaxnote-releases
   releaseType: draft
