@@ -567,7 +567,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         box.removeEventListener('keydown', onEditKey)
         box.removeEventListener('focusout', onFocusOut)
         const value = serializeBox(box)
-        // 편집용 수식 상자를 평소 보기(KaTeX)로 되돌린다
         for (const mf of Array.from(box.querySelectorAll('math-field'))) {
           const t = isMath(mf) ? texOf(mf) : ''
           if (t) {
@@ -651,7 +650,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           c += dir
         }
       }
-      // 칸 편집창 밖으로 포커스가 나갈 때만 저장한다(수식 상자로 옮겨 가는 것은 제외)
       function onFocusOut(e: FocusEvent): void {
         const to = e.relatedTarget as Node | null
         if (to && editing && (editing.contains(to) || toolbar?.el.contains(to))) return
@@ -660,7 +658,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       function onEditKey(e: KeyboardEvent): void {
         e.stopPropagation()
         if (e.isComposing) return
-        // 수식 상자 안의 키는 MathLive가 처리한다(Esc, F5만 칸 편집 종료로 쓴다)
         if ((e.target as Element | null)?.closest?.('math-field') && e.key !== 'Escape' && e.key !== 'F5') return
         if ((e.key === ' ' || e.key === 'Enter') && !e.ctrlKey && !e.altKey && !e.metaKey) {
           const s0 = window.getSelection()
@@ -1279,7 +1276,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (err) toast(err)
         return !err
       }
-      // 편집 중 고른 글자(툴바 숫자 칸으로 포커스가 가도 기억해 둔다)
       let lastRange: Range | null = null
       const curRange = (): Range | null => {
         const box = editing
@@ -1292,7 +1288,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const applyText = (box: HTMLElement, tc: TextChange): void => {
         const r = curRange()
         if (!r) return
-        // 글자를 고르지 않았으면 커서 자리부터 이어서 치는 글자에 적용한다
         const out = r.collapsed ? applyCaret(box, r, tc) : applyInline(box, r, tc)
         if (!out) {
           if (r.collapsed) toast('첨자 안에서는 글자 모양을 바꿀 수 없어요')
@@ -1390,7 +1385,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
                 return p.r + p.rs > t.r1 && p.r <= t.r2 && p.c + p.cs > t.c1 && p.c <= t.c2
               })
             : []
-          // 선택한 칸이 없으면 편집 중인 서식의 첫 칸을 기준으로 보여 준다
           if (xs.length === 0) {
             const first = grid()?.querySelector<HTMLElement>('.tq-cell')
             if (first) xs = [first]
@@ -1414,7 +1408,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         toolbar.setVisible(editModeRef.current)
       }
       mountBar()
-      // 툴바의 숫자 칸으로 포커스가 옮겨 가도 칸 편집은 유지하고, 툴바 밖으로 나가면 저장한다
       toolbar.el.addEventListener('focusout', (e) => {
         const to = e.relatedTarget as Node | null
         if (editing && !(to && (editing.contains(to) || toolbar?.el.contains(to)))) commit()

@@ -59,10 +59,16 @@ const sanitizeConfig: SanitizeConfig = {
   ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink',' data-line']
 }
 
+function toSnoteUrl(absPath: string): string {
+  const posix = absPath.replace(/\\/g, '/')
+  const withLead = posix.startsWith('/') ? posix : `/${posix}`
+  return `snote://${encodeURI(withLead)}`
+}
+
 function resolveAttachmentSrcs(html: string, baseDir: string): string {
   return html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g, (match, prefix, src, suffix) => {
     if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('/')) return match
-    return `${prefix}snote://${encodeURI(`${baseDir}/${src}`)}${suffix}`
+    return `${prefix}${toSnoteUrl(`${baseDir.replace(/\\/g, '/')}/${src}`)}${suffix}`
   })
 }
 

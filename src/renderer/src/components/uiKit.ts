@@ -1,5 +1,3 @@
-/** 서식 편집용 작은 창·막대가 함께 쓰는 모양. 색은 앱 테마 변수만 쓴다. */
-
 const THEME = `:root{
 --tq-panel:#1b1c20;--tq-edge:#38393f;--tq-divider:#2a2b30;
 --tq-field-bg:#222328;--tq-field-hover:#2a2b30;--tq-field-border:#4e5057;--tq-field-border-hover:#5b5d64;
@@ -29,7 +27,6 @@ export const INPUT_CSS =
 export const icon = (inner: string, size = 16): string =>
   `<svg width="${size}" height="${size}" viewBox="0 0 16 16" style="display:block" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none">${inner}</svg>`
 
-/** 눌러도 칸 편집의 입력 위치·글자 선택이 풀리지 않는 단추. */
 export function button(
   html: string,
   title: string,
@@ -80,7 +77,6 @@ export function kbd(text: string): HTMLElement {
   return k
 }
 
-/** 글 사이사이에 kbd를 끼운 안내 줄. 문자열은 그대로, {키} 는 kbd로 만든다. */
 export function hintLine(parts: (string | { key: string })[]): HTMLElement {
   const h = document.createElement('div')
   h.style.cssText = 'font-size:12.5px;color:var(--tq-text2);line-height:22px'
@@ -88,9 +84,6 @@ export function hintLine(parts: (string | { key: string })[]): HTMLElement {
   return h
 }
 
-// ───────── 드롭다운(기본 select 대신) ─────────
-
-/** 글자색·배경색 선택 격자(한 줄 10칸). */
 export const PALETTE = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
   '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
@@ -107,11 +100,8 @@ export interface DropItem {
   value: string | null
   css?: string
   swatch?: string
-  /** 있으면 글자 대신 이 HTML(미리보기)을 목록 칸에 그린다. */
   html?: string
-  /** 마우스를 올렸을 때 보이는 설명(글자 없는 항목용). */
   title?: string
-  /** 이 항목 위에 구분선을 긋는다. */
   sepBefore?: boolean
 }
 
@@ -126,7 +116,6 @@ export function closeMenus(): void {
   menus.forEach((m) => m.close())
 }
 
-/** 직접 만든 팝업을 closeMenus / 바깥 클릭 닫기에 등록한다. */
 export function registerMenu(wrap: HTMLElement, close: () => void): void {
   hookOutside()
   menus.add({ wrap, close })
@@ -331,8 +320,6 @@ export function dropdown(o: {
   }
 }
 
-// ───────── 창 ─────────
-
 export function panel(o: {
   title: string
   top?: string
@@ -353,7 +340,6 @@ export function panel(o: {
   foot.style.cssText = `padding:8px 14px;border-top:${DIV}`
   box.append(head, body, foot)
 
-  // 제목줄을 잡고 끌어서 옮긴다
   head.addEventListener('mousedown', (e) => {
     if (e.button !== 0 || (e.target instanceof Element && e.target.closest('button'))) return
     e.preventDefault()
@@ -377,7 +363,6 @@ export function panel(o: {
   return { box, body, foot, close: () => box.remove() }
 }
 
-/** 라벨 + 컨트롤 한 덩어리 */
 export function field(label: string, control: HTMLElement): HTMLElement {
   const w = document.createElement('div')
   w.style.cssText = 'display:flex;flex-direction:column;gap:4px'
@@ -387,8 +372,6 @@ export function field(label: string, control: HTMLElement): HTMLElement {
   w.append(t, control)
   return w
 }
-
-// ───────── 알림 ─────────
 
 let toastEl: HTMLElement | null = null
 export function toast(msg: string): void {
@@ -408,9 +391,6 @@ export function toast(msg: string): void {
   }, 2800)
 }
 
-// ───────── 선 모양 미리보기(드롭다운 안에 넣는 그림) ─────────
-
-/** 선 한 줄 그림. kind: solid/dashed/double/none, px: 굵기(픽셀). width가 'full'이면 칸 너비에 맞춰 늘어난다. */
 export function lineSample(kind: string, px = 1.5, width: number | 'full' = 84): string {
   if (kind === 'none') return `<span style="color:var(--tq-text2)">없음</span>`
   const full = width === 'full'
@@ -426,7 +406,6 @@ export function lineSample(kind: string, px = 1.5, width: number | 'full' = 84):
   return svg(l(7, px))
 }
 
-/** 칸 모양 안에 그은 대각선 그림. 칸 너비에 맞춰 늘어난다. */
 export function diagSample(dir: 'down' | 'up'): string {
   return (
     `<svg width="100%" height="14" style="display:block;flex:1;min-width:0" fill="none" stroke="currentColor">` +
@@ -438,7 +417,6 @@ export function diagSample(dir: 'down' | 'up'): string {
   )
 }
 
-/** 색 막대 그림. color가 null이면 기본(검정). */
 export function colorBar(color: string | null, width: number | 'full' = 84): string {
   const c = color ? `var(--c-${color})` : '#000'
   const w = width === 'full' ? 'flex:1;min-width:0' : `flex:none;width:${width}px`

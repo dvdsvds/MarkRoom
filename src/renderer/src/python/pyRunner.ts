@@ -118,7 +118,9 @@ async function doRun(code: string, baseDir: string): Promise<RunResult> {
       const d = e.data as Record<string, unknown> | null
       if (d && d.type === 'result' && d.id === id) finish(normalize(d), false)
     }
-    const onError = (): void => finish(failure('실행 중 오류가 났어요.'), true)
+    const onError = (): void => {
+      finish(failure('실행 중 오류가 났어요.'), true)
+    }
     s.worker.addEventListener('message', onMessage)
     s.worker.addEventListener('error', onError)
     s.worker.postMessage({ type: 'run', id, code, files, fileErrors })

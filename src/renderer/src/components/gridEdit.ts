@@ -1,23 +1,14 @@
-/**
- * 서식 격자의 칸 합치기·나누기.
- * 문서 글자(줄 목록)만 다루는 순수 함수라서 화면 없이 시험할 수 있다.
- * 결과는 격자 한 개(헤더 줄 ~ 닫는 ] 줄)를 통째로 바꿀 새 줄 목록이다.
- */
-
 export interface CellInfo {
   r: number
   c: number
   rs: number
   cs: number
-  /** 칸 정의 줄 번호(문서 기준, 1부터). 글자가 없는 빈 자리면 null */
   def: number | null
   end: number | null
 }
 
 export interface GridInfo {
-  /** grid=N [ 줄 번호 */
   head: number
-  /** 닫는 ] 줄 번호 */
   close: number
   cols: number
   widths: (number | null)[]
@@ -82,7 +73,6 @@ function splitColon(src: string): [string, string | null] {
 interface DefParts {
   indent: string
   head: string[]
-  /** 콜론이 없으면 null */
   tail: string[] | null
 }
 
@@ -106,7 +96,6 @@ function hOf(p: DefParts): number | null {
   return null
 }
 
-/** h가 undefined면 기존 h= 를 그대로 두고, 숫자면 바꾸고, null이면 지운다. */
 function buildDef(
   p: DefParts,
   r: number,
@@ -143,7 +132,6 @@ function effectiveWidths(widths: (number | null)[], cols: number): number[] {
   return widths.map((w) => w ?? share)
 }
 
-/** 칸이 span개 열을 차지하고 k칸으로 나눌 때, 열마다 몇 조각으로 쪼개야 하는지. */
 function demand(span: number, k: number): number[] {
   if (k <= span) return Array<number>(span).fill(1)
   const extra = k - span
@@ -152,7 +140,6 @@ function demand(span: number, k: number): number[] {
   return Array.from({ length: span }, (_, i) => 1 + base + (i < rem ? 1 : 0))
 }
 
-/** total개를 k묶음으로 최대한 고르게(앞 묶음이 더 크게) 나눈 크기들. */
 function partition(total: number, k: number): number[] {
   const base = Math.floor(total / k)
   const rem = total % k
@@ -169,7 +156,6 @@ function starts(n: number[]): number[] {
   return s
 }
 
-/** vals[i]를 ns[i]등분한 새 목록. 소수 둘째 자리로 맞추되 합은 그대로, 너무 작으면 null. */
 function splitSizes(vals: number[], ns: number[]): number[] | null {
   const raw: number[] = []
   vals.forEach((v, i) => {
@@ -244,7 +230,6 @@ function assemble(
   return { ok: true, from: info.head, to: info.close, lines }
 }
 
-/** 선택한 범위의 칸들을 하나로 합친다. 글자는 줄바꿈으로 이어 붙이고, 모양은 왼쪽 위 칸의 것을 쓴다. */
 export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
   const inside = cellsIn(info, rect)
   if (typeof inside === 'string') return fail(inside)
@@ -305,11 +290,6 @@ export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridRes
   return assemble(info, getLine, items, null)
 }
 
-/**
- * 칸 수가 차지한 열 수보다 많을 때, 그 열들의 폭을 통째로 n등분할 수 있는지 본다.
- * 가능하면 {시작 열 → 열 수} 목록을, 안 되면 null을 돌려준다.
- * 다른 칸이 그 열 범위를 일부만 걸치면(범위 안쪽이거나 걸쳐 있으면) 안 된다. 범위 전체를 덮는 칸은 괜찮다.
- */
 function equalColumns(info: GridInfo, inside: CellInfo[], nCols: number): Map<number, number> | null {
   const groups = new Map<number, number>()
   for (const cell of inside) {
@@ -332,11 +312,6 @@ function equalColumns(info: GridInfo, inside: CellInfo[], nCols: number): Map<nu
   return groups
 }
 
-/**
- * 선택한 범위의 칸을 각각 nCols칸 × nRows줄로 나눈다.
- * 글자는 첫 조각(왼쪽 위)에 남고 나머지는 빈 칸이다. 모양(옵션)은 조각 모두 그대로 물려받는다.
- * 칸이 차지한 열·줄보다 많이 나누면 격자 전체에 열·줄이 늘어나고, 다른 칸들은 그만큼 넓어진 것으로 쓴다.
- */
 export function splitGrid(
   info: GridInfo,
   rect: Rect,
@@ -456,15 +431,12 @@ export function splitGrid(
   return assemble(info, getLine, items, addCols ? { n: newCols, widths: newW } : null)
 }
 
-// ───────────── 행·열 추가/삭제 ─────────────
-
 const NEW_KEY = Number.MAX_SAFE_INTEGER
 
 function emptyDef(info: GridInfo, getLine: GetLine): DefParts {
   return { indent: (/^\s*/.exec(getLine(info.head))?.[0] ?? '') + '  ', head: [], tail: [] }
 }
 
-/** 마지막 줄에 칸 정의가 하나도 닿지 않으면(줄이 사라지므로) 높이를 담은 빈 칸을 하나 둔다. */
 function ensureLastRow(info: GridInfo, getLine: GetLine, items: Out[], rows: number, h: number): void {
   if (items.some((it) => it.r + it.rs === rows)) return
   const used = new Set<number>()
@@ -476,13 +448,11 @@ function ensureLastRow(info: GridInfo, getLine: GetLine, items: Out[], rows: num
   items.push({ key: NEW_KEY, seq: items.length, r: rows - 1, c: col, rs: 1, cs: 1, parts: emptyDef(info, getLine), body: [], h })
 }
 
-/** 전체 폭을 그대로 두고 열 폭 목록을 비례해서 맞춘다. 너무 좁아지면 null. */
 function fitWidths(list: number[], total: number): number[] | null {
   const now = list.reduce((a, b) => a + b, 0)
   return splitSizes(list.map((v) => (v * total) / now), list.map(() => 1))
 }
 
-/** 선택한 범위의 줄 수만큼 줄을 아래(after) 또는 위에 추가한다. */
 export function insertRows(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
   const n = rect.r2 - rect.r1 + 1
   const rows = info.heights.length
@@ -518,7 +488,6 @@ export function insertRows(info: GridInfo, rect: Rect, after: boolean, getLine: 
   return assemble(info, getLine, items, null)
 }
 
-/** 선택한 범위의 열 수만큼 열을 오른쪽(after) 또는 왼쪽에 추가한다. 표 전체 폭은 그대로, 열 폭은 비례해서 줄어든다. */
 export function insertCols(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
   const n = rect.c2 - rect.c1 + 1
   if (info.cols + n > MAX_COLS) return fail(`열은 ${MAX_COLS}개까지예요.`)
@@ -548,7 +517,6 @@ export function insertCols(info: GridInfo, rect: Rect, after: boolean, getLine: 
   return assemble(info, getLine, items, { n: info.cols + n, widths })
 }
 
-/** 선택한 범위가 걸친 줄을 모두 지운다. 지우는 줄에 일부만 걸친 칸이 있으면 막는다. */
 export function deleteRows(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
   const n = rect.r2 - rect.r1 + 1
   const rows = info.heights.length
@@ -573,7 +541,6 @@ export function deleteRows(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
   return assemble(info, getLine, items, null)
 }
 
-/** 선택한 범위가 걸친 열을 모두 지운다. 표 전체 폭은 그대로, 남은 열이 비례해서 넓어진다. */
 export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
   const n = rect.c2 - rect.c1 + 1
   if (n >= info.cols) return fail('열이 하나는 남아야 해요.')
@@ -603,13 +570,10 @@ export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
   return assemble(info, getLine, items, { n: info.cols - n, widths })
 }
 
-// ───────────── 열 폭·줄 높이 끌기 ─────────────
-
 const MIN_COL_MM = 5
 const MIN_ROW_MM = 3
 const snap = (v: number, step: number): number => Math.round(v / step) * step
 
-/** k번째 열과 k+1번째 열 사이 경계를 deltaMm만큼 옮긴 열 폭 목록(mm). 전체 폭은 그대로. 옮길 수 없으면 null. */
 export function dragColWidths(info: GridInfo, k: number, deltaMm: number, step = 0.5): number[] | null {
   if (k < 0 || k + 1 >= info.cols) return null
   const eff = effectiveWidths(info.widths, info.cols).map(r2)
@@ -622,7 +586,6 @@ export function dragColWidths(info: GridInfo, k: number, deltaMm: number, step =
   return out
 }
 
-/** 열 폭 목록(mm)을 widths= 로 쓴다. */
 export function setColWidths(info: GridInfo, widths: number[], getLine: GetLine): GridResult {
   if (widths.length !== info.cols) return fail('열 수가 맞지 않아요.')
   if (widths.some((w) => !(w >= MIN_COL_MM))) return fail('열이 너무 좁아요.')
@@ -637,7 +600,6 @@ export function setColWidths(info: GridInfo, widths: number[], getLine: GetLine)
   return assemble(info, getLine, items, { n: info.cols, widths: widths.map(r2) })
 }
 
-/** row번째 줄의 높이를 h(mm)로 맞춘다. 그 줄에서 시작하는 한 줄짜리 칸들의 h=를 바꾸고, 없으면 빈 칸을 하나 둔다. */
 export function setRowHeight(info: GridInfo, row: number, h: number, getLine: GetLine, step = 0.5): GridResult {
   const H = r2(Math.min(MAX_MM, Math.max(MIN_ROW_MM, snap(h, step))))
   const items: Out[] = []
@@ -662,8 +624,6 @@ export function setRowHeight(info: GridInfo, row: number, h: number, getLine: Ge
   return assemble(info, getLine, items, null)
 }
 
-// ───────────── 선 편집 ─────────────
-
 export type BorderWhere =
   | 'all'
   | 'outer'
@@ -675,7 +635,6 @@ export type BorderWhere =
   | 'vmid'
   | 'hmid'
 export type BorderKind = 'none' | 'solid' | 'thick' | 'double' | 'dashed'
-/** 선 한 가지 모양: 종류, 굵기(mm, null이면 기본), 색(null이면 기본). */
 export interface BorderStyle {
   kind: BorderKind
   w: number | null
@@ -686,7 +645,6 @@ const SIDES: Side[] = ['t', 'b', 'l', 'r']
 const SIDE_WORD: Record<Side, string> = { t: 'top', b: 'bottom', l: 'left', r: 'right' }
 const OPPOSITE: Record<Side, Side> = { t: 'b', b: 't', l: 'r', r: 'l' }
 
-/** solid,0.5,red 처럼 문서에 쓰는 값. 굵기와 색이 없으면 종류만 쓴다. */
 export function borderValue(st: BorderStyle): string {
   if (st.kind === 'none' || (st.w === null && st.c === null)) return st.kind
   const parts: string[] = [st.kind, st.w === null ? '-' : String(r2(st.w))]
@@ -694,7 +652,6 @@ export function borderValue(st: BorderStyle): string {
   return parts.join(',')
 }
 
-/** 칸 정의 줄의 옵션에서 key= 로 시작하는 것을 지우고 새 값을 쓴다. */
 function withOpts(p: DefParts, put: Record<string, string>, remove: string[] = []): DefParts {
   const drop = [...Object.keys(put), ...remove].map((k) => `${k}=`)
   const keep = (t: string): boolean => !drop.some((d) => t.startsWith(d))
@@ -704,7 +661,6 @@ function withOpts(p: DefParts, put: Record<string, string>, remove: string[] = [
   return { ...p, head, tail: [...p.tail.filter(keep), ...add] }
 }
 
-/** 이웃 칸이 그 쪽 선을 직접 정해 둔 칸인지(border= 또는 border-쪽=). */
 function hasExplicit(p: DefParts, side: Side): boolean {
   return [...p.head, ...(p.tail ?? [])].some((t) => t.startsWith('border=') || t.startsWith(`border-${SIDE_WORD[side]}=`))
 }
@@ -717,11 +673,6 @@ function withFrame(line: string, st: BorderStyle): string {
   return `${indent}${toks.join(' ')} [`
 }
 
-/**
- * 선택한 칸들의 선을 바꾼다.
- * 선택한 칸에 border-쪽=값 을 쓰고, 맞닿은 이웃 칸이 그 쪽 선을 직접 정해 둔 경우에만 이웃 값도 같이 바꿔서 항상 원하는 대로 보이게 한다.
- * 격자 맨 바깥 테두리는 frame= 이라서, 격자 전체를 선택하고 전체/바깥쪽을 고를 때만 바뀐다.
- */
 export function setBorders(
   info: GridInfo,
   rect: Rect,
@@ -735,7 +686,6 @@ export function setBorders(
   const value = borderValue(st)
   const picked = new Set(inside)
   const wholeGrid = rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
-  // 격자 전체를 골라 전체/바깥쪽을 정하면 맨 바깥 선은 frame= 하나로 정한다. 그 밖에는 가장자리 칸이 자기 쪽 선을 직접 갖는다.
   const frame = wholeGrid && (where === 'all' || where === 'outer')
   const edits = new Map<CellInfo, Partial<Record<Side, string>>>()
   const put = (c: CellInfo, s: Side): void => {
@@ -788,7 +738,6 @@ export function setBorders(
           : s === 'l' ? n.c + n.cs === c.c && n.r < c.r + c.rs && n.r + n.rs > c.r
           : n.c === c.c + c.cs && n.r < c.r + c.rs && n.r + n.rs > c.r
         const p = touches ? defOf(n) : null
-        // 이웃이 이 선에 더 길게 걸쳐 있으면(둘이 부딪힐 때 내 쪽이 이기므로) 이웃 값은 그대로 둔다.
         const horizEdge = s === 't' || s === 'b'
         const nSpan = horizEdge ? n.cs : n.rs
         const cSpan = horizEdge ? c.cs : c.rs
@@ -796,7 +745,6 @@ export function setBorders(
       }
     }
   }
-  // 모두 + 없음은 대각선까지 포함해 칸 안의 선을 전부 지운다.
   const wipe = where === 'all' && st.kind === 'none'
   if (edits.size === 0 && !frame && !wipe) {
     return fail('이 위치에는 바꿀 선이 없어요. 안쪽 선은 칸을 둘 이상 선택해야 해요.')
@@ -828,7 +776,6 @@ export function setBorders(
   return res
 }
 
-/** 선택한 칸 하나하나에 대각선을 긋거나(없음이 아닐 때) 지운다. dir: down은 ↘, up은 ↗. */
 export function setDiagonals(
   info: GridInfo,
   rect: Rect,
@@ -863,25 +810,20 @@ export function setDiagonals(
   return assemble(info, getLine, items, null)
 }
 
-// ───────────────────────── 도구 막대: 글자 모양·정렬 ─────────────────────────
 
 export type FlagName = 'bold' | 'italic' | 'underline' | 'strike'
 export type HAlign = 'left' | 'center' | 'right' | 'justify' | 'distribute'
 export type VAlign = 'top' | 'middle' | 'bottom'
 
 export interface CellOptChange {
-  /** true면 켜고 false면 끈다. 없으면 건드리지 않는다. */
   flags?: Partial<Record<FlagName, boolean>>
-  /** 값을 쓰거나(문자열) 지운다(null). */
   kv?: Partial<Record<'ff' | 'fs' | 'fc' | 'bg', string | null>>
-  /** 문자열이면 그 정렬로, null이면 정렬 옵션을 지운다. 없으면 건드리지 않는다. */
   align?: HAlign | null
   valign?: VAlign | null
 }
 
 export interface CellOptState {
   flags: Record<FlagName, boolean>
-  /** 선택한 칸이 모두 같은 값이면 그 값, 다르거나 없으면 null */
   ff: string | null
   fs: string | null
   fc: string | null
@@ -925,7 +867,6 @@ function applyOptChange(p: DefParts, ch: CellOptChange): DefParts {
   return { ...p, head, tail: [...p.tail.filter(keep), ...add] }
 }
 
-/** 선택한 칸마다 글자 모양·정렬 옵션을 바꾼다. 칸 정의가 없는 빈 칸은 새로 만든다. */
 export function setCellOpts(
   info: GridInfo,
   rect: Rect,
@@ -956,7 +897,6 @@ export function setCellOpts(
   return assemble(info, getLine, items, null)
 }
 
-/** 선택한 칸들의 현재 글자 모양·정렬. 칸마다 다르면 null(켜짐 표시는 모두 켜졌을 때만). */
 export function readCellOpts(info: GridInfo, rect: Rect, getLine: GetLine): CellOptState {
   const inside = cellsIn(info, rect)
   const cells = typeof inside === 'string' ? [] : inside

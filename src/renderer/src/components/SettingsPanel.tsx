@@ -170,75 +170,75 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     void applyHistoryDir(null)
   }, [applyHistoryDir])
 
-  const items: SettingItem[] = useMemo(
-    () => [
-      {
-        id: 'vim-mode',
-        category: '일반',
-        group: 'Vim',
-        label: 'Vim 모드',
-        render: () => (
-          <Field label="Vim 모드">
-            <Toggle checked={vimMode} onChange={() => setVimMode(!vimMode)} />
-          </Field>
-        )
-      },
-      {
-        id: 'vim-mouse',
-        category: '일반',
-        group: 'Vim',
-        label: '마우스 사용',
-        render: () => (
-          <Field label="마우스 사용">
-            <Toggle checked={vimMouse} onChange={() => setVimMouse(!vimMouse)}/>
-          </Field>
+    const items: SettingItem[] = useMemo(
+      () => [
+        {
+          id: 'vim-mode',
+          category: '일반',
+          group: 'Vim',
+          label: 'Vim 모드',
+          render: () => (
+            <Field label="Vim 모드">
+              <Toggle checked={vimMode} onChange={() => setVimMode(!vimMode)} />
+            </Field>
+          )
+        },
+        {
+          id: 'vim-mouse',
+          category: '일반',
+          group: 'Vim',
+          label: '마우스 사용',
+          render: () => (
+            <Field label="마우스 사용">
+              <Toggle checked={vimMouse} onChange={() => setVimMouse(!vimMouse)}/>
+            </Field>
 
-        )
-      },
-      {
-        id: 'history-dir',
-        category: '일반',
-        group: '버전 기록',
-        label: '기록 저장 위치',
-        render: () => (
-          <Field label="기록 저장 위치">
-            <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-soft px-3 py-2.5">
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="shrink-0 text-text-tertiary"
-              >
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-              </svg>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-text" title={historyDir}>
-                {historyDir || '…'}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleChangeHistoryDir}
-                className="rounded-md bg-accent-soft px-3 py-1.5 text-[13px] font-medium text-accent hover:brightness-110 focus:outline-none"
-              >
-                폴더 변경
-              </button>
-              <button
-                type="button"
-                onClick={handleResetHistoryDir}
-                className="rounded-md border border-border px-3 py-1.5 text-[13px] text-text-secondary hover:border-border-strong hover:text-text focus:outline-none"
-              >
-                기본값으로
-              </button>
-            </div>
-          </Field>
-        )
-      },
+          )
+        },
+        {
+          id: 'history-dir',
+          category: '일반',
+          group: '버전 기록',
+          label: '기록 저장 위치',
+          render: () => (
+            <Field label="기록 저장 위치">
+              <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-soft px-3 py-2.5">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="shrink-0 text-text-tertiary"
+                >
+                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+                </svg>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-text" title={historyDir}>
+                  {historyDir || '…'}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleChangeHistoryDir}
+                  className="rounded-md bg-accent-soft px-3 py-1.5 text-[13px] font-medium text-accent hover:brightness-110 focus:outline-none"
+                >
+                  폴더 변경
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetHistoryDir}
+                  className="rounded-md border border-border px-3 py-1.5 text-[13px] text-text-secondary hover:border-border-strong hover:text-text focus:outline-none"
+                >
+                  기본값으로
+                </button>
+              </div>
+            </Field>
+          )
+        },
       {
         id: 'theme',
         category: '화면',
@@ -434,7 +434,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       toggleCharCountExcludeSpaces,
       historyDir,
       handleChangeHistoryDir,
-      handleResetHistoryDir
+      handleResetHistoryDir,
     ]
   )
 

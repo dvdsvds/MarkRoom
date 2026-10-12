@@ -50,7 +50,20 @@ interface ExportOptions {
 
 interface ExportResult {
   exportedFiles: number
+  images: number
+  attachments: number
 }
+
+interface PdfNote {
+  relPath: string
+  source: string
+  baseDir: string
+  links: Record<string, string | null>
+}
+
+type PrepareResult =
+  | { ok: true; baseDir: string; mdDir: string | null; pdfDir: string | null }
+  | { ok: false; error: 'invalid' | 'exists' | 'denied' }
 
 interface RecoverableItem {
   tmpPath: string
@@ -120,7 +133,13 @@ const api = {
       html: string
       css: string
     }): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> =>
-      ipcRenderer.invoke('export:pdf', payload)
+      ipcRenderer.invoke('export:pdf', payload),
+      pdfFile: (payload: {
+        html: string
+        css: string
+        pdfDir: string
+        relPath: string
+      }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('export:pdfFile', payload)
   },
   code: {
     run: (code: string, baseDir: string): Promise<RunResult> =>
@@ -171,6 +190,17 @@ const api = {
       ipcRenderer.invoke('workspace:checkExportLinks', folderPath),
     exportFolder: (opts: ExportOptions): Promise<ExportResult> =>
       ipcRenderer.invoke('workspace:exportFolder', opts),
+    listPdfNotes: (folderPath: string): Promise<PdfNote[]> =>
+      ipcRenderer.invoke('workspace:listPdfNotes', folderPath),
+    openPath: (targetPath: string): Promise<string> =>
+      ipcRenderer.invoke('workspace:openPath', targetPath),
+    prepareExport: (
+      parentDir: string,
+      name: string, 
+      md: boolean, 
+      pdf: boolean
+    ): Promise<PrepareResult> =>
+      ipcRenderer.invoke('workspace:prepareExport', parentDir, name, md, pdf),
     listRecoverable: (): Promise<RecoverableItem[]> =>
       ipcRenderer.invoke('workspace:listRecoverable'),
     applyRecovery: (tmpPath: string, targetPath: string): Promise<void> =>
@@ -186,7 +216,8 @@ const api = {
     ): Promise<{ path: string; line: number; text: string; done: boolean }[]> => 
       ipcRenderer.invoke('workspace:scanTodos', overrides),
     getHistoryDir: (): Promise<string> => ipcRenderer.invoke('workspace:getHistoryDir'),
-    pickFolder: (): Promise<string | null> => ipcRenderer.invoke('workspace:pickFolder'),
+    pickFolder: (defaultPath?: string): Promise<string | null> =>
+      ipcRenderer.invoke('workspace:pickFolder', defaultPath),
     setHistoryDir: (
       dir: string | null
     ): Promise<{ ok: true; path: string } | { ok: false; error: string }> =>

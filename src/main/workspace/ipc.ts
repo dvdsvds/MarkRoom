@@ -1,6 +1,7 @@
 import { scanTodos } from './todos'
-import { clipboard, dialog, ipcMain, shell, type BrowserWindow } from 'electron'
+import { app, clipboard, dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import { existsSync, statSync } from 'fs'
+import { mkdir } from 'fs/promises'
 import { basename, dirname, extname, join } from 'path'
 import { getHistoryDir, getRootDir } from './paths'
 import { buildTree } from './tree'
@@ -19,7 +20,7 @@ import {
 import { findBacklinks, findBacklinkContexts, updateWikilinksOnRename } from './links'
 import { searchNotes, type SearchQuery } from './search'
 import { markRemovalByApp, markSavedByApp, startWatcher } from './watcher'
-import { checkExportLinks, exportFolder, type ExportOptions } from './exporter'
+import { checkExportLinks, exportFolder, listPdfNotes, type ExportOptions } from './exporter'
 import { applyRecovery, discardRecovery, findRecoverableFiles } from './recovery'
 import { changeHistoryDir, listSnapshots, moveHistory, readSnapshot, recordSnapshot } from './history'
 
@@ -118,9 +119,13 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   )
   ipcMain.handle('workspace:pickExportDestination', async () => {
     const window = getWindow()
+    const options = {
+      defaultPath: app.getPath('documents'),
+      properties: ['openDirectory', 'createDirectory'] as ('openDirectory' | 'createDirectory')[]
+    }
     const result = window
-      ? await dialog.showOpenDialog(window, { properties: ['openDirectory', 'createDirectory'] })
-      : await dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] })
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return null
     return result.filePaths[0]
   })
@@ -128,11 +133,45 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:checkExportLinks', (_event, folderPath: string) =>
     checkExportLinks(getRootDir(), folderPath)
   )
-  ipcMain.handle('workspace:exportFolder', (_event, opts: ExportOptions) => {
-    const result = exportFolder(getRootDir(), opts)
-    void shell.openPath(opts.destDir)
-    return result
+  ipcMain.handle('workspace:exportFolder', async (_event, opts: ExportOptions) => {
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('timeout')), 120000)
+    })
+    try {
+      return await Promise.race([exportFolder(getRootDir(), opts), timeout])
+    } finally {
+      clearTimeout(timer)
+    }
   })
+  ipcMain.handle('workspace:listPdfNotes', (_event, folderPath: string) =>
+    listPdfNotes(getRootDir(), folderPath)
+  )
+  ipcMain.handle('workspace:openPath', (_event, targetPath: string) => shell.openPath(targetPath))
+  ipcMain.handle(
+    'workspace:prepareExport',
+    async (_event, parentDir: string, name: string, md: boolean, pdf: boolean) => {
+      const clean = String(name).trim()
+      if (!clean || clean === '.' || clean === '..' || /[\\/:*?"<>|]/.test(clean)) {
+        return { ok: false as const, error: 'invalid' as const }
+      }
+      const baseDir = join(parentDir, clean)
+      if (existsSync(baseDir)) return { ok: false as const, error: 'exists' as const }
+      const mdDir = md ? join(baseDir, 'export-md') : null
+      const pdfDir = pdf ? join(baseDir, 'export-pdf') : null
+      const work = (async (): Promise<void> => {
+        for (const d of [mdDir, pdfDir]) if (d) await mkdir(d, { recursive: true })
+      })()
+      const timeout = new Promise<'timeout'>((r) => setTimeout(() => r('timeout'), 5000))
+      try {
+        const r = await Promise.race([work.then(() => 'ok' as const), timeout])
+        if (r === 'timeout') return { ok: false as const, error: 'denied' as const }
+      } catch {
+        return { ok: false as const, error: 'denied' as const }
+      }
+      return { ok: true as const, baseDir, mdDir, pdfDir }
+    }
+  )
   ipcMain.handle('workspace:listRecoverable', () => findRecoverableFiles(getRootDir()))
   ipcMain.handle('workspace:applyRecovery', (_event, tmpPath: string, targetPath: string) => {
     markSavedByApp(targetPath)
@@ -146,10 +185,10 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
     readSnapshot(filePath, id)
   )
   ipcMain.handle('workspace:getHistoryDir', () => getHistoryDir())
-  ipcMain.handle('workspace:pickFolder', async () => {
+  ipcMain.handle('workspace:pickFolder', async (_event, defaultPath?: string) => {
     const window = getWindow()
     const options = {
-      defaultPath: getHistoryDir(),
+      defaultPath: defaultPath ?? getHistoryDir(),
       properties: ['openDirectory', 'createDirectory'] as ('openDirectory' | 'createDirectory')[]
     }
     const result = window

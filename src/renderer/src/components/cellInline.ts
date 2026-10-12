@@ -3,11 +3,6 @@ import { isMath, makeMath, texOf } from './cellMath'
 import { applyInlineCss } from './templateRender'
 import { fmtAttr, parseAttr, splitInline, wrapInline, type InlineOpts } from './inlineText'
 
-/**
- * 칸 편집 상자(.tq-text)의 내용 ↔ 글 변환과 "글자 일부 스타일" 적용.
- * 편집 상자 안 모양: 글 조각 / 첨자 span[data-s] / 수식 math-field / 스타일 span[data-st]
- * 스타일 span 은 항상 자식이 하나뿐이고(글 한 조각, 첨자 하나, 수식 하나), 서로 겹치지 않는다.
- */
 const ZWRE = /​/g
 
 export function styleScript(sp: HTMLElement, kind: 'sup' | 'sub'): void {
@@ -52,7 +47,6 @@ function wrapRun(node: Node, o: InlineOpts): HTMLElement {
   return sp
 }
 
-/** 수식·첨자를 담은 글 조각들을 into 에 채운다. */
 function fillPlain(into: HTMLElement, raw: string): void {
   for (const piece of splitMath(raw)) {
     if ('tex' in piece) {
@@ -72,7 +66,6 @@ function fillPlain(into: HTMLElement, raw: string): void {
   }
 }
 
-/** 저장된 글 → 편집 상자 */
 export function fillCell(box: HTMLElement, raw: string): void {
   box.replaceChildren()
   for (const p of splitInline(raw)) {
@@ -91,7 +84,6 @@ export function fillCell(box: HTMLElement, raw: string): void {
   }
 }
 
-/** 편집 상자 → 저장할 글 */
 export function serializeCell(box: HTMLElement): string {
   const ser = (nodes: Node[]): string => {
     let out = ''
@@ -117,7 +109,6 @@ export function serializeCell(box: HTMLElement): string {
         const t = texOf(c)
         if (!t) continue
         out += '$' + t + '$'
-        // 닫는 $ 바로 뒤가 숫자면 수식으로 안 읽히므로 한 칸 띄운다
         const nx = nodes[i + 1]
         if (nx && nx.nodeType === Node.TEXT_NODE && /^​*\d/.test(nx.nodeValue ?? '')) out += ' '
       } else if (c instanceof HTMLElement) {
@@ -132,18 +123,14 @@ export function serializeCell(box: HTMLElement): string {
   return ser(Array.from(box.childNodes)).replace(/\n$/, '')
 }
 
-// ───────── 글자 일부 스타일 ─────────
 
 export interface TextChange {
-  /** 값을 정하는 것(fs/fc/ff). null 이면 그 스타일을 지운다. */
   props: Record<string, string | null>
-  /** 켜고 끄는 것(bold/italic/underline/strike). 고른 글이 전부 켜져 있으면 끈다. */
   flags: string[]
 }
 
 const FLAG_NAMES = ['bold', 'italic', 'underline', 'strike']
 
-/** 툴바 변경에서 글자 스타일 부분만 뽑는다. 칸 전체용 변경이면 null. */
 export function textChangeOf(ch: {
   kv?: Partial<Record<string, string | null>>
   flags?: Partial<Record<string, boolean>>
@@ -154,7 +141,6 @@ export function textChangeOf(ch: {
   return Object.keys(props).length > 0 || flags.length > 0 ? { props, flags } : null
 }
 
-/** 한 span 에 자식이 둘 이상이면 자식마다 span 을 따로 둔다. */
 function splitRuns(box: HTMLElement): void {
   for (const sp of Array.from(box.querySelectorAll<HTMLElement>('[data-st]'))) {
     const kids = Array.from(sp.childNodes)
@@ -166,7 +152,6 @@ function splitRuns(box: HTMLElement): void {
   }
 }
 
-/** 고른 범위(r)의 글자에 스타일을 적용한다. 적용한 범위를 돌려주고, 고른 글자가 없으면 null. */
 export function applyInline(box: HTMLElement, r: Range, ch: TextChange): Range | null {
   splitRuns(box)
   const sc = r.startContainer
@@ -205,7 +190,6 @@ export function applyInline(box: HTMLElement, r: Range, ch: TextChange): Range |
     }
   }
   walk(box)
-  // 첨자 안의 글자는 첨자 span 통째로 한 덩어리로 본다
   const units: Node[] = []
   for (const n of found) {
     let u: Node = n
@@ -251,11 +235,6 @@ export function applyInline(box: HTMLElement, r: Range, ch: TextChange): Range |
   return out
 }
 
-/**
- * 커서만 있을 때(글자를 고르지 않았을 때): 커서 자리에 빈 스타일 span 을 만들어 그 안에 커서를 둔다.
- * 이어서 치는 글자가 그 스타일이 된다. 이미 빈 스타일 span 안이면 그 span 의 스타일을 바꾼다.
- * 첨자 안이면 null.
- */
 export function applyCaret(box: HTMLElement, r: Range, ch: TextChange): Range | null {
   splitRuns(box)
   const sc = r.startContainer
@@ -284,7 +263,6 @@ export function applyCaret(box: HTMLElement, r: Range, ch: TextChange): Range | 
     return out
   }
 
-  // 이미 비어 있는 스타일 span 안: 그 스타일만 바꾼다
   if (run && (run.textContent ?? '').replace(ZWRE, '') === '' && !run.querySelector('math-field')) {
     const o = edit(parseAttr(run.dataset.st ?? '') ?? {})
     let t = run.firstChild
@@ -300,7 +278,6 @@ export function applyCaret(box: HTMLElement, r: Range, ch: TextChange): Range | 
 
   const base = run ? (parseAttr(run.dataset.st ?? '') ?? {}) : {}
   const o = edit(base)
-  // 커서 자리를 정한다: 기준 조각(unit)의 앞/뒤, 또는 상자 안 위치
   let host: Node | null = null
   let where: 'before' | 'after' | 'child' = 'after'
   let childRef: Node | null = null
@@ -333,15 +310,12 @@ export interface InlineState {
   fs: string | null
   fc: string | null
   ff: string | null
-  /** 스타일 span 안이면 그 글의 굵게·기울임·밑줄·취소선 상태. 밖이면 null. */
   flags: Record<string, boolean> | null
 }
 
-/** 커서·선택(r) 자리의 스타일. 스타일 span 이 없으면 각 값은 null. */
 export function inlineAt(box: HTMLElement, r: Range): InlineState | null {
   const sc = r.startContainer
   if (!box.contains(sc)) return null
-  // 범위가 span 앞에서 시작하면(startContainer 가 상자) 그 자리의 글자 조각을 기준으로 본다
   const n = sc.nodeType === 1 && r.startOffset < sc.childNodes.length && !r.collapsed ? sc.childNodes[r.startOffset] : sc
   const el = n instanceof Element ? n : n.parentElement
   const run = el?.closest<HTMLElement>('[data-st]') ?? null

@@ -371,6 +371,7 @@ function run(d) {
   logs = []
   logSize = 0
   blocks = []
+  let value = Object.create(null)
   value = Object.create(null)
   const reply = (r) => self.postMessage(Object.assign({ type: 'result', id: d.id }, r))
   let ns = null

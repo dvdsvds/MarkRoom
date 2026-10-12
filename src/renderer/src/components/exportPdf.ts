@@ -6,7 +6,7 @@ html, body { margin: 0; padding: 0; background: #fff; }
 .snote-plain { box-sizing: border-box; width: 210mm; padding: 18mm 20mm; }
 `
 
-function collectCss(): string {
+export function collectCss(): string {
   const out: string[] = []
   for (const sheet of Array.from(document.styleSheets)) {
     let rules: CSSRuleList
@@ -37,27 +37,28 @@ function clean(node: HTMLElement): void {
   node.style.removeProperty('zoom')
 }
 
+export function extractHtml(root: HTMLElement): string {
+  const pages = Array.from(root.querySelectorAll<HTMLElement>('.snote-page'))
+  if (pages.length > 0) {
+    return pages
+      .map((n) => {
+        const c = n.cloneNode(true) as HTMLElement
+        clean(c)
+        return c.outerHTML
+      })
+      .join('\n')
+  }
+  const c = root.cloneNode(true) as HTMLElement
+  clean(c)
+  c.style.maxWidth = 'none'
+  c.style.padding = '0'
+  return `<div class="snote-plain">${c.outerHTML}</div>`
+}
+
 export async function exportPreviewPdf(
   title: string
 ): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> {
   const root = document.querySelector<HTMLElement>('.prose-preview')
   if (!root) return { ok: false, error: '미리보기를 찾을 수 없어요' }
-  const pages = Array.from(root.querySelectorAll<HTMLElement>('.snote-page'))
-const html =
-    pages.length > 0
-      ? pages
-          .map((n) => {
-            const c = n.cloneNode(true) as HTMLElement
-            clean(c)
-            return c.outerHTML
-          })
-          .join('\n')
-      : (() => {
-          const c = root.cloneNode(true) as HTMLElement
-          clean(c)
-          c.style.maxWidth = 'none'
-          c.style.padding = '0'
-          return `<div class="snote-plain">${c.outerHTML}</div>`
-        })()
-  return window.api.export.pdf({ title, html, css: collectCss() })
+  return window.api.export.pdf({ title, html: extractHtml(root), css: collectCss() })
 }

@@ -1,10 +1,8 @@
-// 코드 실행 결과(setValue)를 문서의 value [ ] 블록에 써 넣는 도우미예요.
 const FENCE_RE = /^\s*(```|~~~)/
 const VALUE_OPEN = /^\s*value\b[^[\]]*\[\s*$/
 const TEMPLATE_OPEN = /^\s*template\b[^[\]]*\[\s*$/
 const VAR_RE = /^([\p{L}\p{N}_][\p{L}\p{N}_.-]*)\s*:\s*(.*)$/u
 
-/** 값이 하나도 안 바뀌면 같은 문자열, 쓸 곳(template)이 없으면 null */
 export function applyValues(source: string, values: Record<string, string>): string | null {
   const entries = Object.entries(values)
   if (entries.length === 0) return null

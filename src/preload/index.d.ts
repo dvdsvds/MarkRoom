@@ -111,6 +111,12 @@ export interface SyntaxNoteApi {
       html: string
       css: string
     }) => Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }>
+    pdfFile: (payload: {
+      html: string
+      css: string
+      pdfDir: string
+      relPath: string
+    }) => Promise<{ ok: boolean; error?: string }>
   }
   code: {
     run: (code: string, baseDir: string) => Promise<RunResult>
@@ -144,6 +150,14 @@ export interface SyntaxNoteApi {
     hasRootMainNote: () => Promise<boolean>
     checkExportLinks: (folderPath: string) => Promise<BrokenLink[]>
     exportFolder: (opts: ExportOptions) => Promise<ExportResult>
+    listPdfNotes: (folderPath: string) => Promise<PdfNote[]>
+    openPath: (targetPath: string) => Promise<string>
+    prepareExport: (
+      parentDir: string,
+      name: string, 
+      md: boolean, 
+      pdf: boolean
+    ) => Promise<PrepareResult>
     listRecoverable: () => Promise<RecoverableItem[]>
     applyRecovery: (tmpPath: string, targetPath: string) => Promise<void>
     discardRecovery: (tmpPath: string) => Promise<void>
@@ -153,7 +167,7 @@ export interface SyntaxNoteApi {
     ) => Promise<{ path: string; line: number; text: string; done: boolean }[]>
     readHistory: (filePath: string, id: number) => Promise<string>
     getHistoryDir: () => Promise<string>
-    pickFolder: () => Promise<string | null>
+    pickFolder: (defaultPath?: string) => Promise<string | null>
     setHistoryDir: (
       dir: string | null
     ) => Promise<{ ok: true; path: string } | { ok: false; error: string }>

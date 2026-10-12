@@ -10,6 +10,7 @@ import { readChangelogFor } from './updateInfo'
 import { registerQuickCapture, destroyQuickCapture } from './quickCapture'
 import { registerCodeRunner } from './codeRunner'
 import { registerPdfExport } from './pdfExport'
+import { pathToFileURL } from 'url'
 
 app.disableHardwareAcceleration()
 
@@ -45,7 +46,7 @@ function createWindow(): void {
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
-      devTools: false
+      devTools: true
     }
   })
 
@@ -125,9 +126,10 @@ app.whenReady().then(() => {
 
   protocol.handle('snote', (request) => {
     try {
-      const decodedPath = decodeURIComponent(new URL(request.url).pathname)
-      const safePath = assertInsideRoot(decodedPath)
-      return net.fetch(`file://${encodeURI(safePath)}`)
+      let p = decodeURIComponent(new URL(request.url).pathname)
+      if (/^\/[a-zA-Z]:/.test(p)) p = p.slice(1)
+      const safePath = assertInsideRoot(p)
+      return net.fetch(pathToFileURL(safePath).href)
     } catch {
       return new Response(null, { status: 404 })
     }

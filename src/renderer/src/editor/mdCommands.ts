@@ -2,14 +2,10 @@ import { EditorSelection, type ChangeSpec, type EditorState, type SelectionRange
 import type { EditorView } from '@codemirror/view'
 import { startCompletion } from '@codemirror/autocomplete'
 
-/** 에디터 툴바가 쓰는 글 편집 명령들. 전부 선택(여러 개 가능)과 커서 둘 다에서 동작한다. */
-
 const run = (view: EditorView, spec: Parameters<EditorView['dispatch']>[0]): void => {
   view.dispatch({ ...spec, scrollIntoView: true, userEvent: 'input.toolbar' })
   view.focus()
 }
-
-// ───────── 감싸기: 굵게·기울임·취소선·코드·수식 ─────────
 
 const starsBefore = (s: EditorState, pos: number): number => {
   let n = 0
@@ -22,7 +18,6 @@ const starsAfter = (s: EditorState, pos: number): number => {
   return n
 }
 
-/** 선택 앞뒤에 mark 가 이미 둘러져 있는가? */
 export function isWrapped(s: EditorState, r: SelectionRange, mark: string): boolean {
   if (mark === '*') return Math.min(starsBefore(s, r.from), starsAfter(s, r.to)) % 2 === 1
   if (mark === '**') return Math.min(starsBefore(s, r.from), starsAfter(s, r.to)) >= 2
@@ -42,7 +37,6 @@ export function toggleWrap(view: EditorView, mark: string, close = mark): void {
       }
     }
     const text = s.sliceDoc(r.from, r.to)
-    // 선택 안에 이미 표시가 들어 있으면 벗긴다
     if (text.length >= mark.length * 2 && text.startsWith(mark) && text.endsWith(close) && close === mark) {
       const inner = text.slice(mark.length, text.length - mark.length)
       return {
@@ -63,9 +57,6 @@ export function toggleWrap(view: EditorView, mark: string, close = mark): void {
   run(view, tr)
 }
 
-// ───────── 줄 단위: 제목·목록·인용 ─────────
-
-/** 선택이 걸친 줄들(중복 없이). 선택이 다음 줄의 맨 앞에서 끝나면 그 줄은 뺀다. */
 export function linesOf(s: EditorState): { from: number; to: number; text: string }[] {
   const seen = new Set<number>()
   const out: { from: number; to: number; text: string }[] = []
@@ -116,9 +107,7 @@ const KIND: Record<string, RegExp> = {
 }
 
 export interface ListOpt {
-  /** 번호 목록 구분 문자: '.' 이면 1.  ')' 이면 1) */
   delim?: '.' | ')'
-  /** 체크리스트 상태: false 면 [ ]  true 면 [x] */
   checked?: boolean
 }
 
@@ -166,9 +155,6 @@ export function toggleQuote(view: EditorView): void {
   run(view, { changes })
 }
 
-// ───────── 삽입 ─────────
-
-/** 선택을 앞뒤 글과 함께 text 로 바꾸고, 새 글 안의 [selFrom, selTo) 를 선택한다. */
 function replaceSel(view: EditorView, make: (sel: string) => { text: string; from: number; to: number }): void {
   const s = view.state
   const tr = s.changeByRange((r) => {
@@ -197,7 +183,6 @@ export function insertWikilink(view: EditorView): void {
   startCompletion(view)
 }
 
-/** 줄 단위 블록(코드 블록, 수식 블록) 으로 감싼다. */
 function fenceLines(view: EditorView, open: string, close: string): void {
   const s = view.state
   const r = s.selection.main
@@ -220,7 +205,6 @@ function fenceLines(view: EditorView, open: string, close: string): void {
 export const insertCodeBlock = (view: EditorView): void => fenceLines(view, '```', '```')
 export const insertMathBlock = (view: EditorView): void => fenceLines(view, '$$', '$$')
 
-/** 현재 줄 아래에 빈 줄을 두고 블록을 끼운다. */
 function insertBlock(view: EditorView, text: string, selFrom: number, selTo: number): void {
   const s = view.state
   const l = s.doc.lineAt(s.selection.main.head)
@@ -267,9 +251,6 @@ export function insertFootnote(view: EditorView): void {
   })
 }
 
-// ───────── 수식 ─────────
-
-/** 커서가 $...$ (한 줄) 또는 $$ 블록 안에 있는가? */
 export function inMath(s: EditorState): boolean {
   const pos = s.selection.main.head
   const l = s.doc.lineAt(pos)
@@ -280,7 +261,6 @@ export function inMath(s: EditorState): boolean {
   return fences % 2 === 1
 }
 
-/** 틀 안의 ⟦…⟧ 가 처음 나오는 자리를 선택한다. 수식 밖이면 $ 로 감싼다. */
 export function insertMathSnippet(view: EditorView, tpl: string): void {
   const inside = inMath(view.state)
   const m = /⟦([^⟧]*)⟧/.exec(tpl)
@@ -296,22 +276,17 @@ export function insertMathSnippet(view: EditorView, tpl: string): void {
   })
 }
 
-// ───────── 글자색·배경색 ( {red|글자}  {#ff0000,bg:#ffff00|글자} ) ─────────
-
 const COLOR_TOKEN = /^(bg:)?(red|orange|yellow|green|blue|purple|gray|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})$/
 
 export interface ColorSpan {
-  /** 중괄호까지 포함한 전체 범위 */
   from: number
   to: number
-  /** 글자 부분(| 다음부터 닫는 } 앞까지) */
   contentFrom: number
   contentTo: number
   fg: string | null
   bg: string | null
 }
 
-/** [a, b] 범위를 안에 품은 색 span 을 같은 줄에서 찾는다(머리·글자·꼬리 어디든). */
 export function colorSpanAt(s: EditorState, a: number, b: number): ColorSpan | null {
   const line = s.doc.lineAt(a)
   const text = line.text
@@ -331,7 +306,6 @@ export function colorSpanAt(s: EditorState, a: number, b: number): ColorSpan | n
     const contentTo = line.from + i - 1
     const spanTo = line.from + i
     const spanFrom = line.from + m.index
-    // 머리·글자·꼬리 어디에 있든 그 span 안으로 본다 (커서가 중괄호 바로 바깥이면 제외)
     const inside = a === b ? a > spanFrom && a < spanTo : a >= spanFrom && b <= spanTo
     if (!inside) continue
     let fg: string | null = null
@@ -341,7 +315,6 @@ export function colorSpanAt(s: EditorState, a: number, b: number): ColorSpan | n
       else fg = t
     }
     const span = { from: line.from + m.index, to: line.from + i, contentFrom, contentTo, fg, bg }
-    // 겹쳐 있으면 안쪽(더 짧은 것)을 쓴다
     if (!best || span.to - span.from < best.to - best.from) best = span
   }
   return best
@@ -350,7 +323,6 @@ export function colorSpanAt(s: EditorState, a: number, b: number): ColorSpan | n
 const headOf = (fg: string | null, bg: string | null): string =>
   [fg, bg ? `bg:${bg}` : null].filter((x): x is string => !!x).join(',')
 
-/** kind: 글자색(fg) 또는 배경색(bg). color 가 null 이면 그 색을 지운다. */
 export function applyColor(view: EditorView, kind: 'fg' | 'bg', color: string | null): void {
   const s = view.state
   const r = s.selection.main
@@ -386,7 +358,7 @@ export function applyColor(view: EditorView, kind: 'fg' | 'bg', color: string | 
     })
     return
   }
-  // 여러 줄이면 줄마다 따로 감싼다
+
   const changes: ChangeSpec[] = []
   let pos = r.from
   let first = -1

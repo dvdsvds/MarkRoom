@@ -146,11 +146,16 @@ body {
   border-radius: 6px;
   padding: 0.8em 1em;
   overflow: auto;
-  margin: 0.8em 0;
+  margin: 0.8em auto;
+  width: 100%;
+  max-width: 98%;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 .prose-preview pre code {
   background: none;
   padding: 0;
+  white-space: pre-wrap;
 }
 .mermaid-diagram {
   margin: 1.2em 0;
@@ -340,12 +345,13 @@ select option::checkmark {
   display: none;
 }
 
-/* ───────── 코드 실행 결과 ───────── */
 .prose-preview .code-run {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin: 0 0 0.8em;
+  margin: 0 auto 0.8em;
+  width: 100%;
+  max-width: 98%;
 }
 .code-run-btn {
   align-self: flex-start;
@@ -595,6 +601,9 @@ select option::checkmark {
   --code-operator: var(--color-text-secondary);
 }
 .cm-line.cm-codeblock {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 98%;
   background: var(--color-bg-soft);
   border-left: 1px solid var(--color-border);
   border-right: 1px solid var(--color-border);

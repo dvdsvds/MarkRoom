@@ -16,6 +16,7 @@ asarUnpack:
 extraResources:
   - from: resources/changelog.json
     to: changelog.json
+compression: maximum
 win:
   executableName: SyntaxNote
 nsis:
@@ -41,6 +42,9 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
+electronLanguages:
+  - ko
+  - en-US
 npmRebuild: false
 publish:
   provider: github

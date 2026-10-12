@@ -4,17 +4,11 @@ import plusIcon from '../icons/plus.svg?raw'
 import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from './gridEdit'
 
 export interface ToolbarApi {
-  /** 선택한 칸(또는 편집 중인 칸)에 글자 모양·정렬을 적용한다. */
   apply: (ch: CellOptChange) => void
-  /** 편집 중인 칸에서 선택한 글자를 위/아래 첨자 표시로 감싼다. */
   script: (kind: 'sup' | 'sub') => void
-  /** 지금 커서가 들어 있는 첨자 종류. 없으면 null. */
   scriptState?: () => 'sup' | 'sub' | null
-  /** 선택한 칸에 실제로 적용돼 있는 글자 크기(pt)와 글꼴. 칸마다 다르면 그 항목은 null. */
   effective?: () => { fs: string | null; ff: string | null } | null
-  /** 칸을 편집 중일 때 커서·선택한 글자의 스타일(글자 일부 스타일). 없으면 null. */
   selStyle?: () => { fs: string | null; fc: string | null; ff: string | null; flags: Record<string, boolean> | null } | null
-  /** 지금 대상이 된 칸들의 상태. 대상이 없으면 null. */
   read: () => CellOptState | null
 }
 
@@ -55,7 +49,7 @@ const VALIGN_KO: Record<VAlign, string> = { top: '위쪽', middle: '가운데', 
 function bar(): HTMLElement {
   const e = document.createElement('div')
   e.className = 'tq-toolbar'
-  e.style.cssText = `position:sticky;top:0;z-index:50;display:none;flex-wrap:wrap;align-items:center;gap:2px;padding:3px 6px;margin:0;background:var(--tq-bar);color:var(--tq-text);border-bottom:1px solid var(--tq-edge);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
+  e.style.cssText = `position:sticky;top:0;z-index:5;display:none;flex-wrap:wrap;align-items:center;gap:2px;padding:3px 6px;margin:0;background:var(--tq-bar);color:var(--tq-text);border-bottom:1px solid var(--tq-edge);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
   e.addEventListener('mousedown', (ev) => {
     if (ev.target instanceof HTMLInputElement) return
     ev.preventDefault()
@@ -82,7 +76,6 @@ export function createToolbar(api: ToolbarApi): Toolbar {
       onClick()
     }, { square: true })
 
-  // 글꼴 목록: 기본 후보에, 컴퓨터에 설치된 글꼴을 읽을 수 있으면 합친다.
   let fonts = [...BASE_FONTS]
   const lf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string }[]> }).queryLocalFonts
   if (typeof lf === 'function') {
@@ -104,7 +97,6 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     },
     pick: (v) => api.apply({ kv: { ff: v } })
   })
-  // 글자 크기: − [숫자] +  (숫자는 직접 쓰고 Enter)
   let shownSize = ''
   const sizeInput = document.createElement('input')
   sizeInput.type = 'text'
@@ -115,7 +107,6 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   const syncSize = (): void => {
     sizeInput.value = shownSize
   }
-  // 숫자를 누르면 목록이 열린다.
   const sizeBox = document.createElement('div')
   sizeBox.style.cssText = 'position:relative;display:flex'
   const sizeMenu = document.createElement('div')

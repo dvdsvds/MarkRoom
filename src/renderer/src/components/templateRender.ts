@@ -34,7 +34,6 @@ function fontFamily(name: string): string {
 
 function edgeWidth(kind: EdgeKind, mm: number | null): string {
   const base = kind === 'thick' || kind === 'double' ? '3px' : '1px'
-  // 이중선은 3px보다 얇으면 한 줄로 보이므로 굵기를 정해도 최소 0.8mm로 그린다.
   return mm === null ? base : `${kind === 'double' ? Math.max(mm, 0.8) : mm}mm`
 }
 
@@ -47,7 +46,6 @@ function edgeCss(kind: EdgeKind, color: string | null, mm: number | null = null)
 
 const SVG_NS = 'http://www.w3.org/2000/svg'
 
-/** 칸 위에 대각선을 겹쳐 그린다. down은 왼쪽 위→오른쪽 아래, up은 왼쪽 아래→오른쪽 위. */
 function addDiag(cell: HTMLElement, dir: 'down' | 'up', dg: Diag): void {
   const svg = document.createElementNS(SVG_NS, 'svg')
   svg.setAttribute('class', 'tq-diag')
@@ -185,7 +183,6 @@ function fillText(target: HTMLElement, text: string, align: Style['align']): voi
   }
 }
 
-/** 읽을 때 쓰는 값을 선 조각에 붙인다. o: v(세로선)/h(가로선), b: 선 위치(0이 맨 앞), a1~a2: 걸친 줄/열 */
 function tag(
   d: HTMLElement,
   o: 'v' | 'h',
@@ -268,7 +265,6 @@ function build(n: TNode): HTMLElement {
       g.dataset.frameW = n.frameW === null ? '' : String(n.frameW)
       g.dataset.frameC = n.frameC ?? ''
       g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, n.frameC, n.frameW)
-      // 격자 맨 바깥 테두리 두께(칸이 바깥 선을 따로 정할 때 그 부분을 덮어 가리는 데 쓴다)
       const fw = n.frame === 'none' ? '0px' : edgeWidth(n.frame, n.frameW)
       if (n.frame === 'none') g.classList.add('tq-frame-none')
       const rows = n.heights.length
@@ -294,7 +290,6 @@ function build(n: TNode): HTMLElement {
         let kind: EdgeKind = 'solid'
         let src = B.ord >= A.ord ? B : A
         if (a !== undefined && b !== undefined) {
-          // 둘 다 직접 정했으면 선에 닿는 길이가 짧은 칸(더 구체적인 칸)이 이기고, 같으면 문서에서 나중 칸이 이긴다.
           const sa = vertical ? A.rs : A.cs
           const sb = vertical ? B.rs : B.cs
           src = sa !== sb ? (sa < sb ? A : B) : B.ord > A.ord ? B : A
@@ -311,14 +306,13 @@ function build(n: TNode): HTMLElement {
         return { kind, color: x?.c ?? src.style.ec, w: x?.w ?? null }
       }
 
-      // 가장자리 칸이 바깥 선을 직접 정했는지(선이 격자 테두리 자리까지 이어져야 하는지 판단)
       const outerExplicit = (i: number, side: 'l' | 'r' | 't' | 'b'): boolean => {
         if (i < 0) return false
         const k = n.cells[i]
         const touch = side === 'l' ? k.c === 0 : side === 'r' ? k.c + k.cs === n.cols : side === 't' ? k.r === 0 : k.r + k.rs === rows
         return touch && k.style.set[side] !== undefined
       }
-      // 안쪽 선이 바깥 선이 없어진 모서리까지 이어지도록 테두리 두께만큼 늘린다
+
       const reach = (d: HTMLElement, prop: 'marginLeft' | 'marginRight' | 'marginTop' | 'marginBottom'): void => {
         if (fw === '0px') return
         d.style[prop] = `-${fw}`
@@ -393,7 +387,6 @@ function build(n: TNode): HTMLElement {
         }
       }
 
-      // 격자 맨 바깥 쪽: 가장자리 칸이 그 쪽 선을 직접 정했으면 테두리 위에 덧그린다.
       const tagOuter = (d: HTMLElement, o: 'v' | 'h', b: number, a1: number, a2: number, e: { kind: EdgeKind; color: string | null; w: number | null }): void => {
         tag(d, o, b, a1, a2, e)
         d.dataset.outer = '1'
@@ -428,12 +421,10 @@ function build(n: TNode): HTMLElement {
           if (fw !== '0px') {
             const under = el('div', 'tq-edge')
             area(under)
-            // 화면 배율 때문에 격자 테두리가 반올림으로 더 굵게 그려질 수 있어 1px 더 넓게(바깥쪽으로) 덮는다
             const cover = `calc(${fw} + 1px)`
             if (vert) under.style.width = cover
             else under.style.height = cover
             under.style[MARGIN[side]] = `calc(-1 * ${cover})`
-            // 모서리: 이어지는 두 변이 모두 '없음'이면 모서리 점도 같이 덮는다
             if (kind === 'none') {
               const none = (k: 'l' | 'r' | 't' | 'b'): boolean => sides.includes(k) && s.set[k] === 'none'
               const [m1, k1, m2, k2] = vert ? (['marginTop', 't', 'marginBottom', 'b'] as const) : (['marginLeft', 'l', 'marginRight', 'r'] as const)
@@ -447,8 +438,6 @@ function build(n: TNode): HTMLElement {
           area(line)
           if (vert) line.style.width = '0'
           else line.style.height = '0'
-          // 선이 격자 테두리와 같은 자리에 오도록 옮긴다. 화면 배율에서는 테두리 두께가 반올림되므로
-          // 자기 크기 기준(%)으로 옮겨서 반올림 값과 상관없이 맞춘다. 굵기가 같으면 테두리 바로 위에, 다르면 가운데 맞춤.
           const ew = e.kind === 'none' ? '1px' : edgeWidth(e.kind, e.w)
           const out = side === 'l' || side === 't' ? -1 : 1
           const axis = vert ? 'translateX' : 'translateY'

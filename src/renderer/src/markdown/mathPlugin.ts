@@ -15,7 +15,6 @@ function render(tex: string, display: boolean): string {
   })
 }
 
-// 여는 $ 뒤가 공백이면 수식이 아니고, 닫는 $ 앞이 공백이거나 뒤가 숫자면 수식이 아니에요. ($10 and $20 같은 돈 표기 보호)
 function delim(state: InlineState, pos: number): { open: boolean; close: boolean } {
   const prev = pos > 0 ? state.src.charCodeAt(pos - 1) : -1
   const next = pos + 1 <= state.posMax ? state.src.charCodeAt(pos + 1) : -1

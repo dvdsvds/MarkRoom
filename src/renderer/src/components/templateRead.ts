@@ -60,7 +60,7 @@ export function readEdges(
     w: grid.dataset.frameW ? Number(grid.dataset.frameW) : null,
     c: grid.dataset.frameC ? grid.dataset.frameC : null
   }
-  // 세로선 b(0=맨 왼쪽)의 r번째 줄 값 / 가로선 b(0=맨 위)의 c번째 열 값. 나중에 그려진 조각이 이긴다.
+
   const at = (o: 'v' | 'h', b: number, a: number): EdgeVal | null => {
     let hit: EdgeVal | null = null
     for (const p of pieces) if (p.o === o && p.b === b && p.a1 <= a && a <= p.a2) hit = p.val

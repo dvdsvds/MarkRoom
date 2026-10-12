@@ -38,10 +38,6 @@ const ln = (x1: number, y1: number, x2: number, y2: number): string =>
 const FRAME = '<rect x="2" y="2" width="12" height="12" stroke-width="2"/>'
 const CROSS = ln(8, 2, 8, 14) + ln(2, 8, 14, 8)
 
-/**
- * 선 편집 창(한글 방식). st는 창이 직접 고쳐 쓰는 현재 선 모양이고,
- * 버튼을 누르면 바로 borders/diagonal 로 적용을 요청한다.
- */
 export function openBorderPanel(d: {
   st: BorderState
   borders: (where: BorderWhere) => boolean | void
@@ -50,7 +46,6 @@ export function openBorderPanel(d: {
 }): { box: HTMLElement; setEdges: (r: EdgeRead) => void } {
   const p = panel({ title: '테두리', top: '10%', onClose: d.onClose })
 
-  // 왼쪽: 종류 / 굵기 / 색
   const left = document.createElement('div')
   left.style.cssText = 'width:150px;display:flex;flex-direction:column;gap:12px'
 
@@ -67,7 +62,6 @@ export function openBorderPanel(d: {
       { text: '없음', value: 'none', html: kindHtml('none') }
     ],
     pick: (v) => {
-      // 대각선은 지금 고른 종류·굵기·색으로 바로 긋고, 목록의 선택 종류는 그대로 둔다.
       if (v === 'diag-down' || v === 'diag-up') {
         d.diagonal(v === 'diag-down' ? 'down' : 'up')
         return
@@ -109,7 +103,6 @@ export function openBorderPanel(d: {
   color.setHtml(colorHtml(d.st.c))
   left.append(field('종류', kind.wrap), field('굵기', width.wrap), field('색', color.wrap))
 
-  // 오른쪽: 미리보기 네모와 6방향 버튼 (왼쪽·세로가운데·오른쪽은 위, 위쪽·가로가운데·아래쪽은 오른쪽)
   const right = document.createElement('div')
   const area = document.createElement('div')
   area.style.cssText = 'position:relative;width:184px;height:176px;margin:0 auto'
@@ -121,7 +114,6 @@ export function openBorderPanel(d: {
     `<div style="position:absolute;top:50%;left:0;right:0;border-top:1px dashed ${FAINT}"></div>`
   area.appendChild(pv)
 
-  // 정사각형에는 선택한 칸의 "지금 테두리"를 그린다. 단추를 눌러 문서가 바뀌면 다시 읽어서 갱신된다.
   type PvSide = 'left' | 'right' | 'top' | 'bottom' | 'vmid' | 'hmid'
   const drawn = new Map<string, HTMLElement>()
   const inkOf = (c: string | null): string =>
@@ -192,11 +184,9 @@ export function openBorderPanel(d: {
     b.style.top = `${cy - 9}px`
     area.appendChild(b)
   }
-  // 위쪽 줄: 1(왼쪽) 2(세로가운데) 3(오른쪽)
   place(edgeIcon(ln(2, 2, 2, 14)), '왼쪽', 'left', BX, 16)
   place(edgeIcon(ln(8, 2, 8, 14)), '세로 가운데', 'vmid', BX + BW / 2, 16)
   place(edgeIcon(ln(14, 2, 14, 14)), '오른쪽', 'right', BX + BW, 16)
-  // 오른쪽 줄: 4(위쪽) 5(가로가운데) 6(아래쪽)
   const RX = BX + BW + 16
   place(edgeIcon(ln(2, 2, 14, 2)), '위쪽', 'top', RX, BY)
   place(edgeIcon(ln(2, 8, 14, 8)), '가로 가운데', 'hmid', RX, BY + BH / 2)
@@ -240,7 +230,6 @@ export function openBorderPanel(d: {
   return { box: p.box, setEdges }
 }
 
-/** 칸 나누기 창. 확인하면 onOk(칸 수, 줄 수). 값이 잘못되면 onOk가 false를 돌려 창을 유지한다. */
 export function openSplitPanel(d: {
   onOk: (cols: number, rows: number) => boolean
   onClose?: () => void
