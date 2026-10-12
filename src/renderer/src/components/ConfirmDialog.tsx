@@ -1,11 +1,27 @@
-import { useEffect } from "react"
+import { useEffect } from 'react'
+import TrashIcon from '../icons/ctx-trash.svg?react'
+import UndoIcon from '../icons/tb-undo.svg?react'
+import { FileTypeIcon } from './FileTypeIcon'
+import {
+  CancelButton,
+  Dialog,
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  ListBox,
+  MainButton,
+  NameBox
+} from './DialogParts'
 
 interface ConfirmDialogProps {
   title: string
+  /** 대상 파일이나 폴더. 주면 이름 박스로 크게 보여준다. */
+  subject?: { name: string; kind: 'file' | 'folder' }
   message: string
   items?: string[]
   confirmLabel: string
   danger?: boolean
+  icon?: 'trash' | 'reset'
   onConfirm: () => void
   onCancel: () => void
 }
@@ -13,10 +29,12 @@ interface ConfirmDialogProps {
 /** 삭제처럼 되돌리기 어려운 작업 전에 확인받는 가운데 모달. */
 export function ConfirmDialog({
   title,
+  subject,
   message,
   items,
   confirmLabel,
   danger,
+  icon = 'trash',
   onConfirm,
   onCancel
 }: ConfirmDialogProps): React.JSX.Element {
@@ -31,45 +49,34 @@ export function ConfirmDialog({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onConfirm])
 
+  const Icon = icon === 'reset' ? UndoIcon : TrashIcon
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onCancel}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-80 rounded-xl border border-border bg-bg-elevated p-5 shadow-2xl"
-      >
-        <h2 className="text-sm font-semibold text-text">{title}</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">{message}</p>
-        {items && items.length > 0 && (
-          <ul className="mt-2 max-h-32 overflow-auto rounded-md bg-bg-mute p-2.5 text-xs text-text-secondary">
-            {items.map((item) => (
-              <li key={item} className="truncate">
-                {item}
-              </li>
-            ))}
-          </ul>
+    <Dialog width={380} onClose={onCancel}>
+      <DialogHeader icon={<Icon width={18} height={18} />} title={title} danger={danger} />
+      <DialogBody>
+        {subject && (
+          <NameBox>
+            <FileTypeIcon name={subject.name} kind={subject.kind} size={20} />
+            <span className="min-w-0 truncate text-sm font-medium text-text">{subject.name}</span>
+          </NameBox>
         )}
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-mute focus:outline-none"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium text-text-inverted focus:outline-none ${
-              danger ? 'bg-danger' : 'bg-accent'
-            }`}
-          >
-            {confirmLabel}
-          </button>
+        <div
+          className={`text-[13px] leading-relaxed text-text-secondary ${subject ? 'mt-3' : ''}`}
+        >
+          {/* 마침표 뒤에 공백이 있으면 거기서 줄을 바꾼다 ("test.md"처럼 공백 없는 점은 그대로) */}
+          {message.split(/(?<=\.)\s+/).map((line, i) => (
+            <p key={i}>{line}</p>
+          ))}
         </div>
-      </div>
-    </div>
+        {items && items.length > 0 && <ListBox items={items} />}
+      </DialogBody>
+      <DialogFooter>
+        <CancelButton onClick={onCancel} />
+        <MainButton onClick={onConfirm} danger={danger}>
+          {confirmLabel}
+        </MainButton>
+      </DialogFooter>
+    </Dialog>
   )
 }

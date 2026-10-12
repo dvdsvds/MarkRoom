@@ -1,6 +1,12 @@
-import { mdToolbar } from './editorToolbar'
+import { mdToolbarKeys, mdToolbarPanel } from './editorToolbar'
+import { slashMenu } from './slashMenu'
 import { HighlightStyle, syntaxHighlighting, syntaxTree, foldable, foldedRanges, foldEffect, unfoldEffect } from '@codemirror/language'
 import chevronSvg from '../icons/chevron.svg?raw'
+import boldIcon from '../icons/tb-bold.svg?raw'
+import italicIcon from '../icons/tb-italic.svg?raw'
+import strikeIcon from '../icons/tb-strike.svg?raw'
+import codeIcon from '../icons/tb-code-inline.svg?raw'
+import linkIcon from '../icons/tb-link.svg?raw'
 import { tags } from "@lezer/highlight"
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { Annotation, ChangeSet, Compartment, EditorState, Prec, RangeSetBuilder, StateEffect, StateField, RangeSet, type Text, type Extension } from '@codemirror/state'
@@ -9,7 +15,8 @@ import { basicSetup } from 'codemirror'
 import { defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
-import { searchKeymap } from '@codemirror/search'
+import { search, searchKeymap } from '@codemirror/search'
+import { createFindPanel } from './findPanel'
 import { vim, getCM, Vim } from '@replit/codemirror-vim'
 import { wikilinkCompletionSource } from './wikilinkCompletion'
 import { insertAttachments } from './attachments'
@@ -57,6 +64,7 @@ interface MarkdownEditorProps {
 }
 
 const vimCompartment = new Compartment()
+const toolbarCompartment = new Compartment()
 let currentView: EditorView | null = null
 
 export function undoEditor(): void {
@@ -230,12 +238,12 @@ export function addCellText(
 
 const markdownHighlight = HighlightStyle.define([
   { tag: tags.processingInstruction, color: 'var(--color-text-tertiary)' },
-  { tag: [tags.heading1, tags.heading2, tags.heading3, tags.heading4, tags.heading5, tags.heading6], fontWeight: '600', color: 'var(--color-text)' },
-  { tag: tags.strong, fontWeight: '700', color: 'var(--color-text)' },
-  { tag: tags.emphasis, fontStyle: 'italic', color: 'var(--color-text)' },
+  { tag: [tags.heading1, tags.heading2, tags.heading3, tags.heading4, tags.heading5, tags.heading6], fontWeight: '400', color: 'var(--color-syntax-heading)' },
+  { tag: tags.strong, fontWeight: '400', color: 'var(--color-syntax-strong)' },
+  { tag: tags.emphasis, fontStyle: 'italic', color: 'var(--color-syntax-em)' },
   { tag: tags.strikethrough, textDecoration: 'line-through', color: 'var(--color-text-secondary)' },
   { tag: tags.monospace, fontFamily: 'var(--font-editor)', color: 'var(--color-syntax-code)' },
-  { tag: tags.quote, color: 'var(--color-text-secondary)', fontStyle: 'italic' },
+  { tag: tags.quote, color: 'var(--color-syntax-mark)', fontStyle: 'italic' },
   { tag: tags.meta, color: 'var(--color-text)' },
   { tag: tags.contentSeparator, color: 'var(--color-border-strong)' }
 ])
@@ -247,7 +255,7 @@ const symbolDecos: Record<string, Decoration> = {
   HeaderMark: markDeco('var(--color-syntax-heading)'),
   QuoteMark: markDeco('var(--color-syntax-mark)'),
   BulletMark: markDeco('var(--color-syntax-bullet)'),
-  OrderedMark: markDeco('var(--color-accent)'),
+  OrderedMark: markDeco('var(--color-syntax-bullet)'),
   StrongMark: markDeco('var(--color-syntax-strong)'),
   EmMark: markDeco('var(--color-syntax-em)'),
   CodeMark: markDeco('var(--color-syntax-fence)'),
@@ -343,11 +351,11 @@ function wrapLink(view: EditorView): void {
 }
 
 const toolbarButtons: { label: string; title: string; run: (view: EditorView) => void }[] = [
-  { label: 'B', title: '굵게', run: (v) => toggleWrap(v, '**') },
-  { label: 'I', title: '기울임', run: (v) => toggleWrap(v, '*') },
-  { label: 'S', title: '취소선', run: (v) => toggleWrap(v, '~~') },
-  { label: '</>', title: '코드', run: (v) => toggleWrap(v, '`') },
-  { label: '링크', title: '링크', run: wrapLink }
+  { label: boldIcon, title: '굵게', run: (v) => toggleWrap(v, '**') },
+  { label: italicIcon, title: '기울임', run: (v) => toggleWrap(v, '*') },
+  { label: strikeIcon, title: '취소선', run: (v) => toggleWrap(v, '~~') },
+  { label: codeIcon, title: '코드', run: (v) => toggleWrap(v, '`') },
+  { label: linkIcon, title: '링크', run: wrapLink }
 ]
 
 function createToolbar(view: EditorView): TooltipView {
@@ -357,7 +365,7 @@ function createToolbar(view: EditorView): TooltipView {
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.title = b.title
-    btn.textContent = b.label
+    btn.innerHTML = b.label.trim()
     btn.addEventListener('mousedown', (e) => {
       e.preventDefault()
       b.run(view)
@@ -631,8 +639,22 @@ function buildExtensions(
         }
       }
     ),
+    EditorState.phrases.of({
+      Find: '찾기',
+      Replace: '바꾸기',
+      next: '다음',
+      previous: '이전',
+      all: '모두 선택',
+      'match case': '대소문자',
+      regexp: '정규식',
+      'by word': '단어 단위',
+      replace: '바꾸기',
+      'replace all': '모두 바꾸기',
+      close: '닫기'
+    }),
     vimCompartment.of(vimModeInitial ? [vim()] : []),
     changeGutter(baseContent, onChangeClick),
+    search({ top: true, createPanel: createFindPanel }),
     basicSetup,
     foldChevronGutter(),
     drawSelection({ cursorBlinkRate: 0 }),
@@ -667,7 +689,9 @@ function buildExtensions(
     syntaxHighlighting(markdownHighlight),
     Prec.highest(markdownSymbolColors),
     selectionToolbar(),
-    mdToolbar,
+    mdToolbarKeys,
+    toolbarCompartment.of(useSettingsStore.getState().showToolbar ? mdToolbarPanel : []),
+    slashMenu,
     EditorView.domEventHandlers({
       keydown: (e, view) => {
         const vs = getCM(view)?.state.vim
@@ -799,6 +823,7 @@ function buildExtensions(
       '&': { height: '100%', fontSize: 'var(--editor-font-size)' },
       '.cm-content': {
         fontFamily: 'var(--font-editor)',
+        fontWeight: '300',
         lineHeight: 'var(--editor-line-height)',
         caretColor: 'var(--color-accent)',
         paddingTop: '0px',
@@ -812,10 +837,9 @@ function buildExtensions(
         display: 'none !important'
       },
       '.cm-gutters': {
-        backgroundColor: 'var(--color-bg)',
+        backgroundColor: 'transparent',
         color: 'var(--color-text-tertiary)',
         border: 'none',
-        borderRight: '1px solid var(--color-border)',
         fontSize: '0.9em'
       },
       '.cm-lineNumbers .cm-gutterElement': {
@@ -836,14 +860,17 @@ function buildExtensions(
         display: 'flex',
         alignItems: 'center',
         height: 'calc(1em * var(--editor-line-height))',
-        color: 'var(--color-text-tertiary)'
+        color: 'var(--color-text-tertiary)',
+        opacity: '0',
+        transition: 'opacity 0.12s'
       },
+      '.cm-gutters:hover .cm-snote-chevron, .cm-snote-chevron.folded': { opacity: '1' },
       '.cm-snote-chevron:hover': { color: 'var(--color-text)' },
       '.cm-snote-chevron svg': { width: '12px', height: '12px', transform: 'rotate(90deg)' },
       '.cm-snote-chevron.folded svg': { transform: 'none' },
       '.cm-change-gutter': { minWidth: '6px' },
       '.cm-change-gutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
-      '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '0', borderRadius: '1px' },
+      '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '0', borderRadius: '2px' },
       '.cm-change-add': { backgroundColor: 'var(--color-diff-add-text)' },
       '.cm-change-mod': {
         backgroundColor: 'color-mix(in srgb, var(--color-diff-add-text) 55%, transparent)'
@@ -960,6 +987,16 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
       const id = requestAnimationFrame(() => viewRef.current?.requestMeasure())
       return () => cancelAnimationFrame(id)
     }, [editorFontSize, editorLineHeight, editorFontFamily])
+
+    const showToolbar = useSettingsStore((s) => s.showToolbar)
+    useEffect(() => {
+      const effect = toolbarCompartment.reconfigure(showToolbar ? mdToolbarPanel : [])
+      for (const [id, state] of statesRef.current) {
+        if (id === currentTabIdRef.current) continue
+        statesRef.current.set(id, state.update({ effects: effect }).state)
+      }
+      viewRef.current?.dispatch({ effects: effect })
+    }, [showToolbar])
 
     useEffect(() => {
       vimModeRef.current = vimMode

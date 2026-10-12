@@ -49,7 +49,7 @@ const VALIGN_KO: Record<VAlign, string> = { top: '위쪽', middle: '가운데', 
 function bar(): HTMLElement {
   const e = document.createElement('div')
   e.className = 'tq-toolbar'
-  e.style.cssText = `position:sticky;top:0;z-index:5;display:none;flex-wrap:wrap;align-items:center;gap:2px;padding:3px 6px;margin:0;background:var(--tq-bar);color:var(--tq-text);border-bottom:1px solid var(--tq-edge);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
+  e.style.cssText = `position:sticky;top:0;z-index:5;display:none;flex-wrap:nowrap;align-items:center;gap:2px;padding:3px 6px;margin:0;background:var(--tq-bar);color:var(--tq-text);border-bottom:1px solid var(--tq-edge);font-size:13px;user-select:none;font-family:system-ui,sans-serif`
   e.addEventListener('mousedown', (ev) => {
     if (ev.target instanceof HTMLInputElement) return
     ev.preventDefault()
@@ -61,6 +61,15 @@ function sep(): HTMLElement {
   const s = document.createElement('span')
   s.style.cssText = 'width:1px;height:18px;background:var(--tq-divider);margin:0 4px;flex:none'
   return s
+}
+
+const MORE_ICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 4l4 4-4 4M8.5 4l4 4-4 4"/></svg>'
+
+/** 버튼 스타일에 display가 !important로 걸려 있을 수 있어서 같이 !important로 숨긴다. */
+function setShown(el: HTMLElement, shown: boolean): void {
+  if (shown) el.style.removeProperty('display')
+  else el.style.setProperty('display', 'none', 'important')
 }
 
 const DEFAULT_FONT = 'Pretendard'
@@ -196,6 +205,9 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   const alignBtn: Partial<Record<HAlign, HTMLButtonElement>> = {}
   const valignBtn: Partial<Record<VAlign, HTMLButtonElement>> = {}
 
+  const sepAlign = sep()
+  const sepValign = sep()
+  const sepScript = sep()
   root.append(font.wrap, sep(), sizeWrap, sep())
   root.append(
     flag('bold', '<b>B</b>', '굵게'),
@@ -205,7 +217,7 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     sep(),
     fc.wrap,
     bg.wrap,
-    sep()
+    sepAlign
   )
   for (const a of Object.keys(ALIGN_ICON) as HAlign[]) {
     const b = button(ALIGN_ICON[a], `${ALIGN_KO[a]} 맞춤`, () => {
@@ -215,7 +227,7 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     alignBtn[a] = b
     root.appendChild(b)
   }
-  root.appendChild(sep())
+  root.appendChild(sepValign)
   for (const v of Object.keys(VALIGN_ICON) as VAlign[]) {
     const b = button(VALIGN_ICON[v], `세로 ${VALIGN_KO[v]}`, () => {
       const st = api.read()
@@ -226,7 +238,142 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   }
   const supBtn = button('<span>x<sup style="font-size:9px">2</sup></span>', '위 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sup'))
   const subBtn = button('<span>x<sub style="font-size:9px">2</sub></span>', '아래 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sub'))
-  root.append(sep(), supBtn, subBtn)
+  root.append(sepScript, supBtn, subBtn)
+
+  // 좁아지면 맨 뒤 아이콘부터 하나씩 » 메뉴로 옮긴다 (정렬 ~ 아래 첨자)
+  interface Entry {
+    el: HTMLElement
+    icon: string
+    label: string
+    gi: number
+    active: () => boolean
+    fn: () => void
+  }
+  const entries: Entry[] = []
+  for (const a of Object.keys(ALIGN_ICON) as HAlign[])
+    entries.push({
+      el: alignBtn[a] as HTMLElement,
+      icon: ALIGN_ICON[a],
+      label: `${ALIGN_KO[a]} 맞춤`,
+      gi: 0,
+      active: () => api.read()?.align === a,
+      fn: () => api.apply({ align: api.read()?.align === a ? null : a })
+    })
+  for (const v of Object.keys(VALIGN_ICON) as VAlign[])
+    entries.push({
+      el: valignBtn[v] as HTMLElement,
+      icon: VALIGN_ICON[v],
+      label: `세로 ${VALIGN_KO[v]}`,
+      gi: 1,
+      active: () => api.read()?.valign === v,
+      fn: () => api.apply({ valign: api.read()?.valign === v ? null : v })
+    })
+  entries.push(
+    {
+      el: supBtn,
+      icon: '<span style="font-size:13px">x<sup style="font-size:9px">2</sup></span>',
+      label: '위 첨자',
+      gi: 2,
+      active: () => api.scriptState?.() === 'sup',
+      fn: () => api.script('sup')
+    },
+    {
+      el: subBtn,
+      icon: '<span style="font-size:13px">x<sub style="font-size:9px">2</sub></span>',
+      label: '아래 첨자',
+      gi: 2,
+      active: () => api.scriptState?.() === 'sub',
+      fn: () => api.script('sub')
+    }
+  )
+  const groupSeps = [sepAlign, sepValign, sepScript]
+  let hiddenCount = 0
+
+  let menu: HTMLDivElement | null = null
+  const closeMore = (): void => {
+    menu?.remove()
+    menu = null
+    window.removeEventListener('mousedown', onOutside, true)
+    window.removeEventListener('keydown', onKey, true)
+  }
+  const onOutside = (e: MouseEvent): void => {
+    const t = e.target as Node
+    if (menu && !menu.contains(t) && !moreBtn.contains(t)) closeMore()
+  }
+  const onKey = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') closeMore()
+  }
+  const moreBtn: HTMLButtonElement = button(MORE_ICON, '더 보기', () => {
+    if (menu) {
+      closeMore()
+      return
+    }
+    const hidden = entries.slice(entries.length - hiddenCount)
+    if (hidden.length === 0) return
+    const m = document.createElement('div')
+    m.style.cssText =
+      'position:fixed;z-index:10001;width:208px;padding:6px;box-sizing:border-box;background:var(--tq-panel);color:var(--tq-text);border:' +
+      LINE +
+      ';border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);font-size:13px;font-family:system-ui,sans-serif;user-select:none'
+    m.addEventListener('mousedown', (e) => e.preventDefault())
+    hidden.forEach((it, i) => {
+      if (i > 0 && hidden[i - 1].gi !== it.gi) {
+        const line = document.createElement('div')
+        line.style.cssText = 'height:1px;margin:6px 4px;background:var(--tq-divider)'
+        m.appendChild(line)
+      }
+      const row = document.createElement('div')
+      let on = false
+      try {
+        on = it.active()
+      } catch {
+        on = false
+      }
+      row.style.cssText =
+        'display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border-radius:8px;cursor:pointer' +
+        (on ? ';font-weight:700' : '')
+      row.innerHTML = `<span style="display:flex;width:16px;height:16px;align-items:center;justify-content:center;opacity:.65">${it.icon}</span>${it.label}`
+      row.addEventListener('mouseenter', () => (row.style.background = HOVER_BG))
+      row.addEventListener('mouseleave', () => (row.style.background = ''))
+      row.addEventListener('click', () => {
+        closeMore()
+        it.fn()
+      })
+      m.appendChild(row)
+    })
+    root.appendChild(m)
+    const r = moreBtn.getBoundingClientRect()
+    const mw = m.offsetWidth
+    const mh = m.offsetHeight
+    m.style.left = `${Math.max(8, Math.min(r.right - mw, window.innerWidth - mw - 8))}px`
+    m.style.top = `${Math.max(8, Math.min(r.bottom + 6, window.innerHeight - mh - 8))}px`
+    menu = m
+    window.addEventListener('mousedown', onOutside, true)
+    window.addEventListener('keydown', onKey, true)
+  })
+  setShown(moreBtn, false)
+  moreBtn.style.marginLeft = '2px'
+  root.appendChild(moreBtn)
+  for (const c of Array.from(root.children) as HTMLElement[]) c.style.flex = 'none'
+
+  const applyCollapse = (n: number): void => {
+    hiddenCount = n
+    entries.forEach((it, i) => setShown(it.el, i < entries.length - n))
+    // 첫 묶음 앞 구분선은 » 앞 구분선으로 남기고, 나머지는 그 묶음이 보일 때만
+    groupSeps.forEach((sp, gi) =>
+      setShown(sp, gi === 0 || entries.some((it) => it.gi === gi && it.el.style.getPropertyValue('display') !== 'none'))
+    )
+    setShown(moreBtn, n > 0)
+  }
+  const layout = (): void => {
+    closeMore()
+    if (root.style.display === 'none' || root.clientWidth === 0) return
+    for (let n = 0; n <= entries.length; n++) {
+      applyCollapse(n)
+      if (root.scrollWidth <= root.clientWidth) break
+    }
+  }
+  new ResizeObserver(layout).observe(root)
 
   const syncScript = (): void => {
     const k = api.scriptState?.() ?? null
@@ -266,8 +413,13 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   }
   const setVisible = (on: boolean): void => {
     root.style.display = on ? 'flex' : 'none'
-    if (!on) closeMenus()
-    else refresh()
+    if (!on) {
+      closeMenus()
+      closeMore()
+    } else {
+      refresh()
+      layout()
+    }
   }
   return { el: root, refresh, setVisible, syncScript }
 }

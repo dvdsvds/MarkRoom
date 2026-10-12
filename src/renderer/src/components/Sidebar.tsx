@@ -1,16 +1,22 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'motion/react'
 import type { TreeNode } from '../types/workspace'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
+import PlusIcon from '../icons/ctx-plus.svg?react'
+import RenameIcon from '../icons/ctx-rename.svg?react'
+import CopyPathIcon from '../icons/tb-copy.svg?react'
+import RevealIcon from '../icons/ctx-reveal.svg?react'
+import ExportFolderIcon from '../icons/ctx-export.svg?react'
+import DiffIcon from '../icons/ctx-diff.svg?react'
+import HistoryIcon from '../icons/ctx-history.svg?react'
+import TrashIcon from '../icons/ctx-trash.svg?react'
 import ChevronIcon from '../icons/chevron.svg?react'
+import { FileExt, FileTypeIcon } from './FileTypeIcon'
 import ExportIcon from '../icons/export.svg?react'
-import FileIcon from '../icons/file.svg?react'
-import FolderIcon from '../icons/folder.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
-import { exportPreviewPdf } from './exportPdf'
-import { toast } from './uiKit'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -25,6 +31,8 @@ interface SidebarProps {
   dirtyFilePaths: string[]
   onCompareChanges: (filePath: string) => void
   onOpenHistory: (filePath: string) => void
+  /** 파일을 열고 해당 줄로 이동 (내보내기 깨진 링크용) */
+  onOpenAtLine: (filePath: string, line: number) => void
   selectedFolderPath: string | null
   onSelectFolder: (path: string | null) => void
   className?: string
@@ -70,6 +78,14 @@ interface RowContext {
   onDrop: (e: React.DragEvent, targetDirPath: string) => void
 }
 
+const ICON_BTN =
+  'flex h-[26px] w-[26px] items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-secondary'
+
+const ROW_BASE =
+  'flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] text-text transition-colors hover:bg-bg-mute/60 focus:outline-none'
+
+const SYSTEM_FOLDERS = new Set(['img', 'files'])
+
 function dirOf(filePath: string): string {
   const idx = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
   return idx >= 0 ? filePath.slice(0, idx) : filePath
@@ -77,19 +93,24 @@ function dirOf(filePath: string): string {
 
 function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
   for (const node of nodes) {
-      if (node.path === path) return node
-      if (node.children) {
-        const found = findNodeByPath(node.children, path)
-        if (found) return found
-      }
+    if (node.path === path) return node
+    if (node.children) {
+      const found = findNodeByPath(node.children, path)
+      if (found) return found
+    }
   }
   return null
 }
 
+/** 파일 이름을 이름 부분과 확장자(점 포함)로 나눈다. 점이 맨 앞이거나 없으면 확장자 없음. */
+function splitName(name: string): { base: string; ext: string } {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0) return { base: name, ext: '' }
+  return { base: name.slice(0, dot), ext: name.slice(dot) }
+}
+
 function nameWithoutExt(node: TreeNode): string {
-  return node.type === 'file' && node.name.toLowerCase().endsWith('.md')
-    ? node.name.slice(0, -3)
-    : node.name
+  return node.type === 'file' ? splitName(node.name).base : node.name
 }
 
 function InlineNameInput({
@@ -124,7 +145,7 @@ function InlineNameInput({
       onClick={(e) => e.stopPropagation()}
       className={
         inline
-          ? '-ml-px relative min-w-0 flex-1 rounded border border-accent bg-bg px-0 py-0 leading-none text-xs text-text outline-none'
+          ? '-ml-px relative min-w-0 flex-1 rounded border border-accent bg-bg px-1 py-0 leading-none text-[13px] text-text outline-none'
           : 'my-0.5 w-[calc(100%-8px)] rounded border border-accent bg-bg px-1.5 py-0.5 text-sm text-text outline-none'
       }
       style={inline ? { top: '0px' } : { marginLeft: paddingLeft }}
@@ -142,9 +163,12 @@ function TreeRow({
   ctx: RowContext
 }): React.JSX.Element {
   const expanded = ctx.isExpanded(node.path)
-  const paddingLeft = 6 + depth * 9
+  const paddingLeft = 8 + depth * 12
+  const childPadding = 8 + (depth + 1) * 12
 
-    if (node.type === 'folder') {
+  if (node.type === 'folder') {
+    const isSystem = SYSTEM_FOLDERS.has(node.name)
+    const isSelected = ctx.selectedFolderPath === node.path
     return (
       <div>
         <div
@@ -157,17 +181,18 @@ function TreeRow({
           className={`flex items-center ${ctx.draggingPath === node.path ? 'opacity-40' : ''}`}
         >
           {ctx.editingPath === node.path ? (
-            <div
-              className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs"
-              style={{ paddingLeft }}
-            >
+            <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft }}>
               <ChevronIcon
                 width={12}
                 height={12}
-                style={{ width: 12, height: 12, transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                style={{
+                  width: 12,
+                  height: 12,
+                  transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)'
+                }}
                 className="shrink-0 text-text-secondary transition-transform"
               />
-              <FolderIcon width={16} height={16} className="shrink-0 text-text-secondary"/>
+              <FileTypeIcon name={node.name} kind="folder" />
               <InlineNameInput
                 initialValue={node.name}
                 onCommit={(value) => ctx.onCommitRename(node, value)}
@@ -184,58 +209,78 @@ function TreeRow({
                 ctx.onToggleExpand(node.path)
                 ctx.onSelectFolder(node.path)
               }}
-              className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none ${
-                ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent' : ''
-              } ${
-                ctx.selectedFolderPath === node.path
-                  ? 'bg-bg-mute text-text'
-                  : 'text-text-secondary'
-              }`}
+              className={`${ROW_BASE} ${
+                ctx.showRing && ctx.focusedPath === node.path
+                  ? 'ring-1 ring-inset ring-accent/60'
+                  : ''
+              } ${isSelected ? 'bg-bg-mute' : ''} text-text`}
               style={{ paddingLeft }}
             >
-              <ChevronIcon width={12} height={12} className="shrink-0 text-text-secondary transition-transform" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}/>
-              <FolderIcon width={16} height={16} style={{ width: 16, height: 16 }} className="shrink-0 text-text-secondary"/>
-              <span className="truncate">{node.name}</span>
+              <ChevronIcon
+                width={12}
+                height={12}
+                className="shrink-0 text-text-secondary transition-transform"
+                style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+              />
+              <FileTypeIcon name={node.name} kind="folder" />
+              <span className={`truncate ${isSystem ? 'font-normal' : 'font-medium'}`}>
+                {node.name}
+              </span>
             </button>
           )}
         </div>
-        {expanded && (
-          <div>
-            {ctx.newFolderIn === node.path && (
-              <div
-                className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs" 
-                style={{ paddingLeft: paddingLeft + 14 }}
-              >
-                <ChevronIcon width={12} height={12} style={{ width: 12, height: 12 }} className="shrink-0 opacity-0"/>
-                <FolderIcon width={16} height={16} style={{ width: 16, height: 16 }} className="shrink-0 text-text-secondary" />
-                <InlineNameInput
-                  initialValue=""
-                  onCommit={(value) => ctx.onCommitNewFolder(node.path, value)}
-                  onCancel={ctx.onCancelNewFolder}
-                  paddingLeft={0}
-                />
-              </div>
-            )}
-            {ctx.newFileIn === node.path && (
-              <div
-                className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs"
-                style={{ paddingLeft: paddingLeft + 27 }}
-              >
-                <FileIcon width={16} height={16} style={{ width: 16, height: 16 }} className="shrink-0 text-text-secondary"/>
-                <InlineNameInput
-                  initialValue=""
-                  onCommit={(value) => ctx.onCommitNewFile(node.path, value)}
-                  onCancel={ctx.onCancelNewFile}
-                  paddingLeft={0}
-                  inline
-                />
-              </div>
-            )}
-            {node.children?.map((child) => (
-              <TreeRow key={child.path} node={child} depth={depth + 1} ctx={ctx} />
-            ))}
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              key="children"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.18, ease: [0.4, 0, 0.2, 1] }}
+              style={{ overflow: 'hidden' }}
+            >
+              {ctx.newFolderIn === node.path && (
+                <div
+                  className="flex h-7 w-full items-center gap-2 pr-2"
+                  style={{ paddingLeft: childPadding }}
+                >
+                  <ChevronIcon
+                    width={12}
+                    height={12}
+                    style={{ width: 12, height: 12 }}
+                    className="shrink-0 opacity-0"
+                  />
+                  <FileTypeIcon name="" kind="folder" />
+                  <InlineNameInput
+                    initialValue=""
+                    onCommit={(value) => ctx.onCommitNewFolder(node.path, value)}
+                    onCancel={ctx.onCancelNewFolder}
+                    paddingLeft={0}
+                    inline
+                  />
+                </div>
+              )}
+              {ctx.newFileIn === node.path && (
+                <div
+                  className="flex h-7 w-full items-center gap-2 pr-2"
+                  style={{ paddingLeft: childPadding + 20 }}
+                >
+                  <FileTypeIcon name="new.md" kind="file" />
+                  <InlineNameInput
+                    initialValue=""
+                    onCommit={(value) => ctx.onCommitNewFile(node.path, value)}
+                    onCancel={ctx.onCancelNewFile}
+                    paddingLeft={0}
+                    inline
+                  />
+                </div>
+              )}
+              {node.children?.map((child) => (
+                <TreeRow key={child.path} node={child} depth={depth + 1} ctx={ctx} />
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     )
   }
@@ -243,10 +288,10 @@ function TreeRow({
   if (ctx.editingPath === node.path) {
     return (
       <div
-        className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs"
-        style={{ paddingLeft: paddingLeft + 18}}
+        className="flex h-7 w-full items-center gap-2 pr-2"
+        style={{ paddingLeft: paddingLeft + 20 }}
       >
-        <FileIcon width={16} height={16} style={{ width: 16, height: 16 }} className="shrink-0 text-text-secondary" />
+        <FileTypeIcon name={node.name} kind="file" />
         <InlineNameInput
           initialValue={nameWithoutExt(node)}
           onCommit={(value) => ctx.onCommitRename(node, value)}
@@ -254,13 +299,13 @@ function TreeRow({
           paddingLeft={0}
           inline
         />
-
       </div>
     )
   }
 
   const isActive = node.path === ctx.activeFilePath && !ctx.selectedFolderPath && !ctx.highlightOff
   const isDirty = ctx.dirtyFilePaths.includes(node.path)
+  const { base, ext } = splitName(node.name)
   return (
     <button
       ref={(el) => ctx.registerRowRef(node.path, el)}
@@ -270,18 +315,17 @@ function TreeRow({
       onDragEnd={ctx.onDragEnd}
       onContextMenu={(e) => ctx.onContextMenu(e, node)}
       onClick={() => ctx.onOpenFile(node.path)}
-      className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-bg-mute focus:outline-none ${
-        ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent' : ''
-      } ${
-        isActive ? 'bg-bg-mute' : ''
-      } ${isDirty ? 'text-yellow-500' : isActive ? 'text-text' : 'text-text-secondary'} ${
-        ctx.draggingPath === node.path ? 'opacity-40' : ''
-      }`}
-      style={{ paddingLeft: paddingLeft + 18 }}
+      className={`${ROW_BASE} ${
+        ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent/60' : ''
+      } ${isActive ? 'bg-bg-mute' : ''} ${ctx.draggingPath === node.path ? 'opacity-40' : ''}`}
+      style={{ paddingLeft: paddingLeft + 20 }}
     >
-      <FileIcon width={16} height={16} className="shrink-0 text-text-secondary" />
-      <span className="truncate">{node.name}</span>
-      {isDirty && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-yellow-500/40" />}
+      <FileTypeIcon name={node.name} kind="file" />
+      <span className="truncate">
+        {base}
+        {ext && <FileExt name={node.name} ext={ext} />}
+      </span>
+      {isDirty && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />}
     </button>
   )
 }
@@ -300,6 +344,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     dirtyFilePaths,
     onCompareChanges,
     onOpenHistory,
+    onOpenAtLine,
     selectedFolderPath,
     onSelectFolder,
     className,
@@ -322,11 +367,11 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     setCollapsedPaths((prev) => {
       const next = new Set(prev)
       if (next.has(path)) next.delete(path)
-        else next.add(path)
+      else next.add(path)
       return next
     })
   }
-   const expandPath = (path: string): void => {
+  const expandPath = (path: string): void => {
     setCollapsedPaths((prev) => {
       if (!prev.has(path)) return prev
       const next = new Set(prev)
@@ -340,12 +385,14 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }
   const [showRing, setShowRing] = useState(false)
   const [highlightOff, setHighlightOff] = useState(false)
-  useEffect(() => {
+  const [prevActiveFilePath, setPrevActiveFilePath] = useState(activeFilePath)
+  if (prevActiveFilePath !== activeFilePath) {
+    setPrevActiveFilePath(activeFilePath)
     setHighlightOff(false)
-  }, [activeFilePath])
+  }
   const [focusedPath, setFocusedPath] = useState<string | null>(null)
   useEffect(() => {
-    if(!focusedPath) return
+    if (!focusedPath) return
     const el = rowRefs.current.get(focusedPath)
     const active = document.activeElement
     const focusIsFree = !active || active === document.body || active.tagName === 'BUTTON'
@@ -445,7 +492,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }
 
   const commitRename = (node: TreeNode, rawValue: string): void => {
-    const newName = node.type === 'file' ? `${rawValue}.md` : rawValue
+    const newName = node.type === 'file' ? `${rawValue}${splitName(node.name).ext}` : rawValue
     setEditingPath(null)
     if (newName === node.name) return
     void window.api.workspace.renameEntry(node.path, newName).then((newPath) => {
@@ -476,8 +523,9 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }
 
   const openDeleteConfirm = (node: TreeNode): void => {
-    setDeleteTarget({ node, backlinks: null, loading: node.type === 'file' })
-    if (node.type === 'file' && node.name.toLowerCase().endsWith('.md')) {
+    const isMd = node.type === 'file' && node.name.toLowerCase().endsWith('.md')
+    setDeleteTarget({ node, backlinks: null, loading: isMd })
+    if (isMd) {
       void window.api.workspace.findBacklinks(node.path).then((backlinks) => {
         setDeleteTarget({ node, backlinks, loading: false })
       })
@@ -489,9 +537,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     const { node } = deleteTarget
     const sep = node.path.includes('\\') ? '\\' : '/'
     const idx = visibleNodes.findIndex((n) => n.path === node.path)
-    const after = visibleNodes
-      .slice(idx + 1)
-      .find((n) => !n.path.startsWith(node.path + sep))
+    const after = visibleNodes.slice(idx + 1).find((n) => !n.path.startsWith(node.path + sep))
     const neighbor = after ?? visibleNodes[idx - 1] ?? null
     void window.api.workspace.trash(node.path).then(() => {
       onEntryDeleted(node.path)
@@ -504,13 +550,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     setDeleteTarget(null)
   }
 
-  const exportActivePdf = async (): Promise<void> => {
-    if (!activeFilePath) return
-    const name = activeFilePath.split(/[\\/]/).pop() ?? '문서'
-    const r = await exportPreviewPdf(name.replace(/\.md$/i, ''))
-    if (r.ok) toast('PDF로 저장했어요')
-    else if (!r.canceled) toast(r.error ?? 'PDF를 만들지 못했어요')
-  }
   const handleContextMenu = (e: React.MouseEvent, node: TreeNode): void => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, node })
@@ -566,37 +605,44 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         const node = contextMenu.node
         const items: ContextMenuItem[] = []
         if (node.type === 'folder') {
-          items.push({ 
-            label: '새 메모', 
+          items.push({
+            label: '메모',
+            icon: <PlusIcon width={16} height={16} />,
             onClick: () => {
               expandPath(node.path)
-              setNewFileIn(node.path) 
+              setNewFileIn(node.path)
             }
           })
-          items.push({ 
-            label: '새 폴더', 
+          items.push({
+            label: '폴더',
+            icon: <PlusIcon width={16} height={16} />,
             onClick: () => {
               expandPath(node.path)
-              setNewFolderIn(node.path) 
+              setNewFolderIn(node.path)
             }
           })
         }
-        items.push({ label: '이름 바꾸기', onClick: () => setEditingPath(node.path) })
+        items.push({
+          label: '이름 바꾸기',
+          icon: <RenameIcon width={16} height={16} />,
+          sepBefore: node.type === 'folder',
+          onClick: () => setEditingPath(node.path)
+        })
         items.push({
           label: '경로 복사',
+          icon: <CopyPathIcon width={16} height={16} />,
           onClick: () => void window.api.workspace.copyPath(node.path, false)
         })
         items.push({
-          label: '상대 경로 복사',
-          onClick: () => void window.api.workspace.copyPath(node.path, true)
-        })
-        items.push({
           label: '폴더에서 보기',
+          icon: <RevealIcon width={16} height={16} />,
+          sepBefore: true,
           onClick: () => void window.api.workspace.reveal(node.path)
         })
         if (node.type === 'folder') {
           items.push({
             label: '폴더 내보내기',
+            icon: <ExportFolderIcon width={16} height={16} />,
             onClick: () =>
               setExportTarget({
                 folderPath: node.path,
@@ -612,13 +658,24 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         ) {
           items.push({
             label: '변경 내용 비교',
+            icon: <DiffIcon width={16} height={16} />,
             onClick: () => onCompareChanges(node.path)
           })
         }
         if (node.type === 'file' && node.name.toLowerCase().endsWith('.md')) {
-          items.push({ label: '버전 기록', onClick: () => onOpenHistory(node.path)})
+          items.push({
+            label: '버전 기록',
+            icon: <HistoryIcon width={16} height={16} />,
+            onClick: () => onOpenHistory(node.path)
+          })
         }
-        items.push({ label: '삭제', danger: true, onClick: () => openDeleteConfirm(node) })
+        items.push({
+          label: '삭제',
+          danger: true,
+          icon: <TrashIcon width={16} height={16} />,
+          sepBefore: true,
+          onClick: () => openDeleteConfirm(node)
+        })
         return items
       })()
     : []
@@ -626,15 +683,15 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   return (
     <div
       tabIndex={-1}
-      className={`flex flex-col bg-bg-soft outline-none ${className ?? ''}`}
+      className={`group/sb flex flex-col outline-none ${className ?? ''}`}
       style={style}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => rootDir && handleDrop(e, rootDir)}
       onKeyDown={handleTreeKeyDown}
     >
-      <div className="flex h-7 shrink-0 items-center justify-between border-b border-border pl-2 pr-0">
-        <span className="text-xs font-medium uppercase tracking-wide text-text-secondary">탐색</span>
-        <div className="flex items-center gap-0">
+      <div className="flex h-9 shrink-0 items-center justify-between pl-4 pr-2">
+        <span className="text-[11px] font-medium tracking-wide text-text-tertiary">탐색</span>
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-focus-within/sb:opacity-100 group-hover/sb:opacity-100">
           <button
             type="button"
             onClick={() =>
@@ -642,18 +699,9 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             }
             title="전체 내보내기"
             disabled={!rootDir}
-            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+            className={ICON_BTN}
           >
-            <ExportIcon width={16} height={16}/>
-          </button>
-          <button
-            type="button"
-            onClick={() => void exportActivePdf()}
-            title="현재 문서를 PDF로 내보내기"
-            disabled={!activeFilePath || !activeFilePath.toLowerCase().endsWith('.md')}
-            className="flex items-center justify-center rounded px-1.5 text-[10px] font-medium text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
-          >
-            PDF
+            <ExportIcon />
           </button>
           <button
             type="button"
@@ -666,13 +714,13 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             }}
             title="새 폴더"
             disabled={!rootDir}
-            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+            className={`${ICON_BTN} !w-[30px]`}
           >
-            <NewFolderIcon width={16} height={16}/>
+            <NewFolderIcon />
           </button>
           <button
             type="button"
-            onClick={() => { 
+            onClick={() => {
               const dir = resolveToolbarDir()
               if (dir) {
                 expandPath(dir)
@@ -681,28 +729,33 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             }}
             title="새 파일"
             disabled={!rootDir}
-            className="flex items-center justify-center rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text disabled:opacity-40"
+            className={ICON_BTN}
           >
-            <NewFileIcon/>
+            <NewFileIcon />
           </button>
         </div>
       </div>
-        <div
-          className="flex-1 overflow-auto px-1.5 pt-1.5 pb-2"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setFocusedPath(null)
-              setHighlightOff(true)
-              setShowRing(false)
-              if (rootDir) onSelectFolder(rootDir)
-              e.currentTarget.parentElement?.focus()
-            }
-          }}
-        >
+      <div
+        className="flex-1 overflow-auto px-2 pb-2"
+        onMouseDown={(e) => {
+          if (e.target === e.currentTarget) {
+            setFocusedPath(null)
+            setHighlightOff(true)
+            setShowRing(false)
+            if (rootDir) onSelectFolder(rootDir)
+            e.currentTarget.parentElement?.focus()
+          }
+        }}
+      >
         {newFolderIn === rootDir && rootDir && (
-          <div className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs" style={{ paddingLeft: 12 }}>
-            <ChevronIcon width={10} height={10} style={{ width:10, height:10 }} className="shrink-0 opacity-0"/>
-            <FolderIcon width={16} height={14} style={{ width:16, height: 14 }} className="shrink-0 text-text-secondary"/>
+          <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft: 8 }}>
+            <ChevronIcon
+              width={12}
+              height={12}
+              style={{ width: 12, height: 12 }}
+              className="shrink-0 opacity-0"
+            />
+            <FileTypeIcon name="" kind="folder" />
             <InlineNameInput
               initialValue=""
               onCommit={(value) => commitNewFolder(rootDir, value)}
@@ -713,8 +766,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           </div>
         )}
         {newFileIn === rootDir && rootDir && (
-          <div className="flex h-6 w-full items-center gap-1.5 rounded px-2 text-xs" style={{ paddingLeft: 6 + 18 }}>
-            <FileIcon width={16} height={14} style={{ width:16, height: 14}} className="shrink-0 text-text-secondary"/>
+          <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft: 8 + 20 }}>
+            <FileTypeIcon name="new.md" kind="file" />
             <InlineNameInput
               initialValue=""
               onCommit={(value) => commitNewFile(rootDir, value)}
@@ -729,7 +782,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             <button
               type="button"
               onClick={() => rootDir && setNewFileIn(rootDir)}
-              className="rounded border border-border px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-mute hover:text-text"
+              className="rounded-md border border-border px-3 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-mute hover:text-text"
             >
               + 새 메모 만들기
             </button>
@@ -748,15 +801,16 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       )}
       {deleteTarget && (
         <ConfirmDialog
-          title={`"${deleteTarget.node.name}" 삭제`}
+          title="삭제할까요"
+          subject={{ name: deleteTarget.node.name, kind: deleteTarget.node.type }}
           message={
             deleteTarget.node.type === 'folder'
-              ? '폴더 안의 모든 파일이 휴지통으로 이동해요.'
+              ? '폴더 안의 모든 파일이 휴지통으로 이동돼요. 언제든 복원할 수 있어요'
               : deleteTarget.loading
                 ? '이 메모를 가리키는 링크를 확인하고 있어요…'
                 : deleteTarget.backlinks && deleteTarget.backlinks.length > 0
                   ? `이 메모를 가리키는 위키링크가 ${deleteTarget.backlinks.reduce((sum, b) => sum + b.count, 0)}개 있어요. 삭제하면 링크가 끊겨요.`
-                  : '휴지통으로 이동해요.'
+                  : '휴지통으로 이동돼요. 언제든 복원할 수 있어요'
           }
           items={deleteTarget.backlinks?.map((b) => b.path.split('/').pop() ?? b.path)}
           confirmLabel="삭제"
@@ -770,6 +824,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           folderPath={exportTarget.folderPath}
           isRoot={exportTarget.isRoot}
           folderLabel={exportTarget.label}
+          onOpenLink={(path, line) => onOpenAtLine(path, line ?? 1)}
           onClose={() => setExportTarget(null)}
         />
       )}

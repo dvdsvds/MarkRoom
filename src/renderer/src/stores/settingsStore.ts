@@ -4,20 +4,12 @@ import { DEFAULT_SHORTCUTS, type ShortcutAction, type ShortcutMap } from '../uti
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 
-const isMac = navigator.userAgent.includes('Mac')
-const isWindows = navigator.userAgent.includes('Windows')
-
-const DEFAULT_EDITOR_FONT_FAMILY = isMac
-  ? "'SF Mono', Menlo, 'D2Coding', monospace"
-  : isWindows
-    ? "'Cascadia Code', Consolas, 'D2Coding', monospace"
-    : "'DejaVu Sans Mono', 'D2Coding', monospace"
-
-const DEFAULT_PREVIEW_FONT_FAMILY = isMac
-  ? "Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif"
-  : isWindows
-    ? "Pretendard, 'Segoe UI', 'Malgun Gothic', 'Noto Sans KR', sans-serif"
-    : "Pretendard, 'Noto Sans KR', 'Noto Sans CJK KR', sans-serif"
+const OLD_EDITOR_FONT_FAMILY = "'IBM Plex Mono', 'D2Coding', Pretendard, monospace"
+// 영문은 Roboto Mono, Roboto Mono에 없는 한글은 Pretendard가 맡는다.
+const DEFAULT_EDITOR_FONT_FAMILY = "'Roboto Mono', Pretendard, monospace"
+const DEFAULT_EDITOR_FONT_SIZE = 13.5
+const DEFAULT_EDITOR_LINE_HEIGHT = 1.8
+const DEFAULT_PREVIEW_FONT_FAMILY = "Pretendard, sans-serif"
 
 interface SettingsState {
   theme: ThemePreference
@@ -29,6 +21,8 @@ interface SettingsState {
   setVimMouse: (value: boolean) => void
   h1Warning: boolean
   setH1Warning: (value: boolean) => void
+  showToolbar: boolean
+  setShowToolbar: (value: boolean) => void
 
   editorFontFamily: string
   editorFontSize: number
@@ -79,10 +73,12 @@ export const useSettingsStore = create<SettingsState>()(
       setVimMouse: (value) => set({ vimMouse: value }),
       h1Warning: true,
       setH1Warning: (value) => set({ h1Warning: value }),
+      showToolbar: true,
+      setShowToolbar: (value) => set({ showToolbar: value }),
 
       editorFontFamily: DEFAULT_EDITOR_FONT_FAMILY,
-      editorFontSize: 14,
-      editorLineHeight: 1.6,
+      editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+      editorLineHeight: DEFAULT_EDITOR_LINE_HEIGHT,
       setEditorFont: (partial) =>
         set((state) => ({
           editorFontFamily: partial.family ?? state.editorFontFamily,
@@ -103,8 +99,8 @@ export const useSettingsStore = create<SettingsState>()(
       resetFonts: () =>
         set({
           editorFontFamily: DEFAULT_EDITOR_FONT_FAMILY,
-          editorFontSize: 12,
-          editorLineHeight: 1.6,
+          editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+          editorLineHeight: DEFAULT_EDITOR_LINE_HEIGHT,
           previewFontFamily: DEFAULT_PREVIEW_FONT_FAMILY,
           previewFontSize: 15,
           previewLineHeight: 1.7
@@ -113,8 +109,8 @@ export const useSettingsStore = create<SettingsState>()(
       resetEditorFont: () =>
         set({
           editorFontFamily: DEFAULT_EDITOR_FONT_FAMILY,
-          editorFontSize: 12,
-          editorLineHeight: 1.6
+          editorFontSize: DEFAULT_EDITOR_FONT_SIZE,
+          editorLineHeight: DEFAULT_EDITOR_LINE_HEIGHT
         }),
       resetPreviewFont: () =>
         set({
@@ -152,6 +148,29 @@ export const useSettingsStore = create<SettingsState>()(
         })),
       resetAllShortcuts: () => set({ shortcuts: DEFAULT_SHORTCUTS })
     }),
-    { name: 'syntaxnote-settings' }
+    {
+      name: 'syntaxnote-settings',
+      version: 2,
+      // 예전 기본값 그대로 쓰던 사람은 새 기본값으로 옮긴다. 직접 바꾼 값은 건드리지 않는다.
+      migrate: (persisted, version) => {
+        const s = persisted as Partial<SettingsState>
+        if (version < 1) {
+          if (s.editorFontFamily === OLD_EDITOR_FONT_FAMILY) {
+            s.editorFontFamily = DEFAULT_EDITOR_FONT_FAMILY
+          }
+          if (s.editorFontSize === 12 || s.editorFontSize === 14) {
+            s.editorFontSize = DEFAULT_EDITOR_FONT_SIZE
+          }
+          if (s.editorLineHeight === 1.6) s.editorLineHeight = DEFAULT_EDITOR_LINE_HEIGHT
+        }
+        if (version < 2) {
+          // 프리뷰 예전 기본값(세리프)을 쓰던 사람은 Pretendard로 옮긴다.
+          if (s.previewFontFamily?.includes('Source Serif')) {
+            s.previewFontFamily = DEFAULT_PREVIEW_FONT_FAMILY
+          }
+        }
+        return s as SettingsState
+      }
+    }
   )
 )

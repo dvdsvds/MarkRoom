@@ -1,5 +1,4 @@
-<!-- search.svg -->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <circle cx="7" cy="7" r="4.5" stroke="currentColor"/>
-  <path d="M10.2 10.2L13.5 13.5" stroke="currentColor" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="8" cy="8" r="4.9"/>
+  <path d="M11.6 11.6L15.5 15.5"/>
 </svg>

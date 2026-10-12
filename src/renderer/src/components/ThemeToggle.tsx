@@ -1,58 +1,46 @@
-import { motion } from 'motion/react'
 import { useSettingsStore, type ThemePreference } from '../stores/settingsStore'
-import ThemeDarkIcon from '../icons/theme-dark.svg?react'
-import ThemeLightIcon from '../icons/theme-light.svg?react'
-import ThemeSystemIcon from '../icons/theme-system.svg?react'
 
-const OPTIONS: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
-  {
-    value: 'system',
-    label: '시스템',
-    icon: (
-      <ThemeSystemIcon/>
-    )
-  },
-  {
-    value: 'light',
-    label: '라이트',
-    icon: (
-      <ThemeLightIcon/>
-    )
-  },
-  {
-    value: 'dark',
-    label: '다크',
-    icon: (
-      <ThemeDarkIcon/>
-    )
-  }
+const OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'system', label: '시스템' },
+  { value: 'light', label: '라이트' },
+  { value: 'dark', label: '다크' }
 ]
+
+const ITEM_WIDTH = 60
 
 export function ThemeToggle(): React.JSX.Element {
   const theme = useSettingsStore((state) => state.theme)
   const setTheme = useSettingsStore((state) => state.setTheme)
+  const activeIndex = Math.max(
+    0,
+    OPTIONS.findIndex((o) => o.value === theme)
+  )
 
   return (
-    <div className="titlebar-no-drag relative inline-flex rounded-full border border-border bg-bg-soft p-1">
+    <div
+      role="radiogroup"
+      className="titlebar-no-drag relative inline-flex rounded-[9px] bg-text/[0.07] p-0.5"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute left-0.5 top-0.5 h-6 rounded-[7px] bg-text/[0.13] transition-transform duration-150 ease-out"
+        style={{ width: ITEM_WIDTH, transform: `translateX(${activeIndex * ITEM_WIDTH}px)` }}
+      />
       {OPTIONS.map((option) => {
         const active = option.value === theme
         return (
           <button
             key={option.value}
             type="button"
+            role="radio"
+            aria-checked={active}
             onClick={() => setTheme(option.value)}
-            title={option.label}
-            className="relative z-10 flex items-center justify-center rounded-full px-4 py-2 text-text-secondary transition-colors [&_svg]:h-5 [&_svg]:w-5"
-            style={active ? { color: 'var(--color-text-inverted)' } : undefined}
+            className={`relative h-6 rounded-[7px] text-[12.5px] outline-none transition-colors ${
+              active ? 'text-text' : 'text-text-secondary hover:text-text'
+            }`}
+            style={{ width: ITEM_WIDTH }}
           >
-            {active && (
-              <motion.span
-                layoutId="theme-toggle-active"
-                className="absolute inset-0 -z-10 rounded-full bg-accent"
-                transition={{ type: 'spring', duration: 0.3, bounce: 0.2 }}
-              />
-            )}
-            {option.icon}
+            {option.label}
           </button>
         )
       })}

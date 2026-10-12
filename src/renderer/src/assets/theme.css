@@ -20,6 +20,13 @@
   --color-accent-soft: rgba(35,131,226,.10);
   --color-danger: #e5484d;
   --color-danger-soft: #fdecec;
+  --icon-folder: #7c8598;
+  --icon-sys: #8b93a5;
+  --icon-md: #3b78e7;
+  --icon-csv: #1f9d5b;
+  --icon-pdf: #d8433c;
+  --icon-img: #7a4fe0;
+  --icon-doc: #7c8598;
   --color-warning: #b98900;
 
   /* 차이(diff) 비교 */
@@ -31,104 +38,123 @@
   /* 탭 밖에서 바뀌었거나 삭제된 메모 */
   --color-stale: #e5484d;
 
-  /* 에디터 / 프리뷰 글꼴 (설정에서 따로 조절) */
-  --font-editor: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'D2Coding', monospace;
+  /* UI / 에디터 / 프리뷰 글꼴 (에디터·프리뷰는 설정에서 따로 조절) */
+  --font-ui:
+    Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo',
+    'Noto Sans KR', sans-serif;
+  --font-editor:
+    'Roboto Mono', Pretendard, ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, 'Noto Sans KR',
+    monospace;
   --font-preview:
     Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Apple SD Gothic Neo',
     'Noto Sans KR', sans-serif;
-  --editor-font-size: 12px;
-  --editor-line-height: 1.6;
+  --editor-font-size: 13.5px;
+  --editor-line-height: 1.8;
   --preview-font-size: 15px;
   --preview-line-height: 1.7;
 
-  --color-syntax-code: #1a7f4b;
-  --color-syntax-mark: #2383e2;
-  --color-syntax-heading: #2f8f5b;
-  --color-syntax-bullet: #d92d3a;
-  --color-syntax-strong: #d9730d;
-  --color-syntax-em: #b58900;
-  --color-syntax-fence: #8250df;
-  --color-syntax-task: #0f8b8d;
+  --color-syntax-code: #2f855a;
+  --color-syntax-mark: #0f8b8d;
+  --color-syntax-heading: #2f5bd8;
+  --color-syntax-bullet: #d6336c;
+  --color-syntax-strong: #b7791f;
+  --color-syntax-em: #c2410c;
+  --color-syntax-fence: #8a94a8;
+  --color-syntax-task: #7c3aed;
 
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --color-bg: #141519;
-    --color-bg-soft: #0f1013;
-    --color-bg-mute: rgba(255,255,255,.06);
-    --color-bg-elevated: #1a1b20;
+    --color-bg: #191919;
+    --color-bg-soft: #121212;
+    --color-bg-mute: rgba(255,255,255,.05);
+    --color-bg-elevated: #202020;
 
     --color-border: rgba(255,255,255,.06);
-    --color-border-strong: rgba(255,255,255,.12);
+    --color-border-strong: rgba(255,255,255,.11);
 
-    --color-text: #e4e5ea;
-    --color-text-secondary: #a0a2ae;
-    --color-text-tertiary: #7c7e8a;
-    --color-text-inverted: #141519;
+    --color-text: #e3e3e3;
+    --color-text-secondary: #9b9b9b;
+    --color-text-tertiary: #686868;
+    --color-text-inverted: #191919;
 
-    --color-accent: #7b87ff;
-    --color-accent-soft: rgba(123,135,255,.15);
-    --color-danger: #f2777a;
-    --color-danger-soft: #3a2323;
-    --color-warning: #d9a441;
+    --color-accent: #86a0d4;
+    --color-accent-soft: rgba(134,160,212,.14);
+    --color-danger: #e08581;
+    --color-danger-soft: #2e2121;
+    --icon-folder: #8d96a8;
+    --icon-sys: #7f8696;
+    --icon-md: #6b9bff;
+    --icon-csv: #3ec27e;
+    --icon-pdf: #ff6b64;
+    --icon-img: #a780ff;
+    --icon-doc: #9aa0ad;
+    --color-warning: #d4a95a;
 
-    --color-diff-add-bg: #16233f;
-    --color-diff-add-text: #7fa4ff;
-    --color-diff-remove-bg: #3a2323;
-    --color-diff-remove-text: #f2777a;
+    --color-diff-add-bg: #1c2433;
+    --color-diff-add-text: #8fabdc;
+    --color-diff-remove-bg: #2e2121;
+    --color-diff-remove-text: #e08581;
 
-    --color-stale: #f2777a;
+    --color-stale: #e08581;
 
-    --color-syntax-code: #7ee2a8;
-    --color-syntax-mark: #b4baff;
-    --color-syntax-heading: #8fcfa6;
-    --color-syntax-bullet: #f2777a;
-    --color-syntax-strong: #f2a15f;
-    --color-syntax-em: #e8c86a;
-    --color-syntax-fence: #c297ff;
-    --color-syntax-task: #6fd3d6;
+    --color-syntax-code: #9ece6a;
+    --color-syntax-mark: #73daca;
+    --color-syntax-heading: #7aa2f7;
+    --color-syntax-bullet: #f7768e;
+    --color-syntax-strong: #e0af68;
+    --color-syntax-em: #ff9e64;
+    --color-syntax-fence: #6a7894;
+    --color-syntax-task: #bb9af7;
 
     color-scheme: dark;
   }
 }
 
 :root[data-theme='dark'] {
-  --color-bg: #141519;
-  --color-bg-soft: #0f1013;
-  --color-bg-mute: rgba(255,255,255,.06);
-  --color-bg-elevated: #1a1b20;
+  --color-bg: #191919;
+  --color-bg-soft: #121212;
+  --color-bg-mute: rgba(255,255,255,.05);
+  --color-bg-elevated: #202020;
 
   --color-border: rgba(255,255,255,.06);
-  --color-border-strong: rgba(255,255,255,.12);
+  --color-border-strong: rgba(255,255,255,.11);
 
-  --color-text: #e4e5ea;
-  --color-text-secondary: #a0a2ae;
-  --color-text-tertiary: #7c7e8a;
-  --color-text-inverted: #141519;
+  --color-text: #e3e3e3;
+  --color-text-secondary: #9b9b9b;
+  --color-text-tertiary: #686868;
+  --color-text-inverted: #191919;
 
-  --color-accent: #7b87ff;
-  --color-accent-soft: rgba(123,135,255,.15);
-  --color-danger: #f2777a;
-  --color-danger-soft: #3a2323;
-  --color-warning: #d9a441;
+  --color-accent: #86a0d4;
+  --color-accent-soft: rgba(134,160,212,.14);
+  --color-danger: #e08581;
+  --color-danger-soft: #2e2121;
+  --icon-folder: #8d96a8;
+  --icon-sys: #7f8696;
+  --icon-md: #6b9bff;
+  --icon-csv: #3ec27e;
+  --icon-pdf: #ff6b64;
+  --icon-img: #a780ff;
+  --icon-doc: #9aa0ad;
+  --color-warning: #d4a95a;
 
-  --color-diff-add-bg: #16233f;
-  --color-diff-add-text: #7fa4ff;
-  --color-diff-remove-bg: #3a2323;
-  --color-diff-remove-text: #f2777a;
+  --color-diff-add-bg: #1c2433;
+  --color-diff-add-text: #8fabdc;
+  --color-diff-remove-bg: #2e2121;
+  --color-diff-remove-text: #e08581;
 
-  --color-stale: #f2777a;
+  --color-stale: #e08581;
 
-  --color-syntax-code: #7ee2a8;
-  --color-syntax-mark: #b4baff;
-  --color-syntax-heading: #8fcfa6;
-  --color-syntax-bullet: #f2777a;
-  --color-syntax-strong: #f2a15f;
-  --color-syntax-em: #e8c86a;
-  --color-syntax-fence: #c297ff;
-  --color-syntax-task: #6fd3d6;
+  --color-syntax-code: #9ece6a;
+  --color-syntax-mark: #73daca;
+  --color-syntax-heading: #7aa2f7;
+  --color-syntax-bullet: #f7768e;
+  --color-syntax-strong: #e0af68;
+  --color-syntax-em: #ff9e64;
+  --color-syntax-fence: #6a7894;
+  --color-syntax-task: #bb9af7;
 
   color-scheme: dark;
 }

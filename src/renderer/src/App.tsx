@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { MarkdownEditor, type MarkdownEditorHandle } from './editor/MarkdownEditor'
 import { MarkdownPreview, type MarkdownPreviewHandle } from './components/MarkdownPreview'
 import { Sidebar, type SidebarHandle } from './components/Sidebar'
@@ -34,117 +34,175 @@ import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
+/** 에디터 칸 최소 너비. 툴바가 글머리 기호부터 전부 » 로 접힌 상태(되돌리기~배경색 + » )가 딱 들어가는 크기 */
+const EDITOR_MIN_WIDTH = 396
+
+const MOD = navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl'
+const TITLE_BTN =
+  'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
+const EMPTY_HINTS: { label: string; keys: string }[] = [
+  { label: '새 메모', keys: `${MOD}+N` },
+  { label: '검색', keys: `${MOD}+P` },
+  { label: '할 일', keys: `${MOD}+Shift+T` },
+  { label: '백링크', keys: `${MOD}+Shift+B` },
+  { label: '설정', keys: `${MOD}+,` }
+]
+
+function EmptyState(): React.JSX.Element {
+  return (
+    <motion.div
+      className="flex flex-1 flex-col items-center justify-center gap-7"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: 'easeOut' }}
+    >
+      <div className="text-center">
+        <div className="text-[15px] font-medium tracking-tight text-text-secondary">SyntaxNote</div>
+        <div className="mt-1 text-xs text-text-tertiary">
+          왼쪽에서 메모를 열거나 새로 만들어 보세요
+        </div>
+      </div>
+      <dl className="grid grid-cols-[auto_auto] items-center gap-x-8 gap-y-2.5 text-xs">
+        {EMPTY_HINTS.map((h) => (
+          <div key={h.label} className="contents">
+            <dt className="text-text-tertiary">{h.label}</dt>
+            <dd className="justify-self-end">
+              <kbd
+                className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-text-secondary"
+                style={{ fontFamily: 'var(--font-editor)' }}
+              >
+                {h.keys}
+              </kbd>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </motion.div>
+  )
+}
 
 function resolveNotePath(filePath: string): string {
-const norm = (p: string): string => p.replace(/\\/g, '/')
-const note = flattenNotes(useWorkspaceStore.getState().tree).find(
-  (n) => norm(n.path) === norm(filePath)
-)
-return note?.path ?? filePath
+  const norm = (p: string): string => p.replace(/\\/g, '/')
+  const note = flattenNotes(useWorkspaceStore.getState().tree).find(
+    (n) => norm(n.path) === norm(filePath)
+  )
+  return note?.path ?? filePath
 }
 
 interface RecoverableItem {
-tmpPath: string
-targetPath: string
-tmpContent: string
-currentContent: string | null
+  tmpPath: string
+  targetPath: string
+  tmpContent: string
+  currentContent: string | null
 }
 
 interface DiffPopupState {
-oldContent: string
-newContent: string
-oldLabel: string
-newLabel: string
-onApply: () => void
-onRestore: () => void
+  oldContent: string
+  newContent: string
+  oldLabel: string
+  newLabel: string
+  onApply: () => void
+  onRestore: () => void
 }
 
 function App(): React.JSX.Element {
-useAppliedTheme()
-useAppliedFonts()
-useAppliedZoom()
+  useAppliedTheme()
+  useAppliedFonts()
+  useAppliedZoom()
 
-const rootDir = useWorkspaceStore((s) => s.rootDir)
-const tree = useWorkspaceStore((s) => s.tree)
-const setTree = useWorkspaceStore((s) => s.setTree)
-const setRootDir = useWorkspaceStore((s) => s.setRootDir)
-const tabs = useTabsStore((s) => s.tabs)
-const activeTabId = useTabsStore((s) => s.activeTabId)
-const openFile = useTabsStore((s) => s.openFile)
-const setActiveTab = useTabsStore((s) => s.setActiveTab)
-const setContent = useTabsStore((s) => s.setContent)
-const markSaved = useTabsStore((s) => s.markSaved)
-const closeTab = useTabsStore((s) => s.closeTab)
-const syncExternalChange = useTabsStore((s) => s.syncExternalChange)
-const renamePath = useTabsStore((s) => s.renamePath)
-const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
-const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
-const [sidebarWidth, setSidebarWidth] = useState(224)
-const sidebarResizing = useRef(false)
-const sidebarRef = useRef<SidebarHandle>(null)
+  const rootDir = useWorkspaceStore((s) => s.rootDir)
+  const tree = useWorkspaceStore((s) => s.tree)
+  const setTree = useWorkspaceStore((s) => s.setTree)
+  const setRootDir = useWorkspaceStore((s) => s.setRootDir)
+  const tabs = useTabsStore((s) => s.tabs)
+  const activeTabId = useTabsStore((s) => s.activeTabId)
+  const openFile = useTabsStore((s) => s.openFile)
+  const setActiveTab = useTabsStore((s) => s.setActiveTab)
+  const setContent = useTabsStore((s) => s.setContent)
+  const markSaved = useTabsStore((s) => s.markSaved)
+  const closeTab = useTabsStore((s) => s.closeTab)
+  const syncExternalChange = useTabsStore((s) => s.syncExternalChange)
+  const renamePath = useTabsStore((s) => s.renamePath)
+  const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
+  const [sidebarWidth, setSidebarWidth] = useState(224)
+  const sidebarResizing = useRef(false)
+  const sidebarRef = useRef<SidebarHandle>(null)
 
-const splitRatio = useSettingsStore((s) => s.splitRatio)
-const setSplitRatio = useSettingsStore((s) => s.setSplitRatio)
-const [splitDraft, setSplitDraft] = useState<number | null>(null)
-const splitRef = useRef<HTMLDivElement>(null)
+  const splitRatio = useSettingsStore((s) => s.splitRatio)
+  const setSplitRatio = useSettingsStore((s) => s.setSplitRatio)
+  const [splitDraft, setSplitDraft] = useState<number | null>(null)
+  const splitRef = useRef<HTMLDivElement>(null)
+  // 프리뷰 안 가장 넓은 이미지가 들어가는 너비. 프리뷰는 이보다 좁아질 수 없다.
+  const [previewMinWidth, setPreviewMinWidth] = useState(0)
+  // 문서에 서식(template)이 있으면 에디터/프리뷰를 5:5로 고정하고 조절을 막는다.
+  const [hasTemplate, setHasTemplate] = useState(false)
+  const previewMinWidthRef = useRef(0)
+  previewMinWidthRef.current = previewMinWidth
 
-const handleSplitResizeStart = useCallback(
-  (e: React.MouseEvent): void => {
+  const handleSplitResizeStart = useCallback(
+    (e: React.MouseEvent): void => {
+      e.preventDefault()
+      if (hasTemplate) return
+      const box = splitRef.current
+      if (!box) return
+      const rect = box.getBoundingClientRect()
+      let latest = useSettingsStore.getState().splitRatio
+      const onMouseMove = (ev: MouseEvent): void => {
+        const minRatio = Math.min(0.8, Math.max(0.2, EDITOR_MIN_WIDTH / rect.width))
+        const maxRatio = Math.max(
+          minRatio,
+          Math.min(0.8, (rect.width - previewMinWidthRef.current - 1) / rect.width)
+        )
+        latest = Math.min(maxRatio, Math.max(minRatio, (ev.clientX - rect.left) / rect.width))
+        setSplitDraft(latest)
+      }
+      const onMouseUp = (): void => {
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+        setSplitRatio(latest)
+        setSplitDraft(null)
+      }
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+    },
+    [setSplitRatio, hasTemplate]
+  )
+
+  const handleSidebarResizeStart = useCallback((e: React.MouseEvent): void => {
     e.preventDefault()
-    const box = splitRef.current
-    if (!box) return
-    const rect = box.getBoundingClientRect()
-    let latest = useSettingsStore.getState().splitRatio
+    sidebarResizing.current = true
     const onMouseMove = (ev: MouseEvent): void => {
-      latest = Math.min(0.8, Math.max(0.2, (ev.clientX - rect.left) / rect.width))
-      setSplitDraft(latest)
+      if (!sidebarResizing.current) return
+      setSidebarWidth(Math.min(480, Math.max(180, ev.clientX)))
     }
     const onMouseUp = (): void => {
+      sidebarResizing.current = false
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
-      setSplitRatio(latest)
-      setSplitDraft(null)
     }
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-  },
-  [setSplitRatio]
-)
+  }, [])
 
-const handleSidebarResizeStart = useCallback((e: React.MouseEvent): void => {
-  e.preventDefault()
-  sidebarResizing.current = true
-  const onMouseMove = (ev: MouseEvent): void => {
-    if (!sidebarResizing.current) return
-    setSidebarWidth(Math.min(480, Math.max(180, ev.clientX)))
-  }
-  const onMouseUp = (): void => {
-    sidebarResizing.current = false
-    window.removeEventListener('mousemove', onMouseMove)
-    window.removeEventListener('mouseup', onMouseUp)
-  }
-  window.addEventListener('mousemove', onMouseMove)
-  window.addEventListener('mouseup', onMouseUp)
-}, [])
-
-const [searchOpen, setSearchOpen] = useState(false)
-const [settingsOpen, setSettingsOpen] = useState(false)
-const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
-const [vimModeLabel, setVimModeLabel] = useState('NORMAL')
-const [diffPopup, setDiffPopup] = useState<DiffPopupState | null>(null)
-const [historyTarget, setHistoryTarget] = useState<{ filePath: string; content: string } | null>(
-  null
-)
-const [recoveryItems, setRecoveryItems] = useState<RecoverableItem[] | null>(null)
-const [changelog, setChangelog] = useState<string | null>(null)
-const [tocOpen, setTocOpen] = useState(false)
-const [tocFocusToken, setTocFocusToken] = useState(0)
-const [todoOpen, setTodoOpen] = useState(false)
-const [backlinksOpen, setBacklinksOpen] = useState(false)
-const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
-const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; title: string } | null>(null)
-const pushToast = useToastStore((s) => s.push)
-const editorRef = useRef<MarkdownEditorHandle>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
+  const [vimModeLabel, setVimModeLabel] = useState('NORMAL')
+  const [diffPopup, setDiffPopup] = useState<DiffPopupState | null>(null)
+  const [historyTarget, setHistoryTarget] = useState<{ filePath: string; content: string } | null>(
+    null
+  )
+  const [recoveryItems, setRecoveryItems] = useState<RecoverableItem[] | null>(null)
+  const [changelog, setChangelog] = useState<string | null>(null)
+  const [tocOpen, setTocOpen] = useState(false)
+  const [tocFocusToken, setTocFocusToken] = useState(0)
+  const [todoOpen, setTodoOpen] = useState(false)
+  const [backlinksOpen, setBacklinksOpen] = useState(false)
+  const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
+  const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; title: string } | null>(null)
+  const pushToast = useToastStore((s) => s.push)
+  const editorRef = useRef<MarkdownEditorHandle>(null)
   const previewRef = useRef<MarkdownPreviewHandle>(null)
   const scrollSourceRef = useRef<'editor' | 'preview' | null>(null)
   const handleEditorScrollRatio = useCallback((ratio: number) => {
@@ -246,6 +304,7 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
         JSON.stringify({ paths, activeTabId: active?.filePath ?? null })
       )
     } catch {
+      // 저장소를 쓸 수 없어도 앱은 계속 동작해요
     }
   }, [tabs, activeTabId])
 
@@ -611,25 +670,25 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
   )
 
   const handleOpenTodo = useCallback(
-  (filePath: string, line: number): void => {
-    setTodoOpen(false)
-    const target = resolveNotePath(filePath)
-    const jump = (): void => {
-      setTimeout(() => editorRef.current?.scrollToLine(line), 80)
-    }
-    const existing = useTabsStore.getState().tabs.find((t) => t.filePath === target)
-    if (existing) {
-      setActiveTab(existing.id)
-      jump()
-      return
-    }
-    void window.api.workspace.readFile(target).then((content) => {
-      openFile(target, content)
-      jump()
-    })
-  },
-  [setActiveTab, openFile]
-)
+    (filePath: string, line: number): void => {
+      setTodoOpen(false)
+      const target = resolveNotePath(filePath)
+      const jump = (): void => {
+        setTimeout(() => editorRef.current?.scrollToLine(line), 80)
+      }
+      const existing = useTabsStore.getState().tabs.find((t) => t.filePath === target)
+      if (existing) {
+        setActiveTab(existing.id)
+        jump()
+        return
+      }
+      void window.api.workspace.readFile(target).then((content) => {
+        openFile(target, content)
+        jump()
+      })
+    },
+    [setActiveTab, openFile]
+  )
 
   const handleToggleTask = useCallback(
     (line: number): void => {
@@ -705,29 +764,29 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
   const filePathLabel = activeTab?.filePath?.split(/[\\/]/).pop() ?? ''
 
   return (
-    <div className="flex h-full flex-col bg-bg text-text">
+    <div className="flex h-full flex-col bg-bg-soft text-text">
       <TitleBar>
         <button
           type="button"
           onClick={() => setSearchOpen(true)}
           title="검색 (Ctrl+P)"
-          className="flex h-11 w-11 items-center justify-center rounded text-text-secondary hover:bg-bg-mute hover:text-text"
+          className={TITLE_BTN}
         >
-          <SearchIcon/>
+          <SearchIcon />
         </button>
         <button
           type="button"
           onClick={() => setSettingsOpen((v) => !v)}
           title="설정 (Ctrl+,)"
-          className="flex h-11 w-11 items-center justify-center rounded text-text-secondary hover:bg-bg-mute hover:text-text"
+          className={TITLE_BTN}
         >
-          <SettingsIcon/>
+          <SettingsIcon />
         </button>
         <button
           type="button"
           onClick={() => setTodoOpen((v) => !v)}
           title="할일 (Ctrl+Shift+T)"
-          className="flex h-11 w-11 items-center justify-center rounded text-text-secondary hover:bg-bg-mute hover:text-text"
+          className={TITLE_BTN}
         >
           <TodoIcon />
         </button>
@@ -735,12 +794,12 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
           type="button"
           onClick={() => setBacklinksOpen((v) => !v)}
           title="백링크 (Ctrl+Shift+B)"
-          className="flex h-11 w-11 items-center justify-center rounded text-text-secondary hover:bg-bg-mute hover:text-text"
+          className={TITLE_BTN}
         >
           <BacklinksIcon />
         </button>
       </TitleBar>
-      <main className="flex min-h-0 flex-1">
+      <main className="flex min-h-0 flex-1 pb-2 pr-2">
         <div className="relative shrink-0" style={{ width: sidebarWidth }}>
           <Sidebar
             ref={sidebarRef}
@@ -756,9 +815,10 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
             dirtyFilePaths={dirtyFilePaths}
             onCompareChanges={handleCompareChanges}
             onOpenHistory={handleOpenHistory}
+            onOpenAtLine={handleOpenTodo}
             selectedFolderPath={selectedFolderPath}
             onSelectFolder={setSelectedFolderPath}
-            className="h-full border-r border-border"
+            className="h-full"
           />
           <div
             onMouseDown={handleSidebarResizeStart}
@@ -767,7 +827,7 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent" />
           </div>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-bg">
           <TabBar
             tabs={tabs}
             activeTabId={activeTabId}
@@ -783,7 +843,10 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
               <div ref={splitRef} className="flex min-h-0 flex-1">
                 <div
                   className="flex min-w-0 shrink-0"
-                  style={{ width: `${(splitDraft ?? splitRatio) * 100}%` }}
+                  style={{
+                    width: `min(${(hasTemplate ? 0.5 : (splitDraft ?? splitRatio)) * 100}%, calc(100% - ${previewMinWidth + 1}px))`,
+                    minWidth: EDITOR_MIN_WIDTH
+                  }}
                 >
                   <MarkdownEditor
                     ref={editorRef}
@@ -809,8 +872,10 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
                 <div className="relative w-px shrink-0 bg-border">
                   <div
                     onMouseDown={handleSplitResizeStart}
-                    onDoubleClick={() => setSplitRatio(0.5)}
-                    className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize"
+                    onDoubleClick={() => {
+                      if (!hasTemplate) setSplitRatio(0.5)
+                    }}
+                    className={`absolute inset-y-0 -left-1 z-10 w-2 ${hasTemplate ? '' : 'cursor-col-resize'}`}
                   />
                 </div>
                 <MarkdownPreview
@@ -821,24 +886,24 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
                   onWikilinkClick={handleWikilinkClick}
                   onToggleTask={handleToggleTask}
                   onReplaceSource={handleReplaceSource}
+                  onMinWidthChange={setPreviewMinWidth}
+                  onHasTemplateChange={setHasTemplate}
                   className="min-w-0 flex-1 overflow-auto px-6 pb-6 pt-3"
                 />
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 items-center justify-center text-sm text-text-tertiary">
-              왼쪽에서 메모를 열거나 + 를 눌러 새로 만들어 보세요
-            </div>
+            <EmptyState />
           )}
-          <footer className="flex h-6 shrink-0 items-center justify-between border-t border-border px-3 text-xs text-text-tertiary">
-            <div className="flex items-center gap-2" style={{ position: 'relative', top: '-1px' }}>
+          <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] tabular-nums text-text-tertiary">
+            <div className="flex items-center gap-2">
               {vimMode ? (
                 <span className="font-semibold text-accent">-- {vimModeLabel} --</span>
               ) : (
-                  <span className="truncate">{filePathLabel}</span>
+                <span className="truncate">{filePathLabel}</span>
               )}
             </div>
-            <div className="flex items-center gap-3" style={{ position: 'relative', top: '-2px' }}>
+            <div className="flex items-center gap-3">
               {vimMode && <span className="truncate">{filePathLabel}</span>}
               {activeTab && showLineCol && (
                 <span>
@@ -869,14 +934,16 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
           </footer>
         </div>
       </main>
-      {searchOpen && (
-        <SearchPanel
-          rootDir={rootDir}
-          tree={tree}
-          onOpenFile={handleOpenFile}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {searchOpen && (
+          <SearchPanel
+            key="search-panel"
+            rootDir={rootDir}
+            onOpenFile={handleOpenFile}
+            onClose={() => setSearchOpen(false)}
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {settingsOpen && (
           <SettingsPanel key="settings-panel" onClose={() => setSettingsOpen(false)} />
@@ -897,7 +964,7 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
       {historyTarget && (
         <HistoryDialog
           filePath={historyTarget.filePath}
-          currentContent={historyTarget.content} 
+          currentContent={historyTarget.content}
           onRestore={handleRestoreHistory}
           onClose={() => setHistoryTarget(null)}
         />
@@ -930,14 +997,17 @@ const editorRef = useRef<MarkdownEditorHandle>(null)
           onReturnFocus={handleTocReturnFocus}
         />
       )}
-      {todoOpen && (
-        <TodoDialog
-          onOpen={handleOpenTodo}
-          onToggle={handleToggleTodo}
-          getOverrides={getTodoOverrides}
-          onClose={() => setTodoOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {todoOpen && (
+          <TodoDialog
+            key="todo-dialog"
+            onOpen={handleOpenTodo}
+            onToggle={handleToggleTodo}
+            getOverrides={getTodoOverrides}
+            onClose={() => setTodoOpen(false)}
+          />
+        )}
+      </AnimatePresence>
       {backlinksOpen && activeTab && (
         <BacklinksPanel
           filePath={activeTab.filePath}

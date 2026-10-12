@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { motion } from 'motion/react'
 import type { Tab } from '../stores/tabsStore'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { tabLabel } from '../utils/tabLabel'
@@ -17,8 +18,24 @@ interface TabBarProps {
   onMissingClick: (tab: Tab) => void
 }
 
-/** VS Code 방식 탭. 저장 안 된 변경이 있으면 점(•)으로, 파일이 사라졌으면
- * 빨간 취소선으로 표시한다 (기획 문서 8장). */
+function CloseGlyph(): React.JSX.Element {
+  return (
+    <svg
+      width="9"
+      height="9"
+      viewBox="0 0 10 10"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+    >
+      <path d="M2 2l6 6M8 2l-6 6" />
+    </svg>
+  )
+}
+
+/** 알약 모양 탭. 저장 안 된 변경이 있으면 점(•)으로, 파일이 사라졌으면
+ * 빨간 취소선으로 표시한다 (기획 문서 8장). 활성 탭 배경은 탭 사이를 부드럽게 이동한다. */
 export function TabBar({
   tabs,
   activeTabId,
@@ -30,6 +47,32 @@ export function TabBar({
   onMissingClick
 }: TabBarProps): React.JSX.Element | null {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null)
+  const activeRef = useRef<HTMLDivElement>(null)
+  // 활성 탭 배경의 위치. 탭 줄 안쪽(스크롤 내용) 기준 좌표라서, 탭 줄이 스크롤되거나
+  // 사이드바 크기가 바뀌어도 탭에 붙어 있고, 활성 탭이 바뀔 때만 미끄러진다.
+  const [pill, setPill] = useState<{ left: number; width: number; top: number; height: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = activeRef.current
+    if (!el) {
+      setPill(null)
+      return
+    }
+    const next = { left: el.offsetLeft, width: el.offsetWidth, top: el.offsetTop, height: el.offsetHeight }
+    setPill((prev) =>
+      prev &&
+      prev.left === next.left &&
+      prev.width === next.width &&
+      prev.top === next.top &&
+      prev.height === next.height
+        ? prev
+        : next
+    )
+  }, [activeTabId, tabs])
+
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
+  }, [activeTabId])
 
   if (tabs.length === 0) return null
 
@@ -49,11 +92,6 @@ export function TabBar({
                 label: '경로 복사',
                 onClick: () =>
                   void window.api.workspace.copyPath(contextMenu.tab.filePath as string, false)
-              },
-              {
-                label: '상대 경로 복사',
-                onClick: () =>
-                  void window.api.workspace.copyPath(contextMenu.tab.filePath as string, true)
               }
             ]
           : [])
@@ -61,12 +99,23 @@ export function TabBar({
     : []
 
   return (
-    <div className="flex h-7 shrink-0 items-stretch overflow-x-auto border-b border-border bg-bg-soft">
+    <div className="relative flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2">
+      {pill && (
+        <motion.div
+          aria-hidden="true"
+          initial={false}
+          animate={{ x: pill.left, width: pill.width }}
+          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+          style={{ top: pill.top, height: pill.height }}
+          className="pointer-events-none absolute left-0 rounded-md bg-bg-mute"
+        />
+      )}
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId
         return (
           <div
             key={tab.id}
+            ref={isActive ? activeRef : undefined}
             onClick={() => (tab.missing ? onMissingClick(tab) : onSelect(tab.id))}
             onAuxClick={(e) => {
               if (e.button === 1) {
@@ -78,18 +127,22 @@ export function TabBar({
               e.preventDefault()
               setContextMenu({ x: e.clientX, y: e.clientY, tab })
             }}
-            className={`group flex min-w-0 max-w-[180px] shrink-0 cursor-pointer items-center gap-2 border-r border-b-2 border-r-border pl-3 pr-2 text-xs ${
-              isActive ? 'border-b-accent bg-bg text-text' : 'border-b-transparent text-text-secondary hover:bg-bg-mute'
+            className={`group relative flex h-7 min-w-0 max-w-[180px] shrink-0 cursor-pointer items-center gap-1.5 rounded-md pl-2.5 pr-1.5 text-[12.5px] transition-colors ${
+              isActive
+                ? 'text-text'
+                : 'text-text-tertiary hover:bg-bg-mute hover:text-text-secondary'
             }`}
           >
             <span
-              className={`truncate ${tab.missing ? 'text-danger line-through' : ''}`}
+              className={`relative truncate ${tab.missing ? 'text-danger line-through' : ''}`}
               title={tab.missing ? '파일이 없어요' : undefined}
             >
               {tabLabel(tab)}
             </span>
             <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
-              {tab.dirty && <span className="h-2.5 w-2.5 translate-y-px rounded-full bg-text-tertiary group-hover:hidden"/>}
+              {tab.dirty && (
+                <span className="h-1.5 w-1.5 rounded-full bg-text-tertiary group-hover:hidden" />
+              )}
               <button
                 type="button"
                 onClick={(e) => {
@@ -97,15 +150,15 @@ export function TabBar({
                   onClose(tab.id)
                 }}
                 title="닫기"
-                className={`absolute inset-0 flex translate-y-px items-center justify-center rounded text-text-tertiary hover:text-text ${
+                className={`absolute inset-0 items-center justify-center rounded text-text-tertiary hover:bg-bg-mute hover:text-text ${
                   tab.dirty
-                  ? 'hidden group-hover:flex'
-                  : isActive
-                    ? 'flex'
-                      : 'opacity-0 group-hover:opacity-100'
+                    ? 'hidden group-hover:flex'
+                    : isActive
+                      ? 'flex'
+                      : 'flex opacity-0 group-hover:opacity-100'
                 }`}
               >
-                ✕
+                <CloseGlyph />
               </button>
             </span>
           </div>

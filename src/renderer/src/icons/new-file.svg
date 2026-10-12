@@ -1,6 +1,4 @@
-<!-- file-plus.svg -->
-<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M4.5 1.5H9.5L13 5V13A1.5 1.5 0 0 1 11.5 14.5H4.5A1.5 1.5 0 0 1 3 13V3A1.5 1.5 0 0 1 4.5 1.5Z" stroke="currentColor" stroke-linejoin="round"/>
-  <path d="M9.5 1.5V4C9.5 4.552 9.948 5 10.5 5H13" stroke="currentColor" stroke-linejoin="round"/>
-  <path d="M8 7.5V12M5.75 9.75H10.25" stroke="currentColor" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 18 18">
+  <rect x="1" y="1" width="16" height="16" rx="4" fill="currentColor" fill-opacity=".2"/>
+  <path d="M9 5.4v7.2M5.4 9h7.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

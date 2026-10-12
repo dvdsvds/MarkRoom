@@ -1,4 +1,7 @@
 import { applyValues } from '../markdown/valueBlock'
+import copyIcon from '../icons/tb-copy.svg?raw'
+import checkIcon from '../icons/tb-check.svg?raw'
+import playIcon from '../icons/tb-play.svg?raw'
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
 import { renderBlocks } from './outputBlocks'
@@ -46,11 +49,15 @@ interface MarkdownPreviewProps {
   onWikilinkClick?: (title: string) => void
   onToggleTask?: (line: number) => void
   onReplaceSource? : (next: string) => void
+  /** 문서 안 가장 넓은 이미지가 줄어들지 않고 들어갈 프리뷰 최소 너비(px). 이미지가 없으면 0. */
+  onMinWidthChange?: (px: number) => void
+  /** 문서에 서식(template)이 들어 있는지. 들어 있으면 App이 5:5로 고정한다. */
+  onHasTemplateChange?: (has: boolean) => void
   className?: string
 }
 
 export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(
-  function MarkdownPreview({ source, baseDir, onScrollRatio, onWikilinkClick, onToggleTask, onReplaceSource, className }, ref) {
+  function MarkdownPreview({ source, baseDir, onScrollRatio, onWikilinkClick, onToggleTask, onReplaceSource, onMinWidthChange, onHasTemplateChange, className }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const onScrollRatioRef = useRef(onScrollRatio)
     const onWikilinkClickRef = useRef(onWikilinkClick)
@@ -66,6 +73,35 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     })
 
     const html = useMemo(() => markdownRenderer.render(source, baseDir), [source, baseDir])
+
+    // 이미지는 크기 고정이라, 가장 넓은 이미지가 들어가는 너비를 App에 알려준다.
+    const onMinWidthChangeRef = useRef(onMinWidthChange)
+    const onHasTemplateChangeRef = useRef(onHasTemplateChange)
+    useEffect(() => {
+      onMinWidthChangeRef.current = onMinWidthChange
+      onHasTemplateChangeRef.current = onHasTemplateChange
+    }, [onMinWidthChange, onHasTemplateChange])
+    useEffect(() => {
+      onHasTemplateChangeRef.current?.(html.includes('snote-template'))
+    }, [html])
+    useEffect(() => {
+      const el = containerRef.current
+      if (!el) return
+      // 좌우 패딩(px-6 = 48) + 스크롤바(6)
+      const EXTRA = 54
+      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img')).filter(
+        (img) => !img.closest('.snote-page')
+      )
+      const measure = (): void => {
+        const w = imgs.reduce((m, img) => Math.max(m, img.naturalWidth), 0)
+        onMinWidthChangeRef.current?.(w > 0 ? Math.ceil(w) + EXTRA : 0)
+      }
+      measure()
+      for (const img of imgs) if (!img.complete) img.addEventListener('load', measure)
+      return () => {
+        for (const img of imgs) img.removeEventListener('load', measure)
+      }
+    }, [html])
 
     useImperativeHandle(ref, () => ({
       scrollToRatio: (ratio: number) => {
@@ -178,6 +214,39 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const bg = node.dataset.bg
         if (fg?.startsWith('#')) node.style.setProperty('--snote-fg', fg)
         if (bg?.startsWith('#')) node.style.setProperty('--snote-bg', bg)
+      }
+    }, [html])
+
+    useEffect(() => {
+      const el = containerRef.current
+      if (!el) return
+      const timers: number[] = []
+      for (const code of Array.from(el.querySelectorAll<HTMLElement>('pre > code'))) {
+        const pre = code.parentElement
+        if (!pre || pre.querySelector(':scope > .pre-copy')) continue
+        const lang = /\blanguage-([\w+#-]+)/.exec(code.className)?.[1]
+        if (lang && lang !== 'mermaid') pre.dataset.lang = lang
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.className = 'pre-copy'
+        btn.title = '복사'
+        btn.innerHTML = copyIcon.trim()
+        btn.addEventListener('click', () => {
+          void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
+            btn.classList.add('done')
+            btn.innerHTML = checkIcon.trim()
+            timers.push(
+              window.setTimeout(() => {
+                btn.classList.remove('done')
+                btn.innerHTML = copyIcon.trim()
+              }, 1200)
+            )
+          })
+        })
+        pre.prepend(btn)
+      }
+      return () => {
+        for (const t of timers) window.clearTimeout(t)
       }
     }, [html])
 
@@ -305,8 +374,13 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         bar.className = 'code-run-bar'
         const button = document.createElement('button')
         button.type = 'button'
-        button.className = 'code-run-btn'
-        button.textContent = '▶ 실행'
+        button.className = 'code-run-btn run'
+        const setRunLabel = (label: string): void => {
+          button.innerHTML = `${playIcon.trim()}<span></span>`
+          const span = button.querySelector('span')
+          if (span) span.textContent = label
+        }
+        setRunLabel('실행')
         bar.append(button)
 
         const startLine = Number(code.dataset.line)
@@ -344,7 +418,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
         const onClick = async (): Promise<void> => {
           button.disabled = true
-          button.textContent = isPython ? '실행 중… (처음엔 몇 초 걸려요)' : '실행 중…'
+          setRunLabel(isPython ? '실행 중… (처음엔 몇 초 걸려요)' : '실행 중…')
           if (saveBtn) saveBtn.disabled = true
           const r = isPython
             ? await runPython(codeText, baseDir ?? '')
@@ -359,7 +433,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           out.hidden = lines.length === 0 && hasBlocks
           blocksBox.replaceChildren(...renderBlocks(r.blocks))
           button.disabled = false
-          button.textContent = '▶ 다시 실행'
+          setRunLabel('다시 실행')
           pendingValues = r.error ? {} : (r.values ?? {})
           const n = Object.keys(pendingValues).length
           valueBtn.hidden = n === 0

@@ -53,6 +53,8 @@ export interface BrokenLink {
   fromPath: string
   title: string
   reason: 'missing' | 'outside'
+  /** 링크가 처음 나오는 줄 (1부터) */
+  line: number
 }
 
 export function checkExportLinks(rootDir: string, folderPath: string): BrokenLink[] {
@@ -68,17 +70,20 @@ export function checkExportLinks(rootDir: string, folderPath: string): BrokenLin
       continue
     }
     const seen = new Set<string>()
+    let line = 1
+    let pos = 0
     WIKILINK_RE.lastIndex = 0
     let match: RegExpExecArray | null
     while ((match = WIKILINK_RE.exec(raw)) !== null) {
       const title = match[1]
       if (seen.has(title)) continue
       seen.add(title)
+      for (; pos < match.index; pos++) if (raw.charCodeAt(pos) === 10) line++
       const target = titleIndex.get(title)
       if (!target) {
-        broken.push({ fromPath: filePath, title, reason: 'missing' })
+        broken.push({ fromPath: filePath, title, reason: 'missing', line })
       } else if (target !== filePath && !target.startsWith(folderPrefix)) {
-        broken.push({ fromPath: filePath, title, reason: 'outside' })
+        broken.push({ fromPath: filePath, title, reason: 'outside', line })
       }
     }
   }

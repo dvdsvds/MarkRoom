@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react'
 import { exportPdfBatch } from './exportPdfBatch'
+import ExportFolderIcon from '../icons/ctx-export.svg?react'
+import ChevronRightIcon from '../icons/tb-chevron-right.svg?react'
+import {
+  CancelButton,
+  Dialog,
+  DialogBody,
+  DialogFooter,
+  DialogHeader,
+  ListBox,
+  MainButton
+} from './DialogParts'
 
 interface BrokenLink {
   fromPath: string
   title: string
   reason: 'missing' | 'outside'
+  /** 링크가 있는 줄 번호 (1부터). 없으면 파일만 연다. */
+  line?: number
 }
 
 interface ExportDialogProps {
@@ -12,6 +25,8 @@ interface ExportDialogProps {
   isRoot: boolean
   folderLabel: string
   onClose: () => void
+  /** 깨진 링크 줄을 누르면 호출한다. 주면 줄이 눌리는 버튼이 된다. */
+  onOpenLink?: (filePath: string, line?: number) => void
 }
 
 type Phase = 'loading' | 'form' | 'name' | 'links' | 'working' | 'result'
@@ -23,38 +38,14 @@ const REPRESENTATIVE_OPTIONS: { value: 'README' | 'index' | 'main'; label: strin
 ]
 
 const BAD_CHARS = /[\\/:*?"<>|]/g
-const BTN_GHOST =
-  'rounded-md px-3 py-1.5 text-[13px] text-text-secondary hover:bg-bg-mute focus:outline-none'
-const BTN_MAIN =
-  'rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-medium text-text-inverted focus:outline-none disabled:opacity-40'
-
-function Overlay({
-  onClose,
-  children
-}: {
-  onClose?: () => void
-  children: React.ReactNode
-}): React.JSX.Element {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      onClick={onClose}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-80 rounded-xl border border-border bg-bg-elevated p-5 shadow-2xl"
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
+const HEAD_ICON = <ExportFolderIcon width={22} height={22} />
 
 export function ExportDialog({
   folderPath,
   isRoot,
   folderLabel,
-  onClose
+  onClose,
+  onOpenLink
 }: ExportDialogProps): React.JSX.Element | null {
   const [phase, setPhase] = useState<Phase>('loading')
   const [hasMain, setHasMain] = useState(false)
@@ -154,162 +145,213 @@ export function ExportDialog({
 
   if (error) {
     return (
-      <Overlay onClose={onClose}>
-        <p className="text-[13px] text-text">{error}</p>
-        <div className="mt-5 flex justify-end">
-          <button type="button" onClick={onClose} className={BTN_GHOST}>
-            닫기
-          </button>
-        </div>
-      </Overlay>
+      <Dialog onClose={onClose}>
+        <DialogHeader icon={HEAD_ICON} title="내보내지 못했어요" subtitle={folderLabel} danger />
+        <DialogBody>
+          <p className="text-[13px] leading-relaxed text-text-secondary">{error}</p>
+        </DialogBody>
+        <DialogFooter>
+          <CancelButton onClick={onClose}>닫기</CancelButton>
+        </DialogFooter>
+      </Dialog>
     )
   }
 
   if (phase === 'working') {
     return (
-      <Overlay>
-        <p className="text-[13px] text-text">
-          {progress ? `PDF 만드는 중… ${progress.done} / ${progress.total}` : '내보내는 중…'}
-        </p>
-      </Overlay>
+      <Dialog>
+        <DialogHeader icon={HEAD_ICON} title="내보내는 중" subtitle={folderLabel} />
+        <DialogBody>
+          <p className="text-[13px] text-text-secondary">
+            {progress ? `PDF 만드는 중… ${progress.done} / ${progress.total}` : '내보내는 중…'}
+          </p>
+          {progress && progress.total > 0 && (
+            <div className="mt-3 h-1 overflow-hidden rounded-full bg-bg-mute">
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-200"
+                style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              />
+            </div>
+          )}
+        </DialogBody>
+      </Dialog>
     )
   }
 
   if (phase === 'result') {
     return (
-      <Overlay onClose={onClose}>
-        <h2 className="text-sm font-semibold text-text">일부 PDF를 만들지 못했어요</h2>
-        <ul className="mt-2 max-h-32 overflow-auto rounded-md bg-bg-mute p-2.5 text-xs text-text-secondary">
-          {failures.map((f, i) => (
-            <li key={i} className="truncate" title={f}>
-              {f}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-5 flex justify-end">
-          <button type="button" onClick={onClose} className={BTN_GHOST}>
-            닫기
-          </button>
-        </div>
-      </Overlay>
+      <Dialog onClose={onClose}>
+        <DialogHeader icon={HEAD_ICON} title="일부 PDF를 만들지 못했어요" subtitle={folderLabel} danger />
+        <DialogBody>
+          <ListBox items={failures} />
+        </DialogBody>
+        <DialogFooter>
+          <CancelButton onClick={onClose}>닫기</CancelButton>
+        </DialogFooter>
+      </Dialog>
     )
   }
 
   if (phase === 'name') {
     return (
-      <Overlay onClose={onClose}>
-        <h2 className="text-sm font-semibold text-text">대표 문서 이름</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
-          루트의 main.md를 MD로 내보낼 때 쓸 이름을 골라주세요.
-        </p>
-        <div className="mt-3 flex flex-col gap-1.5">
-          {REPRESENTATIVE_OPTIONS.map((opt) => (
-            <label
-              key={opt.value}
-              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-text hover:bg-bg-mute"
-            >
-              <input
-                type="radio"
-                name="representative-name"
-                checked={representativeName === opt.value}
-                onChange={() => setRepresentativeName(opt.value)}
-                className="accent-[var(--color-accent)]"
-              />
-              {opt.label}
-            </label>
-          ))}
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className={BTN_GHOST}>
-            취소
-          </button>
-          <button type="button" onClick={afterNameStep} className={BTN_MAIN}>
-            계속
-          </button>
-        </div>
-      </Overlay>
+      <Dialog onClose={onClose}>
+        <DialogHeader icon={HEAD_ICON} title="대표 문서 이름" subtitle={folderLabel} />
+        <DialogBody>
+          <p className="text-[13px] leading-relaxed text-text-secondary">
+            루트의 main.md를 MD로 내보낼 때 쓸 이름을 골라주세요.
+          </p>
+          <div className="mt-3 flex flex-col gap-1">
+            {REPRESENTATIVE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-text hover:bg-bg-mute"
+              >
+                <input
+                  type="radio"
+                  name="representative-name"
+                  checked={representativeName === opt.value}
+                  onChange={() => setRepresentativeName(opt.value)}
+                  className="accent-[var(--color-accent)]"
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <CancelButton onClick={onClose} />
+          <MainButton onClick={afterNameStep}>계속</MainButton>
+        </DialogFooter>
+      </Dialog>
     )
   }
 
   if (phase === 'links') {
     return (
-      <Overlay onClose={onClose}>
-        <h2 className="text-sm font-semibold text-text">깨진 링크가 있어요</h2>
-        <p className="mt-2 text-[13px] leading-relaxed text-text-secondary">
-          {`"${folderLabel}" 안 메모에 대상이 없거나 폴더 밖을 가리키는 위키링크가 ${brokenLinks.length}개 있어요.`}
-        </p>
-        <ul className="mt-2 max-h-32 overflow-auto rounded-md bg-bg-mute p-2.5 text-xs text-text-secondary">
-          {brokenLinks.map((link, i) => (
-            <li key={i} className="truncate">
-              {`[[${link.title}]] (${link.fromPath.split(/[\\/]/).pop()}${
-                link.reason === 'outside' ? ' — 폴더 밖' : ' — 없음'
-              })`}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className={BTN_GHOST}>
-            취소
-          </button>
-          <button type="button" onClick={() => void run()} className={BTN_MAIN}>
-            그래도 내보내기
-          </button>
-        </div>
-      </Overlay>
+      <Dialog width={420} onClose={onClose}>
+        <DialogHeader
+          icon={HEAD_ICON}
+          title={
+            <>
+              깨진 링크 <span className="text-danger">{brokenLinks.length}</span>개
+            </>
+          }
+          subtitle={folderLabel}
+          danger
+        />
+        <DialogBody>
+          <div className="max-h-56 overflow-auto rounded-[10px] bg-bg shadow-[inset_0_0_0_1px_var(--color-border)]">
+            {brokenLinks.map((link, i) => {
+              const fileName = link.fromPath.split(/[\\/]/).pop()
+              const content = (
+                <>
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="truncate text-[13px] font-medium text-text">{`[[${link.title}]]`}</div>
+                    <div className="mt-0.5 truncate text-xs text-text-tertiary">
+                      {link.line ? `${fileName}:${link.line}` : fileName}
+                    </div>
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-md px-2 py-[3px] text-xs font-medium ${
+                      link.reason === 'outside'
+                        ? 'bg-warning/15 text-warning'
+                        : 'bg-danger/15 text-danger'
+                    }`}
+                  >
+                    {link.reason === 'outside' ? '폴더 밖' : '대상 없음'}
+                  </span>
+                  {onOpenLink && (
+                    <ChevronRightIcon
+                      width={16}
+                      height={16}
+                      className="shrink-0 text-text-tertiary transition-[transform,color] duration-150 group-hover:translate-x-[3px] group-hover:text-text"
+                    />
+                  )}
+                </>
+              )
+              const rowClass = `link-row flex w-full items-center gap-2.5 px-3 py-2.5 ${
+                i > 0 ? 'border-t border-border' : ''
+              }`
+              return onOpenLink ? (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    onClose()
+                    onOpenLink(link.fromPath, link.line)
+                  }}
+                  style={{ animationDelay: `${60 + Math.min(i, 8) * 50}ms` }}
+                  className={`group ${rowClass} transition-colors hover:bg-bg-mute focus:outline-none`}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div
+                  key={i}
+                  style={{ animationDelay: `${60 + Math.min(i, 8) * 50}ms` }}
+                  className={rowClass}
+                >
+                  {content}
+                </div>
+              )
+            })}
+          </div>
+        </DialogBody>
+        <DialogFooter>
+          <CancelButton onClick={onClose} />
+          <MainButton onClick={() => void run()}>내보내기</MainButton>
+        </DialogFooter>
+      </Dialog>
     )
   }
 
+  const canSubmit = name.trim() !== '' && (useMd || usePdf)
+
   return (
-    <Overlay onClose={onClose}>
-      <h2 className="text-sm font-semibold text-text">폴더 내보내기</h2>
-      <p className="mt-2 text-[13px] text-text-secondary">{`"${folderLabel}"`}</p>
-      <label className="mt-3 block text-[13px] font-medium text-text">폴더 이름</label>
-      <input
-        autoFocus
-        value={name}
-        onChange={(e) => {
-          setName(e.target.value.replace(BAD_CHARS, ''))
-          setNameError(null)
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submitForm()
-        }}
-        className="mt-1.5 w-full rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-accent"
-      />
-      {nameError && <p className="mt-1.5 text-xs text-danger">{nameError}</p>}
-      <div className="mt-3 flex flex-col gap-1.5">
-        <label className="flex items-center gap-2 text-[13px] text-text">
-          <input
-            type="checkbox"
-            checked={useMd}
-            onChange={() => setUseMd(!useMd)}
-            className="ui-checkbox"
-          />
-          MD
-        </label>
-        <label className="flex items-center gap-2 text-[13px] text-text">
-          <input
-            type="checkbox"
-            checked={usePdf}
-            onChange={() => setUsePdf(!usePdf)}
-            className="ui-checkbox"
-          />
-          PDF
-        </label>
-      </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button type="button" onClick={onClose} className={BTN_GHOST}>
-          취소
-        </button>
-        <button
-          type="button"
-          disabled={!name.trim() || (!useMd && !usePdf)}
-          onClick={() => void submitForm()}
-          className={BTN_MAIN}
-        >
+    <Dialog onClose={onClose}>
+      <DialogHeader icon={HEAD_ICON} title="폴더 내보내기" subtitle={folderLabel} />
+      <DialogBody>
+        <label className="mb-1.5 block text-xs text-text-tertiary">폴더 이름</label>
+        <input
+          autoFocus
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value.replace(BAD_CHARS, ''))
+            setNameError(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void submitForm()
+          }}
+          className="h-[38px] w-full rounded-[9px] border-0 bg-bg px-3 text-sm text-text shadow-[inset_0_0_0_1px_var(--color-border-strong)] outline-none focus:shadow-[inset_0_0_0_1px_var(--color-accent)]"
+        />
+        {nameError && <p className="mt-1.5 text-xs text-danger">{nameError}</p>}
+        <div className="mt-4 flex gap-5">
+          <label className="flex items-center text-[13px] text-text">
+            <input
+              type="checkbox"
+              checked={useMd}
+              onChange={() => setUseMd(!useMd)}
+              className="ui-checkbox"
+            />
+            MD
+          </label>
+          <label className="flex items-center text-[13px] text-text">
+            <input
+              type="checkbox"
+              checked={usePdf}
+              onChange={() => setUsePdf(!usePdf)}
+              className="ui-checkbox"
+            />
+            PDF
+          </label>
+        </div>
+      </DialogBody>
+      <DialogFooter>
+        <CancelButton onClick={onClose} />
+        <MainButton disabled={!canSubmit} onClick={() => void submitForm()}>
           내보내기
-        </button>
-      </div>
-    </Overlay>
+        </MainButton>
+      </DialogFooter>
+    </Dialog>
   )
 }

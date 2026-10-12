@@ -4,6 +4,7 @@ import { motion } from 'motion/react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { ShortcutRow } from './ShortcutRow'
 import { ConfirmDialog } from './ConfirmDialog'
+import { FileTypeIcon } from './FileTypeIcon'
 import { SHORTCUT_LABELS, type ShortcutAction } from '../utils/shortcuts'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -26,7 +27,7 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'toggleToc'
 ]
 
-const CATEGORIES = ['일반', '화면', '상태 표시줄',  '단축키'] as const
+const CATEGORIES = ['일반', '화면', '상태 표시줄', '단축키'] as const
 type Category = (typeof CATEGORIES)[number]
 
 interface SettingItem {
@@ -37,17 +38,27 @@ interface SettingItem {
   render: () => React.ReactNode
 }
 
-function Field({
-  label,
-  children
-}: {
-  label: string
-  children: React.ReactNode
-}): React.JSX.Element {
+interface Section {
+  group?: string
+  items: SettingItem[]
+}
+
+const INPUT =
+  'h-7 rounded-lg bg-text/[0.07] px-2.5 text-[13px] text-text outline-none transition-shadow focus:ring-1 focus:ring-accent/60'
+
+function Card({ children }: { children: React.ReactNode }): React.JSX.Element {
   return (
-    <div className="py-3 text-sm text-text">
-      <div className="text-[13px] font-medium">{label}</div>
-      <div className="mt-2">{children}</div>
+    <div className="divide-y divide-border rounded-xl border border-border bg-bg-mute/60">
+      {children}
+    </div>
+  )
+}
+
+function Row({ label, children }: { label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="flex min-h-11 items-center justify-between gap-4 px-3.5 text-[13.5px] text-text">
+      <span>{label}</span>
+      {children}
     </div>
   )
 }
@@ -76,7 +87,7 @@ function NumberField({
         const n = Number(e.target.value)
         if (!Number.isNaN(n)) onChange(n)
       }}
-      className="w-20 rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-accent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+      className={`${INPUT} w-16 text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
     />
   )
 }
@@ -91,25 +102,75 @@ function Toggle({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={onChange}
-        className={`relative h-5 w-9 shrink-0 overflow-hidden rounded-full transition-colors ${
-        checked ? 'bg-accent' : 'bg-bg-mute'
+      className={`relative h-5 w-[34px] shrink-0 rounded-full outline-none transition-colors ${
+        checked ? 'bg-accent' : 'bg-text/20'
       }`}
     >
       <span
-        className="absolute left-0 top-0 rounded-full bg-white shadow transition-transform"
-        style={{
-          width: 16,
-          height: 16,
-          transform: checked ? 'translate(18px, 2px)' : 'translate(2px, 2px)'
-        }}
+        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+          checked ? 'translate-x-3.5' : 'translate-x-0'
+        }`}
       />
     </button>
   )
 }
 
+function Checkbox({
+  checked,
+  onChange,
+  label
+}: {
+  checked: boolean
+  onChange: () => void
+  label: string
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onChange}
+      className="group flex items-center gap-2.5 outline-none"
+    >
+      <span
+        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-[5px] border-[1.5px] transition-colors ${
+          checked ? 'border-accent bg-accent' : 'border-text/30 group-hover:border-text/50'
+        }`}
+      >
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`text-bg transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`}
+        >
+          <path d="M2 5.3l2 2L8 3" />
+        </svg>
+      </span>
+      {label}
+    </button>
+  )
+}
+
+function SubRow({ children }: { children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="flex min-h-[38px] items-center border-t border-border pl-10 pr-3.5 text-[13px] text-text-secondary">
+      {children}
+    </div>
+  )
+}
+
 export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Element {
   const vimMode = useSettingsStore((s) => s.vimMode)
+  const showToolbar = useSettingsStore((s) => s.showToolbar)
+  const setShowToolbar = useSettingsStore((s) => s.setShowToolbar)
   const setVimMode = useSettingsStore((s) => s.setVimMode)
   const vimMouse = useSettingsStore((s) => s.vimMouse)
   const setVimMouse = useSettingsStore((s) => s.setVimMouse)
@@ -123,8 +184,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
   const setPreviewFont = useSettingsStore((s) => s.setPreviewFont)
   const resetEditorFont = useSettingsStore((s) => s.resetEditorFont)
   const resetPreviewFont = useSettingsStore((s) => s.resetPreviewFont)
-  const uiZoom = useSettingsStore((s) => s.uiZoom)
-  const setUiZoom = useSettingsStore((s) => s.setUiZoom)
   const showLineCol = useSettingsStore((s) => s.showLineCol)
   const toggleShowLineCol = useSettingsStore((s) => s.toggleShowLineCol)
   const showWordCount = useSettingsStore((s) => s.showWordCount)
@@ -170,84 +229,86 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     void applyHistoryDir(null)
   }, [applyHistoryDir])
 
-    const items: SettingItem[] = useMemo(
-      () => [
-        {
-          id: 'vim-mode',
-          category: '일반',
-          group: 'Vim',
-          label: 'Vim 모드',
-          render: () => (
-            <Field label="Vim 모드">
-              <Toggle checked={vimMode} onChange={() => setVimMode(!vimMode)} />
-            </Field>
-          )
-        },
-        {
-          id: 'vim-mouse',
-          category: '일반',
-          group: 'Vim',
-          label: '마우스 사용',
-          render: () => (
-            <Field label="마우스 사용">
-              <Toggle checked={vimMouse} onChange={() => setVimMouse(!vimMouse)}/>
-            </Field>
-
-          )
-        },
-        {
-          id: 'history-dir',
-          category: '일반',
-          group: '버전 기록',
-          label: '기록 저장 위치',
-          render: () => (
-            <Field label="기록 저장 위치">
-              <div className="flex items-center gap-2.5 rounded-lg border border-border bg-bg-soft px-3 py-2.5">
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="shrink-0 text-text-tertiary"
+  const items: SettingItem[] = useMemo(
+    () => [
+      {
+        id: 'show-toolbar',
+        category: '일반',
+        group: '에디터',
+        label: '서식 툴바',
+        render: () => (
+          <Row label="서식 툴바">
+            <Toggle checked={showToolbar} onChange={() => setShowToolbar(!showToolbar)} />
+          </Row>
+        )
+      },
+      {
+        id: 'vim-mode',
+        category: '일반',
+        group: 'Vim',
+        label: 'Vim 모드',
+        render: () => (
+          <Row label="Vim 모드">
+            <Toggle checked={vimMode} onChange={() => setVimMode(!vimMode)} />
+          </Row>
+        )
+      },
+      {
+        id: 'vim-mouse',
+        category: '일반',
+        group: 'Vim',
+        label: '마우스 사용',
+        render: () => (
+          <Row label="마우스 사용">
+            <Toggle checked={vimMouse} onChange={() => setVimMouse(!vimMouse)} />
+          </Row>
+        )
+      },
+      {
+        id: 'history-dir',
+        category: '일반',
+        group: '버전 기록',
+        label: '기록 저장 위치',
+        render: () => (
+          <div className="px-3.5 py-3">
+            <div className="text-[13.5px] text-text">기록 저장 위치</div>
+            <div className="mt-2.5 flex items-center gap-2">
+              <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-lg bg-text/[0.07] px-2.5">
+                <FileTypeIcon name="" kind="folder" size={16} />
+                <span
+                  className="min-w-0 flex-1 truncate text-[12.5px] text-text-secondary"
+                  title={historyDir}
                 >
-                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-                </svg>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-text" title={historyDir}>
                   {historyDir || '…'}
                 </span>
               </div>
-              <div className="mt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleChangeHistoryDir}
-                  className="rounded-md bg-accent-soft px-3 py-1.5 text-[13px] font-medium text-accent hover:brightness-110 focus:outline-none"
-                >
-                  폴더 변경
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetHistoryDir}
-                  className="rounded-md border border-border px-3 py-1.5 text-[13px] text-text-secondary hover:border-border-strong hover:text-text focus:outline-none"
-                >
-                  기본값으로
-                </button>
-              </div>
-            </Field>
-          )
-        },
+              <button
+                type="button"
+                onClick={handleChangeHistoryDir}
+                className="h-8 shrink-0 rounded-lg bg-accent-soft px-3 text-[13px] font-medium text-accent outline-none transition-[filter] hover:brightness-110"
+              >
+                폴더 변경
+              </button>
+              <button
+                type="button"
+                onClick={handleResetHistoryDir}
+                className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] text-text-secondary outline-none transition-colors hover:bg-bg-mute hover:text-text"
+              >
+                기본값으로
+              </button>
+            </div>
+          </div>
+        )
+      },
       {
         id: 'theme',
         category: '화면',
         group: '테마',
         label: '색상 모드',
         render: () => (
-          <div className="py-3">
-            <ThemeToggle/>
-          </div>
+          <Row label="색상 모드">
+            <ThemeToggle />
+          </Row>
         )
       },
       {
@@ -256,13 +317,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '에디터',
         label: '글꼴',
         render: () => (
-          <Field label="글꼴">
+          <Row label="글꼴">
             <input
               value={editorFontFamily}
               onChange={(e) => setEditorFont({ family: e.target.value })}
-              className="w-96 rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-accent"
+              className={`${INPUT} w-64 text-[12.5px] text-text-secondary focus:text-text`}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -271,14 +332,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '에디터',
         label: '글꼴 크기',
         render: () => (
-          <Field label="글꼴 크기">
+          <Row label="글꼴 크기">
             <NumberField
               value={editorFontSize}
               min={8}
               max={40}
               onChange={(v) => setEditorFont({ size: v })}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -287,7 +348,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '에디터',
         label: '줄 간격',
         render: () => (
-          <Field label="줄 간격">
+          <Row label="줄 간격">
             <NumberField
               value={editorLineHeight}
               step={0.1}
@@ -295,7 +356,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               max={3}
               onChange={(v) => setEditorFont({ lineHeight: v })}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -304,13 +365,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '프리뷰',
         label: '글꼴',
         render: () => (
-          <Field label="글꼴">
+          <Row label="글꼴">
             <input
               value={previewFontFamily}
               onChange={(e) => setPreviewFont({ family: e.target.value })}
-              className="w-96 rounded-md border border-border bg-bg px-2.5 py-1.5 text-sm text-text outline-none focus:border-accent"
+              className={`${INPUT} w-64 text-[12.5px] text-text-secondary focus:text-text`}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -319,14 +380,14 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '프리뷰',
         label: '글꼴 크기',
         render: () => (
-          <Field label="글꼴 크기">
+          <Row label="글꼴 크기">
             <NumberField
               value={previewFontSize}
               min={8}
               max={40}
               onChange={(v) => setPreviewFont({ size: v })}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -335,7 +396,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         group: '프리뷰',
         label: '줄 간격',
         render: () => (
-          <Field label="줄 간격">
+          <Row label="줄 간격">
             <NumberField
               value={previewLineHeight}
               step={0.1}
@@ -343,7 +404,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
               max={3}
               onChange={(v) => setPreviewFont({ lineHeight: v })}
             />
-          </Field>
+          </Row>
         )
       },
       {
@@ -351,9 +412,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         category: '상태 표시줄',
         label: '줄·열 위치',
         render: () => (
-          <Field label="줄·열 위치">
+          <Row label="줄·열 위치">
             <Toggle checked={showLineCol} onChange={toggleShowLineCol} />
-          </Field>
+          </Row>
         )
       },
       {
@@ -361,9 +422,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         category: '상태 표시줄',
         label: '단어 수',
         render: () => (
-          <Field label="단어 수">
+          <Row label="단어 수">
             <Toggle checked={showWordCount} onChange={toggleShowWordCount} />
-          </Field>
+          </Row>
         )
       },
       {
@@ -372,30 +433,26 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         label: '글자 수',
         render: () => (
           <div>
-            <Field label="글자 수">
+            <Row label="글자 수">
               <Toggle checked={showCharCount} onChange={toggleShowCharCount} />
-            </Field>
+            </Row>
             {showCharCount && (
-              <div className="mt-1 flex flex-col gap-1 pl-3 text-xs text-text-secondary">
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
+              <>
+                <SubRow>
+                  <Checkbox
                     checked={charCountIncludeSpaces}
                     onChange={toggleCharCountIncludeSpaces}
-                    className="ui-checkbox"
+                    label="공백 포함"
                   />
-                  공백 포함
-                </label>
-                <label className="flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
+                </SubRow>
+                <SubRow>
+                  <Checkbox
                     checked={charCountExcludeSpaces}
                     onChange={toggleCharCountExcludeSpaces}
-                    className="ui-checkbox"
+                    label="공백 제외"
                   />
-                  공백 제외
-                </label>
-              </div>
+                </SubRow>
+              </>
             )}
           </div>
         )
@@ -408,6 +465,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       }))
     ],
     [
+      showToolbar,
+      setShowToolbar,
       vimMode,
       setVimMode,
       vimMouse,
@@ -420,8 +479,6 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       previewFontSize,
       previewLineHeight,
       setPreviewFont,
-      uiZoom,
-      setUiZoom,
       showLineCol,
       toggleShowLineCol,
       showWordCount,
@@ -434,7 +491,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
       toggleCharCountExcludeSpaces,
       historyDir,
       handleChangeHistoryDir,
-      handleResetHistoryDir,
+      handleResetHistoryDir
     ]
   )
 
@@ -442,159 +499,212 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
     if (query.trim().length === 0) return []
     const q = query.toLowerCase()
     return items.filter(
-      (item) => item.category.toLowerCase().includes(q) || 
-                item.label.toLowerCase().includes(q) ||
-                (item.group?.toLowerCase().includes(q) ?? false)
+      (item) =>
+        item.category.toLowerCase().includes(q) ||
+        item.label.toLowerCase().includes(q) ||
+        (item.group?.toLowerCase().includes(q) ?? false)
     )
   }, [items, query])
 
   const showSearchResults = viewMode === 'search' && query.trim().length > 0
-  const categoryItems = items.filter((item) => item.category === activeCategory)
+
+  // 같은 그룹끼리 이어진 항목을 한 카드로 묶는다.
+  const sections: Section[] = []
+  for (const item of items.filter((i) => i.category === activeCategory)) {
+    const last = sections[sections.length - 1]
+    if (last && last.group === item.group) last.items.push(item)
+    else sections.push({ group: item.group, items: [item] })
+  }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <motion.div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40"
+      style={{ willChange: 'opacity' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+      onClick={onClose}
+    >
       <motion.div
-        initial={{ opacity: 0, scale: 0.96 }}
+        style={{ willChange: 'transform, opacity' }}
+        initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ type: 'spring', duration: 0.25, bounce: 0.15 }}
+        exit={{ opacity: 0, scale: 0.98 }}
+        transition={{ duration: 0.14, ease: [0.4, 0, 0.2, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="flex h-[600px] w-[640px] flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-2xl"
+        className="flex h-[560px] max-h-[calc(100vh-48px)] w-[720px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
       >
-      <div className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2.5">
-        <span className="text-sm font-semibold text-text">설정</span>
-        <button
-          type="button"
-          onClick={onClose}
-          title="닫기 (Esc)"
-          className="rounded px-1.5 text-text-secondary hover:bg-bg-mute hover:text-text"
-        >
-          ✕
-        </button>
-      </div>
-
-      <div className="shrink-0 border-b border-border p-2">
-        <div className="relative">
-          <input
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setViewMode(e.target.value.trim().length > 0 ? 'search' : 'category')
-            }}
-            placeholder="설정 검색…"
-            className="w-full rounded-md border border-border bg-bg px-2.5 py-1.5 pr-6 text-sm text-text outline-none focus:border-accent"
-          />
-          {query.length > 0 && (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery('')
-                setViewMode('category')
-              }}
-              title="지우기 (전체 보기)"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs text-text-tertiary hover:text-text"
+        <div className="flex w-[176px] shrink-0 flex-col gap-0.5 bg-bg-soft px-2.5 py-3.5">
+          <div className="relative mb-2.5">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 18 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
+              aria-hidden="true"
             >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-      <div className="flex min-h-0 flex-1">
-        {!showSearchResults && (
-          <div className="flex w-36 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border p-2">
-            {CATEGORIES.map((cat) => (
+              <circle cx="8" cy="8" r="4.9" />
+              <path d="M11.6 11.6L15.5 15.5" />
+            </svg>
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                setViewMode(e.target.value.trim().length > 0 ? 'search' : 'category')
+              }}
+              placeholder="설정 검색"
+              className="h-[30px] w-full rounded-lg bg-text/[0.07] pl-8 pr-7 text-[13px] text-text outline-none transition-shadow placeholder:text-text-tertiary focus:ring-1 focus:ring-accent/60"
+            />
+            {query.length > 0 && (
               <button
-                key={cat}
                 type="button"
                 onClick={() => {
-                  setActiveCategory(cat)
+                  setQuery('')
                   setViewMode('category')
                 }}
-                className={`w-full rounded-md px-2.5 py-1.5 text-left text-xs focus:outline-none ${
-                  activeCategory === cat
-                    ? 'bg-accent-soft text-accent'
-                    : 'text-text-secondary hover:bg-bg-mute hover:text-text'
-                }`}
+                title="지우기 (전체 보기)"
+                className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-text-tertiary hover:text-text"
               >
-                {cat}
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
+                  <path d="M3 3l8 8M11 3l-8 8" />
+                </svg>
               </button>
-            ))}
+            )}
           </div>
-        )}
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => {
+                setActiveCategory(cat)
+                setViewMode('category')
+              }}
+              className={`h-[30px] w-full rounded-lg px-2.5 text-left text-[13px] outline-none transition-colors ${
+                !showSearchResults && activeCategory === cat
+                  ? 'bg-bg-mute text-text'
+                  : 'text-text-secondary hover:bg-bg-mute/60 hover:text-text'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
 
-        <div className="flex-1 overflow-auto px-3 py-2">
-          {showSearchResults ? (
-            filtered.length === 0 ? (
-              <p className="py-6 text-center text-sm text-text-tertiary">검색 결과가 없어요</p>
-            ) : (
-              <div className="divide-y divide-border">
-                {filtered.map((item) => (
-                  <div key={item.id} className="py-1">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex h-14 shrink-0 items-center justify-between pl-7 pr-3.5">
+            <h2 className="text-[17px] font-medium text-text">
+              {showSearchResults ? '검색 결과' : activeCategory}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              title="닫기 (Esc)"
+              className="flex h-[26px] w-[26px] items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-mute hover:text-text"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              >
+                <path d="M3 3l8 8M11 3l-8 8" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pl-7 pr-4 pb-6 pt-1 [scrollbar-color:transparent_transparent] [scrollbar-width:thin] hover:[scrollbar-color:var(--color-border-strong)_transparent]">
+            {showSearchResults ? (
+              filtered.length === 0 ? (
+                <p className="py-6 text-center text-[13px] text-text-tertiary">
+                  검색 결과가 없어요
+                </p>
+              ) : (
+                filtered.map((item) => (
+                  <div key={item.id} className="mb-4">
                     <button
                       type="button"
                       onClick={() => {
                         setActiveCategory(item.category)
                         setViewMode('category')
                       }}
-                      className="text-[11px] text-text-tertiary hover:text-accent"
+                      className="mb-1.5 ml-0.5 text-[11.5px] text-text-tertiary transition-colors hover:text-accent"
                     >
-                      {item.category} &gt; {item.group ? `${item.group}` : ''}{item.label}
+                      {[item.category, item.group, item.label].filter(Boolean).join(' › ')}
                     </button>
-                    {item.render()}
+                    <Card>{item.render()}</Card>
                   </div>
+                ))
+              )
+            ) : (
+              <>
+                {sections.map((sec, i) => (
+                  <section key={`${sec.group ?? 'none'}-${i}`} className="mb-5">
+                    {sec.group && (
+                      <div className="mb-2 flex items-center justify-between px-0.5 text-xs text-text-tertiary">
+                        <span>{sec.group}</span>
+                        {(sec.group === '에디터' || sec.group === '프리뷰') && (
+                          <button
+                            type="button"
+                            onClick={sec.group === '에디터' ? resetEditorFont : resetPreviewFont}
+                            className="transition-colors hover:text-accent"
+                          >
+                            기본값으로
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    <Card>
+                      {sec.items.map((item) => (
+                        <div key={item.id}>{item.render()}</div>
+                      ))}
+                    </Card>
+                  </section>
                 ))}
-              </div>
-            )
-          ) : (
-            <div>
-              {categoryItems.map((item, i) => (
-                <div key={item.id}>
-                  {item.group && item.group !== categoryItems[i - 1]?.group && (
-                    <div className={`flex items-center justify-between pb-1 pt-2 ${i === 0 ? 'pt-0' : 'mt-2 border-t border-border pt-4'}`}>
-                      <span className="text-lg font-semibold text-text">{item.group}</span>
-                      {(item.group === '에디터' || item.group === '프리뷰') && (
-                        <button
-                          type="button"
-                          onClick={item.group === '에디터' ? resetEditorFont : resetPreviewFont}
-                          className="text-xs text-text-tertiary hover:text-accent"
-                        >
-                          기본값으로
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {item.render()}
-                </div>
-              ))}
-              {activeCategory === '단축키' && (
-                <div className="py-3">
+                {activeCategory === '단축키' && (
                   <button
                     type="button"
                     onClick={() => setConfirmResetShortcuts(true)}
-                    className="rounded-md border border-border px-2.5 py-1.5 text-xs text-text-secondary hover:border-danger hover:text-danger"
+                    className="h-8 rounded-lg bg-bg-mute px-3 text-[13px] text-text-secondary outline-none transition-colors hover:text-danger"
                   >
                     모두 기본값으로
                   </button>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-      {confirmResetShortcuts && (
-        <ConfirmDialog
-          title="단축키 초기화"
-          message="모든 단축키를 기본값으로 되돌려요."
-          confirmLabel="초기화"
-          danger
-          onConfirm={() => {
-            resetAllShortcuts()
-            setConfirmResetShortcuts(false)
-          }}
-          onCancel={() => setConfirmResetShortcuts(false)}
-        />
-      )}
+
+        {confirmResetShortcuts && (
+          <ConfirmDialog
+            title="단축키 초기화"
+            icon="reset"
+            message="모든 단축키를 기본값으로 되돌려요."
+            confirmLabel="초기화"
+            danger
+            onConfirm={() => {
+              resetAllShortcuts()
+              setConfirmResetShortcuts(false)
+            }}
+            onCancel={() => setConfirmResetShortcuts(false)}
+          />
+        )}
       </motion.div>
-    </div>
+    </motion.div>
   )
 }

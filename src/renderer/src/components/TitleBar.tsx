@@ -17,12 +17,12 @@ function WindowControls(): React.JSX.Element {
   }, [])
 
   return (
-    <div className="titlebar-no-drag flex h-11 items-center">
+    <div className="titlebar-no-drag flex h-9 items-center gap-0.5 px-1.5">
       <button
         type="button"
         onClick={() => void window.api.window.minimize()}
         title="최소화"
-        className="flex h-11 w-11 items-center justify-center text-text-secondary hover:bg-bg-mute hover:text-text"
+        className="flex h-7 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text"
       >
         <WindowMinimizeIcon />
       </button>
@@ -30,7 +30,7 @@ function WindowControls(): React.JSX.Element {
         type="button"
         onClick={() => void window.api.window.toggleMaximize()}
         title={isMaximized ? '이전 크기로' : '최대화'}
-        className="flex h-11 w-11 items-center justify-center text-text-secondary hover:bg-bg-mute hover:text-text"
+        className="flex h-7 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text"
       >
         {isMaximized ? <WindowRestoreIcon /> : <WindowMaximizeIcon />}
       </button>
@@ -38,7 +38,7 @@ function WindowControls(): React.JSX.Element {
         type="button"
         onClick={() => void window.api.window.close()}
         title="닫기"
-        className="flex h-11 w-11 items-center justify-center text-text-secondary hover:bg-danger hover:text-white"
+        className="flex h-7 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-[#e81123] hover:text-white"
       >
         <WindowCloseIcon />
       </button>
@@ -57,19 +57,17 @@ export function TitleBar({ children }: TitleBarProps): React.JSX.Element {
 
   return (
     <header
-      className={`titlebar-drag flex h-7 shrink-0 items-center border-b border-border bg-bg-soft ${
-        isMac ? 'flex-row-reverse' : ''
-      }`}
+      className={`titlebar-drag flex h-9 shrink-0 items-center ${isMac ? 'flex-row-reverse' : ''}`}
       onDoubleClick={() => void window.api.window.toggleMaximize()}
     >
       <div
-        className="titlebar-no-drag flex items-center"
+        className="titlebar-no-drag flex items-center gap-0.5 px-2"
         onDoubleClick={(e) => e.stopPropagation()}
       >
         {children}
       </div>
       <div className="flex flex-1 items-center justify-center">
-        <span className="text-xs text-text-tertiary">SyntaxNote</span>
+        <span className="text-[11px] font-medium tracking-wide text-text-tertiary">SyntaxNote</span>
       </div>
       {platform && (
         <div onDoubleClick={(e) => e.stopPropagation()}>
