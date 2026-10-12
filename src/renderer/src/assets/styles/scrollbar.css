@@ -17,4 +17,6 @@ button:not(:disabled) {
   cursor: pointer;
 }
 
-/* ───────── 에디터(CodeMirror, Vim) ───────── */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

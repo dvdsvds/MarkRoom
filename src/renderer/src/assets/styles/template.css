@@ -190,6 +190,8 @@
   --caret-color: var(--tp-ink);
   --selection-background-color: rgba(59, 130, 246, 0.3);
   --selection-color: inherit;
+  --placeholder-color: #9ca3af;
+  --placeholder-opacity: 0.6;
 }
 .snote-page math-field.tq-mf:focus-within {
   border-color: #3b82f6;
@@ -208,25 +210,6 @@
   --color-text-tertiary: #666;
   --color-border: #ddd;
   --color-border-strong: #999;
-}
-.cm-codeblock-first {
-  position: relative;
-}
-.cm-codebar {
-  display: inline-block !important;
-  width: 0 !important;
-  height: 0 !important;
-  float: none !important;
-  position: static !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  overflow: visible !important;
-}
-.cm-codebar .cm-codebar-copy {
-  position: absolute !important;
-  right: 8px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
 }
 .katex-display {
   margin: 0 !important;
@@ -251,8 +234,4 @@
 }
 .snote-page .tp-text:empty::after {
   content: '\200b';
-}
-.snote-page math-field.tq-mf {
-  --placeholder-color: #9ca3af;
-  --placeholder-opacity: 0.6;
 }
