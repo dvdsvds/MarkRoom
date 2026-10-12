@@ -32,7 +32,7 @@ import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
 import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
-import { fileKindOf } from './utils/fileKind'
+import { readFileContent } from './utils/fileKind'
 import { FileViewer } from './components/FileViewer'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
@@ -268,8 +268,7 @@ function App(): React.JSX.Element {
       }
       const validPaths = (restored?.paths ?? []).filter((p) => known.has(p))
       for (const p of validPaths) {
-        const fileContent = fileKindOf(p) === 'text' ? await window.api.workspace.readFile(p) : ''
-        useTabsStore.getState().openFile(p, fileContent)
+        useTabsStore.getState().openFile(p, await readFileContent(p))
       }
       if (restored?.activeTabId) {
         const restoredTab = useTabsStore
@@ -344,10 +343,9 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     return window.api.workspace.onFileChanged((changedPath) => {
-      if (fileKindOf(changedPath) !== 'text') return
       const tabsState = useTabsStore.getState()
       const priorTab = tabsState.tabs.find((t) => t.filePath === changedPath)
-      void window.api.workspace.readFile(changedPath).then((fresh) => {
+      void readFileContent(changedPath).then((fresh) => {
         syncExternalChange(changedPath, fresh)
         if (!priorTab || !priorTab.dirty || priorTab.content === fresh) return
         externalChangeBufferRef.current.push({
@@ -480,11 +478,7 @@ function App(): React.JSX.Element {
   const handleOpenFile = useCallback(
     (filePath: string): void => {
       setSelectedFolderPath(null)
-      if (fileKindOf(filePath) !== 'text') {
-        openFile(filePath, '')
-        return
-      }
-      void window.api.workspace.readFile(filePath).then((fileContent) => {
+      void readFileContent(filePath).then((fileContent) => {
         openFile(filePath, fileContent)
       })
     },

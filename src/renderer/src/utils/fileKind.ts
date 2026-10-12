@@ -11,3 +11,8 @@ export function fileKindOf(filePath: string): FileKind {
   if (IMAGE_EXTS.has(ext)) return 'image'
   return 'text'
 }
+
+export async function readFileContent(filePath: string): Promise<string> {
+  if (fileKindOf(filePath) !== 'text') return ''
+  return window.api.workspace.readFile(filePath)
+}
