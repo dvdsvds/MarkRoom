@@ -17,7 +17,7 @@ app.disableHardwareAcceleration()
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'snote',
-    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true }
   }
 ])
 
@@ -123,12 +123,15 @@ app.whenReady().then(() => {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {})
   }
 
-  protocol.handle('snote', (request) => {
+  protocol.handle('snote', async (request) => {
     try {
       let p = decodeURIComponent(new URL(request.url).pathname)
       if (/^\/[a-zA-Z]:/.test(p)) p = p.slice(1)
       const safePath = assertInsideRoot(p)
-      return net.fetch(pathToFileURL(safePath).href)
+      const res = await net.fetch(pathToFileURL(safePath).href)
+      const headers = new Headers(res.headers)
+      headers.set('Access-Control-Allow-Origin', '*')
+      return new Response(res.body, { status: res.status, headers })
     } catch {
       return new Response(null, { status: 404 })
     }

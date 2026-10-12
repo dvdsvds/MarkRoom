@@ -1,3 +1,4 @@
+import { fileKindOf, type FileKind } from '@renderer/utils/fileKind'
 import { create } from 'zustand'
 
 export interface Tab {
@@ -8,6 +9,7 @@ export interface Tab {
   dirty: boolean
   missing: boolean
   baseContent: string
+  kind: FileKind
 }
 
 function makeId(): string {
@@ -53,12 +55,15 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       }))
       return
     }
+    const kind = fileKindOf(filePath)
+    const text = kind === 'text' ? content : ''
     const tab: Tab = {
       id: makeId(),
       filePath,
       dirPath: null,
-      content,
-      baseContent: content,
+      content: text,
+      baseContent: text,
+      kind,
       dirty: false,
       missing: false
     }
@@ -101,7 +106,9 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   syncExternalChange: (filePath, content) =>
     set((s) => ({
-      tabs: s.tabs.map((t) => (t.filePath === filePath ? { ...t, content, dirty: false } : t))
+      tabs: s.tabs.map((t) =>
+        t.filePath === filePath && t.kind === 'text' ? { ...t, content, dirty: false } : t
+      )
     })),
 
   renamePath: (oldPath, newPath) =>

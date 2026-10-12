@@ -25,13 +25,15 @@ import { useWorkspaceStore } from './stores/workspaceStore'
 import { useTabsStore, type Tab } from './stores/tabsStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useToastStore } from './stores/toastStore'
-import { flattenNotes } from './utils/noteIndex'
+import { flattenFilePaths, flattenNotes } from './utils/noteIndex'
 import { matchesShortcut } from './utils/shortcuts'
 import { extractToc } from './utils/toc'
 import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
 import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
+import { fileKindOf } from './utils/fileKind'
+import { FileViewer } from './components/FileViewer'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 const EDITOR_MIN_WIDTH = 396
@@ -121,6 +123,7 @@ function App(): React.JSX.Element {
   const renamePath = useTabsStore((s) => s.renamePath)
   const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
+  const isViewer = activeTab !== null && activeTab.kind !== 'text'
   const [sidebarWidth, setSidebarWidth] = useState(224)
   const sidebarResizing = useRef(false)
   const sidebarRef = useRef<SidebarHandle>(null)
@@ -129,9 +132,7 @@ function App(): React.JSX.Element {
   const setSplitRatio = useSettingsStore((s) => s.setSplitRatio)
   const [splitDraft, setSplitDraft] = useState<number | null>(null)
   const splitRef = useRef<HTMLDivElement>(null)
-  // 프리뷰 안 가장 넓은 이미지가 들어가는 너비. 프리뷰는 이보다 좁아질 수 없다.
   const [previewMinWidth, setPreviewMinWidth] = useState(0)
-  // 문서에 서식(template)이 있으면 에디터/프리뷰를 5:5로 고정하고 조절을 막는다.
   const [hasTemplate, setHasTemplate] = useState(false)
   const previewMinWidthRef = useRef(0)
   previewMinWidthRef.current = previewMinWidth
@@ -258,7 +259,7 @@ function App(): React.JSX.Element {
       const initialTree = await window.api.workspace.getTree()
       setTree(initialTree)
 
-      const known = new Set(flattenNotes(initialTree).map((n) => n.path))
+      const known = new Set(flattenFilePaths(initialTree))
       let restored: { paths: string[]; activeTabId: string | null } | null = null
       try {
         const raw = localStorage.getItem('markroom-open-tabs')
@@ -268,7 +269,7 @@ function App(): React.JSX.Element {
       }
       const validPaths = (restored?.paths ?? []).filter((p) => known.has(p))
       for (const p of validPaths) {
-        const fileContent = await window.api.workspace.readFile(p)
+        const fileContent = fileKindOf(p) === 'text' ? await window.api.workspace.readFile(p) : ''
         useTabsStore.getState().openFile(p, fileContent)
       }
       if (restored?.activeTabId) {
@@ -344,6 +345,7 @@ function App(): React.JSX.Element {
 
   useEffect(() => {
     return window.api.workspace.onFileChanged((changedPath) => {
+      if (fileKindOf(changedPath) !== 'text') return
       const tabsState = useTabsStore.getState()
       const priorTab = tabsState.tabs.find((t) => t.filePath === changedPath)
       void window.api.workspace.readFile(changedPath).then((fresh) => {
@@ -480,6 +482,10 @@ function App(): React.JSX.Element {
   const handleOpenFile = useCallback(
     (filePath: string): void => {
       setSelectedFolderPath(null)
+      if (fileKindOf(filePath) !== 'text') {
+        openFile(filePath, '')
+        return
+      }
       void window.api.workspace.readFile(filePath).then((fileContent) => {
         openFile(filePath, fileContent)
       })
@@ -828,7 +834,9 @@ function App(): React.JSX.Element {
             onCloseAll={handleCloseAll}
             onMissingClick={handleMissingTabClick}
           />
-          {activeTab ? (
+          {activeTab && activeTab.kind !== 'text' && activeTab.filePath ? (
+            <FileViewer  key={activeTab.id} filePath={activeTab.filePath} kind={activeTab.kind}/>
+          ) : activeTab ? (
             <div className="flex min-h-0 flex-1 flex-col">
               <div ref={splitRef} className="flex min-h-0 flex-1">
                 <div
@@ -887,22 +895,22 @@ function App(): React.JSX.Element {
           )}
           <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] tabular-nums text-text-tertiary">
             <div className="flex items-center gap-2">
-              {vimMode ? (
+              {vimMode && !isViewer ? (
                 <span className="font-semibold text-accent">-- {vimModeLabel} --</span>
               ) : (
                 <span className="truncate">{filePathLabel}</span>
               )}
             </div>
             <div className="flex items-center gap-3">
-              {vimMode && <span className="truncate">{filePathLabel}</span>}
-              {activeTab && showLineCol && (
+              {vimMode && !isViewer && <span className="truncate">{filePathLabel}</span>}
+              {activeTab && !isViewer && showLineCol && (
                 <span>
                   {cursorPos.line}:{cursorPos.col}
                 </span>
               )}
 
-              {activeTab && showWordCount && <span>{wordCount}단어</span>}
-              {activeTab && showCharCount && (charCountIncludeSpaces || charCountExcludeSpaces) && (
+              {activeTab && !isViewer && showWordCount && <span>{wordCount}단어</span>}
+              {activeTab && !isViewer && showCharCount && (charCountIncludeSpaces || charCountExcludeSpaces) && (
                 <span>
                   {[
                     charCountIncludeSpaces ? `${charCountWithSpaces}자` : null,
@@ -978,7 +986,7 @@ function App(): React.JSX.Element {
           onCancel={() => setCloseConfirm(null)}
         />
       )}
-      {tocOpen && activeTab && (
+      {tocOpen && activeTab && !isViewer && (
         <TocPanel
           entries={tocEntries}
           onJump={handleTocJump}
@@ -998,7 +1006,7 @@ function App(): React.JSX.Element {
           />
         )}
       </AnimatePresence>
-      {backlinksOpen && activeTab && (
+      {backlinksOpen && activeTab && !isViewer && (
         <BacklinksPanel
           filePath={activeTab.filePath}
           onOpen={handleOpenTodo}

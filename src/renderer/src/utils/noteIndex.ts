@@ -16,3 +16,15 @@ export function flattenNotes(tree: TreeNode[]): NoteRef[] {
   }
   return notes
 }
+
+export function flattenFilePaths(tree: TreeNode[]): string[] {
+  const paths: string[] = []
+  for (const node of tree) {
+    if (node.type === 'folder') {
+      if (node.children) paths.push(...flattenFilePaths(node.children))
+    } else {
+      paths.push(node.path)
+    }
+  }
+  return paths
+}
