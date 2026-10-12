@@ -1,0 +1,20 @@
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* ───────── 에디터(CodeMirror, Vim) ───────── */

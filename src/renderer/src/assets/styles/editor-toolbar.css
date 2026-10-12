@@ -1,0 +1,173 @@
+.md-toolbar {
+  padding: 8px 10px 6px;
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  user-select: none;
+}
+.md-toolbar-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.md-toolbar-row > * {
+  flex: none;
+}
+/* 툴바가 좁아지면 접힌 버튼이 들어가는 » 메뉴 (우클릭 메뉴와 같은 모양) */
+.md-ovf-menu {
+  position: fixed;
+  z-index: 1100;
+  width: 208px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-bg-elevated);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  font-family: var(--font-ui);
+}
+.md-ovf-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.md-ovf-item:hover,
+.md-ovf-item.on {
+  background: var(--color-bg-mute);
+}
+.slash-menu {
+  width: 236px;
+  max-height: 340px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.slash-menu::-webkit-scrollbar {
+  display: none;
+}
+.slash-hint {
+  margin-left: auto;
+  color: var(--color-text-tertiary);
+  font-family: var(--font-editor);
+  font-size: 11.5px;
+  font-style: normal;
+}
+.md-ovf-ico {
+  display: flex;
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-tertiary);
+}
+.md-ovf-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--color-border);
+}
+.md-tb-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  margin: 0 6px;
+  background: var(--color-border-strong);
+}
+.md-toolbar svg {
+  display: block;
+}
+.md-tb-btn,
+.md-toolbar .md-tb-heading > button,
+.md-toolbar .md-tb-color > button {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  height: 28px !important;
+  border: none !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: var(--color-text-secondary) !important;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.md-tb-btn {
+  width: 28px;
+  padding: 0;
+}
+.md-tb-btn:hover,
+.md-toolbar .md-tb-heading > button:hover,
+.md-toolbar .md-tb-color > button:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent) !important;
+  color: var(--color-text) !important;
+}
+.md-tb-btn.on {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent) !important;
+  color: var(--color-accent) !important;
+}
+.md-toolbar .md-tb-heading {
+  margin-right: 4px;
+}
+.md-toolbar .md-tb-heading > button {
+  min-width: 0 !important;
+  gap: 6px !important;
+  padding: 0 8px 0 10px !important;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent) !important;
+  color: var(--color-text) !important;
+  font-size: 12.5px !important;
+}
+.md-toolbar .md-tb-heading > button > span:last-child {
+  display: flex;
+  color: var(--color-text-tertiary);
+}
+.md-toolbar .md-tb-color > button {
+  width: 28px;
+  padding: 0 !important;
+}
+.md-toolbar .md-tb-color > button i {
+  width: 12px !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+}
+/* 에디터 안쪽 z-index(툴바 패널 300)가 바깥 팝업·설정 패널 위로 올라오지 않게 가둔다 */
+.cm-editor {
+  isolation: isolate;
+}
+.cm-content,
+.cm-gutters,
+.cm-gutterElement {
+  line-height: var(--editor-line-height) !important;
+}
+.cm-line {
+  line-height: var(--editor-line-height) !important;
+  padding-left: 2px !important;
+}
+.cm-selectionBackground,
+.cm-focused .cm-selectionBackground {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent) !important;
+}
+.cm-line ::selection,
+.cm-line::selection {
+  color: inherit !important;
+  background: transparent !important;
+}
+.cm-selectionMatch {
+  background-color: transparent !important;
+}
+.cm-editor.cm-vim-v .cm-selectionLayer .cm-selectionBackground {
+  background: transparent !important;
+}
+.cm-vsel {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  padding: 0.2286em 0;
+}
+
+/* ───────── select ───────── */

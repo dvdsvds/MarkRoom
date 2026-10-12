@@ -1,0 +1,145 @@
+:root {
+  --code-keyword: #8b5cf6;
+  --code-string: #16a34a;
+  --code-number: #d97706;
+  --code-comment: var(--color-text-tertiary);
+  --code-function: #3b82f6;
+  --code-type: #0d9488;
+  --code-variable: var(--color-text);
+  --code-property: #0ea5e9;
+  --code-operator: var(--color-text-secondary);
+}
+.cm-line.cm-codeblock {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 98%;
+  background: var(--color-bg-soft);
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+.cm-line.cm-codeblock-first {
+  position: relative;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+.cm-line.cm-codeblock-last {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+}
+.cm-line.cm-codeblock-fence {
+  color: var(--color-text-tertiary);
+}
+.cm-codebar {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-ui);
+}
+.cm-codebar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: none;
+  border-radius: 6px;
+}
+.cm-codebar button:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.cm-codebar .cm-codebar-copy {
+  width: 26px;
+  padding: 0;
+}
+.cm-lang-menu {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  width: 160px;
+  padding: 4px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.cm-lang-item {
+  padding: 5px 8px;
+  font-size: 13px;
+  text-align: left;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+}
+.cm-lang-item:hover {
+  background: var(--color-bg-mute);
+  color: var(--color-text);
+}
+.cm-lang-item.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+.cm-lang-input {
+  margin-top: 4px;
+  height: 28px;
+  padding: 0 8px;
+  font-size: 13px;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  outline: none;
+}
+.cm-lang-input:focus {
+  border-color: var(--color-accent);
+}
+
+/* ───────── 선택 툴바 ───────── */
+.cm-tooltip:has(> .sel-toolbar) {
+  border: none !important;
+  background-color: transparent !important;
+}
+.sel-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background-color: var(--color-bg-elevated) !important;
+  border: 1px solid var(--color-border-strong) !important;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+.sel-toolbar button svg {
+  display: block;
+}
+.sel-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  font-family: var(--font-ui);
+  cursor: pointer;
+  outline: none;
+}
+.sel-toolbar button:hover {
+  background-color: var(--color-bg-mute);
+  color: var(--color-text);
+}
+
+/* ───────── 서식(template) 종이 ───────── */

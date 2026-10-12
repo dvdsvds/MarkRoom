@@ -1,0 +1,106 @@
+.snote-block {
+  margin: 0.8em 0;
+}
+.code-run-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.code-run-blocks:empty {
+  display: none;
+}
+.code-chart {
+  --chart-1: var(--color-accent);
+  --chart-2: #f59e0b;
+  --chart-3: #10b981;
+  --chart-4: #ef4444;
+  --chart-5: #a855f7;
+  --chart-6: #14b8a6;
+  --chart-7: #ec4899;
+  --chart-8: #84cc16;
+}
+.code-block-title {
+  margin-bottom: 4px;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--color-text-secondary);
+}
+.code-table-scroll {
+  overflow: auto;
+  max-height: 24rem;
+}
+.prose-preview .code-table table {
+  margin: 0;
+}
+.prose-preview .code-table th,
+.prose-preview .code-table td {
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+.prose-preview .code-table .a-center {
+  text-align: center;
+}
+.prose-preview .code-table .a-right {
+  text-align: right;
+}
+.code-chart svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+.code-chart-grid {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+.code-chart-axis {
+  stroke: var(--color-border-strong);
+  stroke-width: 1;
+}
+.code-chart-tick {
+  fill: var(--color-text-tertiary);
+  font-size: 11px;
+}
+.code-chart-value {
+  fill: var(--color-text-secondary);
+  font-size: 11px;
+}
+.code-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.code-chart-legend-col {
+  flex-direction: column;
+  margin-top: 0;
+}
+.code-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.code-chart-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+.code-chart-pct {
+  color: var(--color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.code-chart-pie {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.code-chart-pie svg {
+  width: 220px;
+  flex: none;
+}
+
+/* ───────── 자동완성 팝업 ───────── */

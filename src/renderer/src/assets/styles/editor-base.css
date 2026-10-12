@@ -1,0 +1,257 @@
+.cm-vim-panel {
+  background-color: var(--color-bg-soft) !important;
+  color: var(--color-text) !important;
+  border-top: none !important;
+  padding: 3px 14px;
+  font-family: var(--font-editor);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+}
+
+.cm-panels {
+  background-color: var(--color-bg-soft) !important;
+  color: var(--color-text) !important;
+  border-color: var(--color-border) !important;
+}
+
+.cm-panels-bottom {
+  border-top: none !important;
+}
+
+/* ───────── 에디터 안 찾기 패널 ───────── */
+.md-find {
+  position: absolute;
+  top: 100%;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  width: 400px;
+  max-width: calc(100% - 24px);
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 color-mix(in srgb, var(--color-text) 4%, transparent);
+  color: var(--color-text-secondary);
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  transform-origin: top right;
+  animation: md-find-in 0.16s cubic-bezier(0.2, 0, 0, 1);
+}
+.md-find.closing {
+  animation: md-find-out 0.12s ease-in forwards;
+}
+@keyframes md-find-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@keyframes md-find-out {
+  to {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+}
+@keyframes md-find-row {
+  from {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+.md-find svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+.md-find-col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.md-find-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.md-find-replace-row {
+  display: none;
+}
+.md-find.open .md-find-replace-row {
+  display: flex;
+  animation: md-find-row 0.14s ease-out;
+}
+.md-find-aside {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  width: 160px;
+}
+.md-find-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border-radius: 8px;
+  background: var(--color-bg-soft);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  transition: box-shadow 0.12s;
+}
+.md-find-field:focus-within {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+.md-find-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+.md-find-field input::placeholder {
+  color: var(--color-text-tertiary);
+}
+.md-find-btn,
+.md-find-toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.md-find-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+}
+.md-find-btn.md-find-expand {
+  align-self: flex-start;
+  width: 24px;
+  height: 28px;
+  color: var(--color-text-tertiary);
+}
+.md-find-toggle {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+}
+.md-find-btn:hover,
+.md-find-toggle:hover {
+  background: color-mix(in srgb, var(--color-text) 9%, transparent);
+  color: var(--color-text);
+}
+.md-find-toggle.on {
+  background: color-mix(in srgb, var(--color-text) 13%, transparent);
+  color: var(--color-text);
+}
+.md-find-count {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 0 0 6px;
+  color: var(--color-text-tertiary);
+  font-size: 11.5px;
+  text-align: left;
+  white-space: nowrap;
+}
+.md-find-btn.off {
+  opacity: 0.4;
+  cursor: default;
+}
+.md-find-btn.off:hover {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.md-find-count.empty {
+  color: var(--color-diff-remove-text);
+}
+.cm-searchMatch {
+  background-color: color-mix(in srgb, #ffd666 17%, transparent) !important;
+  border-radius: 3px;
+}
+.cm-searchMatch.cm-searchMatch-selected {
+  background-color: color-mix(in srgb, #ffd666 45%, transparent) !important;
+}
+
+.cm-vim-panel input {
+  background: transparent !important;
+  color: var(--color-text) !important;
+  outline: none;
+  border: none;
+  font-family: var(--font-editor);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  padding: 0;
+}
+.cm-fat-cursor {
+  color: #000 !important;
+}
+.cm-fat-cursor * {
+  color: var(--color-bg) !important;
+}
+.cm-cursorLayer .cm-cursor,
+.cm-cursorLayer .cm-cursor-primary {
+  border-left-color: var(--color-text) !important;
+  height: var(--cm-line-hs, 20px) !important;
+  margin-top: calc(-1 * var(--cm-cur-tops, 0px)) !important;
+}
+.cm-cursorLayer .cm-fat-cursor,
+.cm-vimCursorLayer .cm-fat-cursor {
+  box-sizing: content-box !important;
+  height: var(--cm-cur-h, 16px) !important;
+  padding-top: var(--cm-cur-top, 0px) !important;
+  padding-bottom: max(
+    0px,
+    calc(var(--cm-line-h, 22.4px) - var(--cm-cur-top, 0px) - var(--cm-cur-h, 16px))
+  ) !important;
+  margin-top: calc(-1 * var(--cm-cur-top, 0px)) !important;
+}
+.cm-focused .cm-fat-cursor {
+  background: var(--color-text) !important;
+}
+.cm-editor:not(.cm-focused) .cm-fat-cursor {
+  background: none !important;
+  outline: 1px solid var(--color-text) !important;
+}
+.cm-gutters {
+  background-color: transparent !important;
+  color: color-mix(in srgb, var(--color-text-tertiary) 75%, transparent) !important;
+  border-right: none !important;
+}
+.cm-activeLineGutter {
+  background-color: transparent !important;
+  color: var(--color-text) !important;
+}
+.cm-activeLine {
+  background-color: color-mix(in srgb, var(--color-text) 4.5%, transparent) !important;
+  border-radius: 6px;
+}
+
+/* ───────── 에디터 위쪽 툴바 ───────── */
+.cm-panels-top {
+  border-bottom: none !important;
+  background-color: var(--color-bg) !important;
+}

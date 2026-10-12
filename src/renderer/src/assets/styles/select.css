@@ -1,0 +1,29 @@
+select,
+select::picker(select) {
+  appearance: base-select;
+}
+select::picker(select) {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 4px;
+  margin-top: 4px;
+}
+select option {
+  padding: 8px 12px;
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 13px;
+}
+select option::not(:checked):hover,
+select option::not(:checked):focus {
+  background: var(--color-bg-mute);
+}
+select option::checked {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+select option::checkmark {
+  display: none;
+}
+

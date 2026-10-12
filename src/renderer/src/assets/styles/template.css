@@ -1,0 +1,258 @@
+.snote-page {
+  --tp-ink: #1a1a1a;
+  box-sizing: border-box;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 12mm;
+  background: #fff;
+  color: var(--tp-ink);
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.12),
+    0 6px 20px rgba(0, 0, 0, 0.25);
+}
+.snote-page .tp-text {
+  min-height: 1.5em;
+  padding: 2px 0;
+  white-space: pre-wrap;
+}
+.snote-page .tp-line {
+  height: 0;
+  margin: 6px 0;
+  border-top: 1px solid var(--tp-ink);
+}
+.snote-page .tp-line-thick {
+  border-top-width: 3px;
+}
+.snote-page .tp-line-dashed {
+  border-top-style: dashed;
+}
+.snote-page .tp-line-double {
+  height: 3px;
+  border-bottom: 1px solid var(--tp-ink);
+}
+.snote-page .tp-box {
+  margin: 6px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--tp-ink);
+}
+.snote-page table.tp-table {
+  width: 100%;
+  margin: 4px 0;
+  border-collapse: collapse;
+}
+.snote-page .tp-table th,
+.snote-page .tp-table td {
+  padding: 3px 6px;
+  border: 1px solid var(--tp-ink);
+  background: transparent;
+  color: var(--tp-ink);
+  font-weight: 400;
+  text-align: left;
+}
+.snote-page .tp-table th {
+  background: #f1f1f1;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 격자 */
+.snote-page .tq-grid {
+  display: grid;
+  box-sizing: border-box;
+  margin: 0;
+}
+.snote-page .tq-cell {
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 2pt 4pt;
+}
+.snote-page .tq-text {
+  width: 100%;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-variant-numeric: tabular-nums;
+}
+.snote-page .tq-dist {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+}
+.snote-page .tq-cell.tq-vertical {
+  justify-content: center;
+}
+.snote-page .tq-vertical .tq-text {
+  width: auto;
+  white-space: pre;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.3em;
+}
+
+/* 종이 바깥 포장과 경고 */
+.snote-template-wrap {
+  position: relative;
+  margin: 0;
+}
+.snote-template-wrap .snote-page {
+  margin: 0 auto;
+}
+.tp-warn {
+  max-width: 210mm;
+  margin: 6px auto 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-diff-remove-text);
+  background: var(--color-bg-mute);
+  border-radius: 6px;
+}
+
+/* 편집 버튼과 편집 모드 */
+.tp-edit-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  opacity: 0.85;
+}
+.tp-edit-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  opacity: 1;
+}
+.snote-template-wrap .tq-cell {
+  cursor: default;
+}
+.snote-template-wrap.tq-editmode .tq-cell {
+  cursor: text;
+}
+.snote-page .tq-cell.tq-selected {
+  background-image: linear-gradient(rgba(128, 128, 128, 0.28), rgba(128, 128, 128, 0.28));
+}
+.snote-page .tq-cell.tq-editing .tq-text {
+  background: none;
+  outline: none;
+  user-select: text;
+}
+.cm-editor:has(.cm-sel-line) .cm-selectionLayer .cm-selectionBackground {
+  background: transparent !important;
+}
+.cm-line.cm-sel-line,
+.cm-line.cm-sel-line.cm-activeLine {
+  background-color: color-mix(in srgb, var(--color-accent) 28%, transparent) !important;
+  margin-left: -2px;
+  padding-left: 4px !important;
+  width: fit-content;
+  min-width: 0;
+}
+.tq-grid.tq-hot-col,
+.tq-grid.tq-hot-col * {
+  cursor: col-resize !important;
+}
+.tq-grid.tq-hot-row,
+.tq-grid.tq-hot-row * {
+  cursor: row-resize !important;
+}
+.tq-guide {
+  display: none;
+}
+.tq-editmode .tq-guide {
+  display: block;
+}
+.tq-editmode .tq-grid.tq-frame-none {
+  outline: 1px dashed #e5484d;
+}
+.snote-page .tq-math .katex {
+  font-size: 1.1em;
+}
+.katex .msupsub {
+  font-size: 0.8em;
+}
+.snote-page math-field.tq-mf {
+  display: inline-block;
+  font-size: 1em;
+  padding: 0 3px;
+  color: inherit;
+  background: transparent;
+  border: 1px dashed #9ca3af;
+  border-radius: 3px;
+  vertical-align: middle;
+  --caret-color: var(--tp-ink);
+  --selection-background-color: rgba(59, 130, 246, 0.3);
+  --selection-color: inherit;
+}
+.snote-page math-field.tq-mf:focus-within {
+  border-color: #3b82f6;
+  outline: none;
+}
+.snote-page math-field.tq-mf::part(virtual-keyboard-toggle),
+.snote-page math-field.tq-mf::part(menu-toggle) {
+  display: none;
+}
+.snote-page .tp-block {
+  margin: 6px 0;
+}
+.snote-page .code-chart {
+  --color-bg: #fff;
+  --color-text-secondary: #444;
+  --color-text-tertiary: #666;
+  --color-border: #ddd;
+  --color-border-strong: #999;
+}
+.cm-codeblock-first {
+  position: relative;
+}
+.cm-codebar {
+  display: inline-block !important;
+  width: 0 !important;
+  height: 0 !important;
+  float: none !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+.cm-codebar .cm-codebar-copy {
+  position: absolute !important;
+  right: 8px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+.katex-display {
+  margin: 0 !important;
+  text-align: left !important;
+}
+.snote-page .tp-text[contenteditable] {
+  outline: none;
+  background: none;
+}
+.tq-editmode .tp-text[data-tline] {
+  cursor: text;
+}
+.tq-editmode .tp-text[contenteditable] {
+  outline: none;
+}
+.tq-editmode .snote-page {
+  cursor: text;
+}
+.tq-editmode .tq-cell,
+.tq-editmode .tp-edit-btn {
+  cursor: default;
+}
+.snote-page .tp-text:empty::after {
+  content: '\200b';
+}
+.snote-page math-field.tq-mf {
+  --placeholder-color: #9ca3af;
+  --placeholder-opacity: 0.6;
+}

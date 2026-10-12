@@ -1,0 +1,67 @@
+.prose-preview .code-run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 auto 0.8em;
+  width: 100%;
+  max-width: 98%;
+}
+.code-run-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+  height: 26px;
+  padding: 0 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition:
+    background-color 0.12s,
+    color 0.12s;
+}
+.code-run-btn svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+.code-run-btn.run {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+.code-run-btn:hover:not(:disabled) {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+.code-run-btn.run:hover:not(:disabled) {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+.code-run-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.code-run-bar {
+  display: flex;
+  gap: 6px;
+}
+.code-run-out {
+  margin: 0;
+  padding: 0.7em 1em;
+  font-family: var(--font-editor);
+  font-size: 0.85em;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-bg-soft);
+  border-radius: 10px;
+}
+.code-run-out.error {
+  color: var(--color-diff-remove-text);
+  background: color-mix(in srgb, var(--color-diff-remove-text) 10%, transparent);
+}
+
+/* ───────── 색 문법 ───────── */

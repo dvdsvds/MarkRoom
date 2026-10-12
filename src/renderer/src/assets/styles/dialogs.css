@@ -1,0 +1,48 @@
+button:focus,
+button:focus-visible,
+[role='button']:focus-visible,
+[role='checkbox']:focus-visible,
+[role='switch']:focus-visible,
+[role='radio']:focus-visible,
+a:focus-visible {
+  outline: none;
+}
+/* ───────── 우클릭 메뉴, 팝업 등장 애니메이션 ───────── */
+.ctx-menu {
+  transform-origin: top left;
+  animation: ctx-in 0.12s cubic-bezier(0.2, 0, 0, 1);
+}
+.dlg-overlay {
+  animation: dlg-fade 0.14s ease-out;
+}
+.dlg-card {
+  animation: dlg-in 0.18s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes ctx-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+@keyframes dlg-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dlg-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+}
+
+/* 깨진 링크 줄이 위에서부터 차례로 나타남 */
+.link-row {
+  animation: link-row-in 0.22s cubic-bezier(0.2, 0, 0, 1) both;
+}
+@keyframes link-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}

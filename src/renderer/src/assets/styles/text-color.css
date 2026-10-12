@@ -1,0 +1,72 @@
+:root {
+  --c-red: #ef4444;
+  --c-orange: #f97316;
+  --c-yellow: #eab308;
+  --c-green: #22c55e;
+  --c-blue: #3b82f6;
+  --c-purple: #a855f7;
+  --c-gray: #9ca3af;
+}
+.snote-color[data-fg] {
+  color: var(--snote-fg);
+}
+.snote-color[data-bg] {
+  background: color-mix(in srgb, var(--snote-bg) 40%, transparent);
+  border-radius: 3px;
+  padding: 0.05em 0.2em;
+}
+.snote-color[data-fg='red'] {
+  --snote-fg: var(--c-red);
+}
+.snote-color[data-fg='orange'] {
+  --snote-fg: var(--c-orange);
+}
+.snote-color[data-fg='yellow'] {
+  --snote-fg: var(--c-yellow);
+}
+.snote-color[data-fg='green'] {
+  --snote-fg: var(--c-green);
+}
+.snote-color[data-fg='blue'] {
+  --snote-fg: var(--c-blue);
+}
+.snote-color[data-fg='purple'] {
+  --snote-fg: var(--c-purple);
+}
+.snote-color[data-fg='gray'] {
+  --snote-fg: var(--c-gray);
+}
+.snote-color[data-bg='red'] {
+  --snote-bg: var(--c-red);
+}
+.snote-color[data-bg='orange'] {
+  --snote-bg: var(--c-orange);
+}
+.snote-color[data-bg='yellow'] {
+  --snote-bg: var(--c-yellow);
+}
+.snote-color[data-bg='green'] {
+  --snote-bg: var(--c-green);
+}
+.snote-color[data-bg='blue'] {
+  --snote-bg: var(--c-blue);
+}
+.snote-color[data-bg='purple'] {
+  --snote-bg: var(--c-purple);
+}
+.snote-color[data-bg='gray'] {
+  --snote-bg: var(--c-gray);
+}
+.cm-color-swatch {
+  display: inline-block;
+  width: 0.8em;
+  height: 0.8em;
+  margin: 0 0.25em 0 0.05em;
+  vertical-align: -0.05em;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 2px;
+  background: var(--sw);
+  cursor: pointer;
+}
+
+/* ───────── table {} / chart {} 블록 ───────── */

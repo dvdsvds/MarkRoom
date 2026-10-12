@@ -1,0 +1,25 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* 화면 구성이 직접 스크롤 영역을 관리 (탭 막대, 트리, 에디터 등) */
+}
+
+/* 커스텀 제목 줄 영역: 드래그로 창을 이동시키는 기본 동작 */
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
