@@ -5,7 +5,7 @@ import { MarkdownPreview, type MarkdownPreviewHandle } from './components/Markdo
 import { Sidebar, type SidebarHandle } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { SaveChangesDialog } from './components/SaveChangesDialog'
-import { tabLabel } from './utils/tabLabel'
+import { useTabClose } from './hooks/useTabClose'
 import { SearchPanel } from './components/SearchPanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ToastStack } from './components/ToastStack'
@@ -160,7 +160,6 @@ function App(): React.JSX.Element {
   const [todoOpen, setTodoOpen] = useState(false)
   const [backlinksOpen, setBacklinksOpen] = useState(false)
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
-  const [closeConfirm, setCloseConfirm] = useState<{ tabId: string; title: string } | null>(null)
   const pushToast = useToastStore((s) => s.push)
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const previewRef = useRef<MarkdownPreviewHandle>(null)
@@ -207,6 +206,8 @@ function App(): React.JSX.Element {
     const id = useTabsStore.getState().activeTabId
     if (id) void saveTab(id)
   }, [saveTab])
+
+  const tabClose = useTabClose(saveTab)
 
   useEffect(() => {
     void (async (): Promise<void> => {
@@ -316,38 +317,6 @@ function App(): React.JSX.Element {
     return useWorkspaceStore.getState().rootDir ?? ''
   }, [])
 
-  const handleCloseTab = useCallback(
-    (tabId: string): void => {
-      const tab = useTabsStore.getState().tabs.find((t) => t.id === tabId)
-      if (!tab) return
-      if (!tab.dirty) {
-        closeTab(tabId)
-        return
-      }
-      setCloseConfirm({ tabId, title: tabLabel(tab) })
-    },
-    [closeTab]
-  )
-  const handleCloseOthers = useCallback(
-    (tabId: string): void => {
-      for (const tab of useTabsStore.getState().tabs) {
-        if (tab.id !== tabId) handleCloseTab(tab.id)
-      }
-    },
-    [handleCloseTab]
-  )
-  const handleCloseToRight = useCallback(
-    (tabId: string): void => {
-      const allTabs = useTabsStore.getState().tabs
-      const idx = allTabs.findIndex((t) => t.id === tabId)
-      if (idx === -1) return
-      for (const tab of allTabs.slice(idx + 1)) handleCloseTab(tab.id)
-    },
-    [handleCloseTab]
-  )
-  const handleCloseAll = useCallback((): void => {
-    for (const tab of useTabsStore.getState().tabs) handleCloseTab(tab.id)
-  }, [handleCloseTab])
   const handleMissingTabClick = useCallback(
     (tab: Tab): void => {
       setActiveTab(tab.id)
@@ -622,10 +591,10 @@ function App(): React.JSX.Element {
             tabs={tabs}
             activeTabId={activeTabId}
             onSelect={setActiveTab}
-            onClose={handleCloseTab}
-            onCloseOthers={handleCloseOthers}
-            onCloseToRight={handleCloseToRight}
-            onCloseAll={handleCloseAll}
+            onClose={tabClose.requestClose}
+            onCloseOthers={tabClose.closeOthers}
+            onCloseToRight={tabClose.closeToRight}
+            onCloseAll={tabClose.closeAll}
             onMissingClick={handleMissingTabClick}
           />
           {activeTab && activeTab.kind !== 'text' && activeTab.filePath ? (
@@ -731,19 +700,12 @@ function App(): React.JSX.Element {
         <RecoveryDialog items={recoveryItems} onDone={() => setRecoveryItems(null)} />
       )}
       {changelog && <ChangelogDialog content={changelog} onClose={() => setChangelog(null)} />}
-      {closeConfirm && (
+      {tabClose.closeConfirm && (
         <SaveChangesDialog
-          title={closeConfirm.title}
-          onSave={() => {
-            const { tabId } = closeConfirm
-            setCloseConfirm(null)
-            void saveTab(tabId).then(() => closeTab(tabId))
-          }}
-          onDiscard={() => {
-            closeTab(closeConfirm.tabId)
-            setCloseConfirm(null)
-          }}
-          onCancel={() => setCloseConfirm(null)}
+          title={tabClose.closeConfirm.title}
+          onSave={tabClose.confirmSave}
+          onDiscard={tabClose.confirmDiscard}
+          onCancel={tabClose.cancelClose}
         />
       )}
       {tocOpen && activeTab && !isViewer && (

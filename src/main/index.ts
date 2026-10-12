@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { electronApp, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerWorkspaceIpc } from './workspace/ipc'
 import { stopWatcher } from './workspace/watcher'
