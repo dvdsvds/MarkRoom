@@ -1,7 +1,7 @@
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
-import { electronApp, is } from '@electron-toolkit/utils'
+import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerWorkspaceIpc } from './workspace/ipc'
 import { stopWatcher } from './workspace/watcher'
@@ -89,9 +89,9 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.markroom.app')
 
-  // app.on('browser-window-created', (_, window) => {
-  //   optimizer.watchWindowShortcuts(window)
-  // })
+  app.on('browser-window-created', (_, window) => {
+    optimizer.watchWindowShortcuts(window)
+  })
 
   registerWorkspaceIpc(() => mainWindowRef)
   registerQuickCapture()
