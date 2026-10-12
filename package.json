@@ -1,6 +1,6 @@
 {
   "name": "syntaxnote",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "마크다운(.md) 파일 기반의 메모·보고서 작성 데스크톱 앱",
   "main": "./out/main/index.js",
   "author": "dvd",
