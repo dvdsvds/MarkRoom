@@ -6,6 +6,9 @@ import { Sidebar, type SidebarHandle } from './components/Sidebar'
 import { TabBar } from './components/TabBar'
 import { SaveChangesDialog } from './components/SaveChangesDialog'
 import { useTabClose } from './hooks/useTabClose'
+import { useSidebarResize } from './hooks/useSidebarResize'
+import { useSplitResize, EDITOR_MIN_WIDTH } from './hooks/useSplitResize'
+import { restoreOpenTabs, usePersistOpenTabs } from './hooks/useOpenTabsPersistence'
 import { SearchPanel } from './components/SearchPanel'
 import { SettingsPanel } from './components/SettingsPanel'
 import { ToastStack } from './components/ToastStack'
@@ -37,8 +40,6 @@ import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
-
-const EDITOR_MIN_WIDTH = 396
 
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
@@ -72,6 +73,7 @@ function App(): React.JSX.Element {
   useAppliedFonts()
   useAppliedZoom()
   useWorkspaceEvents()
+  usePersistOpenTabs()
 
   const rootDir = useWorkspaceStore((s) => s.rootDir)
   const tree = useWorkspaceStore((s) => s.tree)
@@ -87,63 +89,13 @@ function App(): React.JSX.Element {
   const renamePath = useTabsStore((s) => s.renamePath)
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const isViewer = activeTab !== null && activeTab.kind !== 'text'
-  const [sidebarWidth, setSidebarWidth] = useState(224)
-  const sidebarResizing = useRef(false)
   const sidebarRef = useRef<SidebarHandle>(null)
 
-  const splitRatio = useSettingsStore((s) => s.splitRatio)
-  const setSplitRatio = useSettingsStore((s) => s.setSplitRatio)
-  const [splitDraft, setSplitDraft] = useState<number | null>(null)
   const splitRef = useRef<HTMLDivElement>(null)
   const [previewMinWidth, setPreviewMinWidth] = useState(0)
   const [hasTemplate, setHasTemplate] = useState(false)
-  const previewMinWidthRef = useRef(0)
-  previewMinWidthRef.current = previewMinWidth
-
-  const handleSplitResizeStart = useCallback(
-    (e: React.MouseEvent): void => {
-      e.preventDefault()
-      if (hasTemplate) return
-      const box = splitRef.current
-      if (!box) return
-      const rect = box.getBoundingClientRect()
-      let latest = useSettingsStore.getState().splitRatio
-      const onMouseMove = (ev: MouseEvent): void => {
-        const minRatio = Math.min(0.8, Math.max(0.2, EDITOR_MIN_WIDTH / rect.width))
-        const maxRatio = Math.max(
-          minRatio,
-          Math.min(0.8, (rect.width - previewMinWidthRef.current - 1) / rect.width)
-        )
-        latest = Math.min(maxRatio, Math.max(minRatio, (ev.clientX - rect.left) / rect.width))
-        setSplitDraft(latest)
-      }
-      const onMouseUp = (): void => {
-        window.removeEventListener('mousemove', onMouseMove)
-        window.removeEventListener('mouseup', onMouseUp)
-        setSplitRatio(latest)
-        setSplitDraft(null)
-      }
-      window.addEventListener('mousemove', onMouseMove)
-      window.addEventListener('mouseup', onMouseUp)
-    },
-    [setSplitRatio, hasTemplate]
-  )
-
-  const handleSidebarResizeStart = useCallback((e: React.MouseEvent): void => {
-    e.preventDefault()
-    sidebarResizing.current = true
-    const onMouseMove = (ev: MouseEvent): void => {
-      if (!sidebarResizing.current) return
-      setSidebarWidth(Math.min(480, Math.max(180, ev.clientX)))
-    }
-    const onMouseUp = (): void => {
-      sidebarResizing.current = false
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
-    }
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
-  }, [])
+  const sidebar = useSidebarResize()
+  const split = useSplitResize(splitRef, hasTemplate, previewMinWidth)
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -216,24 +168,7 @@ function App(): React.JSX.Element {
       const initialTree = await window.api.workspace.getTree()
       setTree(initialTree)
 
-      const known = new Set(flattenFilePaths(initialTree))
-      let restored: { paths: string[]; activeTabId: string | null } | null = null
-      try {
-        const raw = localStorage.getItem('markroom-open-tabs')
-        restored = raw ? JSON.parse(raw) : null
-      } catch {
-        restored = null
-      }
-      const validPaths = (restored?.paths ?? []).filter((p) => known.has(p))
-      for (const p of validPaths) {
-        useTabsStore.getState().openFile(p, await readFileContent(p))
-      }
-      if (restored?.activeTabId) {
-        const restoredTab = useTabsStore
-          .getState()
-          .tabs.find((t) => t.filePath === restored?.activeTabId)
-        if (restoredTab) setActiveTab(restoredTab.id)
-      }
+      await restoreOpenTabs(new Set(flattenFilePaths(initialTree)))
 
       const recoverable = await window.api.workspace.listRecoverable()
       if (recoverable.length > 0) setRecoveryItems(recoverable)
@@ -241,18 +176,6 @@ function App(): React.JSX.Element {
       if (changelogToShow) setChangelog(changelogToShow)
     })()
   }, [setRootDir, setTree])
-
-  useEffect(() => {
-    const active = tabs.find((t) => t.id === activeTabId)
-    const paths = tabs.filter((t) => t.filePath).map((t) => t.filePath as string)
-    try {
-      localStorage.setItem(
-        'markroom-open-tabs',
-        JSON.stringify({ paths, activeTabId: active?.filePath ?? null })
-      )
-    } catch {
-    }
-  }, [tabs, activeTabId])
 
   const handleCursorChange = useCallback((pos: { line: number; col: number }): void => {
     setCursorPos(pos)
@@ -559,7 +482,7 @@ function App(): React.JSX.Element {
         </button>
       </TitleBar>
       <main className="flex min-h-0 flex-1 pb-2 pr-2">
-        <div className="relative shrink-0" style={{ width: sidebarWidth }}>
+        <div className="relative shrink-0" style={{ width: sidebar.width }}>
           <Sidebar
             ref={sidebarRef}
             tree={tree}
@@ -580,7 +503,7 @@ function App(): React.JSX.Element {
             className="h-full"
           />
           <div
-            onMouseDown={handleSidebarResizeStart}
+            onMouseDown={sidebar.onResizeStart}
             className="group absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
           >
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent" />
@@ -605,7 +528,7 @@ function App(): React.JSX.Element {
                 <div
                   className="flex min-w-0 shrink-0"
                   style={{
-                    width: `min(${(hasTemplate ? 0.5 : (splitDraft ?? splitRatio)) * 100}%, calc(100% - ${previewMinWidth + 1}px))`,
+                    width: `min(${split.ratio * 100}%, calc(100% - ${previewMinWidth + 1}px))`,
                     minWidth: EDITOR_MIN_WIDTH
                   }}
                 >
@@ -629,10 +552,8 @@ function App(): React.JSX.Element {
                 </div>
                 <div className="relative w-px shrink-0 bg-border">
                   <div
-                    onMouseDown={handleSplitResizeStart}
-                    onDoubleClick={() => {
-                      if (!hasTemplate) setSplitRatio(0.5)
-                    }}
+                    onMouseDown={split.onResizeStart}
+                    onDoubleClick={split.resetRatio}
                     className={`absolute inset-y-0 -left-1 z-10 w-2 ${hasTemplate ? '' : 'cursor-col-resize'}`}
                   />
                 </div>
