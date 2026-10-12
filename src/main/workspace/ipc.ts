@@ -6,7 +6,6 @@ import { basename, dirname, extname, join } from 'path'
 import { getHistoryDir, getRootDir } from './paths'
 import { buildTree } from './tree'
 import {
-  isEmptyNote,
   readNote,
   renameEntry,
   trashEntry,
@@ -32,7 +31,6 @@ import {
 
 interface SaveNoteArgs {
   filePath: string | null
-  dirPath: string
   content: string
 }
 
@@ -46,10 +44,6 @@ function titleOf(mdPath: string): string {
 }
 
 function saveNote({ filePath, content }: SaveNoteArgs): SaveNoteResult {
-  if (isEmptyNote(content)) {
-    return { filePath: null, renamed: false }
-  }
-
   if (!filePath) {
     return { filePath: null, renamed: false }
   }

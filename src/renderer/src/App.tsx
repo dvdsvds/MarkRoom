@@ -242,7 +242,6 @@ function App(): React.JSX.Element {
       if (!tab || !tab.dirty) return
       const result = await window.api.workspace.saveNote({
         filePath: tab.filePath,
-        dirPath: tab.dirPath ?? useWorkspaceStore.getState().rootDir ?? '',
         content: tab.content
       })
       if (result.filePath) {
@@ -380,7 +379,6 @@ function App(): React.JSX.Element {
         const idx = Math.max(tab.filePath.lastIndexOf('/'), tab.filePath.lastIndexOf('\\'))
         return idx >= 0 ? tab.filePath.slice(0, idx) : tab.filePath
       }
-      if (tab?.dirPath) return tab.dirPath
       return useWorkspaceStore.getState().rootDir ?? ''
     },
     [selectedFolderPath]
@@ -508,7 +506,7 @@ function App(): React.JSX.Element {
       .tabs.find((t) => t.id === useTabsStore.getState().activeTabId)
     if (!tab) return useWorkspaceStore.getState().rootDir ?? ''
     if (tab.filePath) return tab.filePath.replace(/[\\/][^\\/]*$/, '')
-    return tab.dirPath ?? useWorkspaceStore.getState().rootDir ?? ''
+    return useWorkspaceStore.getState().rootDir ?? ''
   }, [])
 
   const handleCloseTab = useCallback(
@@ -721,7 +719,6 @@ function App(): React.JSX.Element {
       if (next === null) return
       await window.api.workspace.saveNote({
         filePath: target,
-        dirPath: target.replace(/[\\/][^\\/]*$/, ''),
         content: next
       })
     },

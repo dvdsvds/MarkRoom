@@ -4,7 +4,6 @@ import { create } from 'zustand'
 export interface Tab {
   id: string
   filePath: string | null
-  dirPath: string | null
   content: string
   dirty: boolean
   missing: boolean
@@ -60,7 +59,6 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     const tab: Tab = {
       id: makeId(),
       filePath,
-      dirPath: null,
       content: text,
       baseContent: text,
       kind,
@@ -85,7 +83,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   markSaved: (tabId, filePath) =>
     set((s) => ({
       tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, filePath, dirPath: null, dirty: false } : t
+        t.id === tabId ? { ...t, filePath, dirty: false } : t
       )
     })),
 

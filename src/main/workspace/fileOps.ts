@@ -15,16 +15,6 @@ export function sanitizeFileName(rawName: string): string {
   return cleaned.length > 0 ? cleaned : '이름 없음'
 }
 
-export function deriveTitle(content: string): string {
-  const firstLine = content.split('\n', 1)[0] ?? ''
-  const title = firstLine.replace(/^#\s*/, '')
-  return sanitizeTitle(title)
-}
-
-export function isEmptyNote(content: string): boolean {
-  return content.replace(/^#\s*/, '').trim().length === 0
-}
-
 export function uniqueFileName(dir: string, baseTitle: string, ignorePath?: string): string {
   let candidate = `${baseTitle}.md`
   let n = 2

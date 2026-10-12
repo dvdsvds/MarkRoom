@@ -9,7 +9,6 @@ export interface TreeNode {
 
 interface SaveNoteArgs {
   filePath: string | null
-  dirPath: string
   content: string
 }
 

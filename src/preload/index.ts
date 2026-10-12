@@ -4,7 +4,6 @@ import type { TreeNode } from '../main/workspace/tree'
 
 interface SaveNoteArgs {
   filePath: string | null
-  dirPath: string
   content: string
 }
 
