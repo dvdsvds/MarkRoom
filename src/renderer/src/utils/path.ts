@@ -10,3 +10,14 @@ export function dirOf(path: string): string {
 export function sepOf(path: string): string {
   return path.includes('\\') ? '\\' : '/'
 }
+
+export function splitName(name: string): { base: string; ext: string } {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0) return { base: name, ext: '' }
+  return { base: name.slice(0, dot), ext: name.slice(dot) }
+}
+
+export function newFileNameFor(typed: string): string {
+  const trimmed = typed.trim()
+  return /^(.*[^.\s])(\.[A-Za-z0-9]{1,8})$/.test(trimmed) ? trimmed : `${trimmed || 'new'}.md`
+}

@@ -5,7 +5,7 @@ import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
 import { FileExt, FileTypeIcon } from './FileTypeIcon'
-import { dirOf, fileNameOf, sepOf } from '@renderer/utils/path'
+import { dirOf, fileNameOf, sepOf, splitName, newFileNameFor } from '@renderer/utils/path'
 import PlusIcon from '../icons/ctx-plus.svg?react'
 import RenameIcon from '../icons/ctx-rename.svg?react'
 import CopyPathIcon from '../icons/tb-copy.svg?react'
@@ -32,7 +32,6 @@ interface SidebarProps {
   dirtyFilePaths: string[]
   onCompareChanges: (filePath: string) => void
   onOpenHistory: (filePath: string) => void
-  /** 파일을 열고 해당 줄로 이동 (내보내기 깨진 링크용) */
   onOpenAtLine: (filePath: string, line: number) => void
   selectedFolderPath: string | null
   onSelectFolder: (path: string | null) => void
@@ -98,13 +97,6 @@ function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
   return null
 }
 
-/** 파일 이름을 이름 부분과 확장자(점 포함)로 나눈다. 점이 맨 앞이거나 없으면 확장자 없음. */
-function splitName(name: string): { base: string; ext: string } {
-  const dot = name.lastIndexOf('.')
-  if (dot <= 0) return { base: name, ext: '' }
-  return { base: name.slice(0, dot), ext: name.slice(dot) }
-}
-
 function nameWithoutExt(node: TreeNode): string {
   return node.type === 'file' ? splitName(node.name).base : node.name
 }
@@ -113,12 +105,14 @@ function InlineNameInput({
   initialValue,
   onCommit,
   onCancel,
+  onValueChange,
   paddingLeft,
   inline = false
 }: {
   initialValue: string
   onCommit: (value: string) => void
   onCancel: () => void
+  onValueChange?: (value: string) => void
   paddingLeft: number
   inline?: boolean
 }): React.JSX.Element {
@@ -127,7 +121,10 @@ function InlineNameInput({
     <input
       autoFocus
       value={value}
-      onChange={(e) => setValue(e.target.value)}
+      onChange={(e) => {
+        setValue(e.target.value)
+        onValueChange?.(e.target.value)
+      }}
       onBlur={onCancel}
       onKeyDown={(e) => {
         if (e.key === 'Enter') {
@@ -146,6 +143,31 @@ function InlineNameInput({
       }
       style={inline ? { top: '0px' } : { marginLeft: paddingLeft }}
     />
+  )
+}
+
+function NewFileRow({
+  paddingLeft,
+  onCommit,
+  onCancel
+}: {
+  paddingLeft: number
+  onCommit: (value: string) => void
+  onCancel: () => void
+}): React.JSX.Element {
+  const [typed, setTyped] = useState('')
+  return (
+    <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft }}>
+      <FileTypeIcon name={newFileNameFor(typed)} kind="file" />
+      <InlineNameInput
+        initialValue=""
+        onValueChange={setTyped}
+        onCommit={onCommit}
+        onCancel={onCancel}
+        paddingLeft={0}
+        inline
+      />
+    </div>
   )
 }
 
@@ -257,19 +279,11 @@ function TreeRow({
                 </div>
               )}
               {ctx.newFileIn === node.path && (
-                <div
-                  className="flex h-7 w-full items-center gap-2 pr-2"
-                  style={{ paddingLeft: childPadding + 20 }}
-                >
-                  <FileTypeIcon name="new.md" kind="file" />
-                  <InlineNameInput
-                    initialValue=""
-                    onCommit={(value) => ctx.onCommitNewFile(node.path, value)}
-                    onCancel={ctx.onCancelNewFile}
-                    paddingLeft={0}
-                    inline
-                  />
-                </div>
+                <NewFileRow
+                  paddingLeft={childPadding + 20}
+                  onCommit={(value) => ctx.onCommitNewFile(node.path, value)}
+                  onCancel={ctx.onCancelNewFile}
+                />
               )}
               {node.children?.map((child) => (
                 <TreeRow key={child.path} node={child} depth={depth + 1} ctx={ctx} />
@@ -762,16 +776,11 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
           </div>
         )}
         {newFileIn === rootDir && rootDir && (
-          <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft: 8 + 20 }}>
-            <FileTypeIcon name="new.md" kind="file" />
-            <InlineNameInput
-              initialValue=""
-              onCommit={(value) => commitNewFile(rootDir, value)}
-              onCancel={() => setNewFileIn(null)}
-              paddingLeft={0}
-              inline
-            />
-          </div>
+          <NewFileRow
+            paddingLeft={8 + 20}
+            onCommit={(value) => commitNewFile(rootDir, value)}
+            onCancel={() => setNewFileIn(null)}
+          />
         )}
         {tree.map((node) => (
           <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />
