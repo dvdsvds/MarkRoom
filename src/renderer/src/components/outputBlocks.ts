@@ -105,7 +105,11 @@ function buildCartesian(block: ChartBlock): SVGSVGElement {
       })
     )
     svg.appendChild(
-      s('text', { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end', class: 'code-chart-tick' }, tickText[i])
+      s(
+        'text',
+        { x: padL - 6, y: y(t) + 4, 'text-anchor': 'end', class: 'code-chart-tick' },
+        tickText[i]
+      )
     )
   })
 
@@ -270,7 +274,11 @@ export function renderBlocks(blocks: OutputBlock[]): HTMLElement[] {
     try {
       return b.kind === 'table' ? buildTable(b) : buildChart(b)
     } catch {
-      return h('div', 'code-run-out error', '표/차트를 그릴 수 없어요. 데이터 모양을 확인해 주세요.')
+      return h(
+        'div',
+        'code-run-out error',
+        '표/차트를 그릴 수 없어요. 데이터 모양을 확인해 주세요.'
+      )
     }
   })
 }

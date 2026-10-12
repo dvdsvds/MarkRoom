@@ -7,7 +7,9 @@ const src = join(root, 'node_modules', 'pyodide')
 const dest = join(root, 'src', 'renderer', 'public', 'pyodide')
 
 if (!existsSync(src)) {
-  console.warn('[copy-pyodide] node_modules/pyodide 가 없어요. npm install pyodide 를 먼저 실행해 주세요.')
+  console.warn(
+    '[copy-pyodide] node_modules/pyodide 가 없어요. npm install pyodide 를 먼저 실행해 주세요.'
+  )
   process.exit(0)
 }
 

@@ -13,7 +13,7 @@ function configPath(): string {
 }
 
 function defaultRootDir(): string {
-  return join(app.getPath('userData'), 'SyntaxNote')
+  return join(app.getPath('userData'), 'MarkRoom')
 }
 
 function readConfig(): Partial<Config> | null {

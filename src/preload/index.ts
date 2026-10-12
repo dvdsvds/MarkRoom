@@ -134,12 +134,12 @@ const api = {
       css: string
     }): Promise<{ ok: boolean; canceled?: boolean; path?: string; error?: string }> =>
       ipcRenderer.invoke('export:pdf', payload),
-      pdfFile: (payload: {
-        html: string
-        css: string
-        pdfDir: string
-        relPath: string
-      }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('export:pdfFile', payload)
+    pdfFile: (payload: {
+      html: string
+      css: string
+      pdfDir: string
+      relPath: string
+    }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('export:pdfFile', payload)
   },
   code: {
     run: (code: string, baseDir: string): Promise<RunResult> =>
@@ -159,7 +159,7 @@ const api = {
       ipcRenderer.invoke('workspace:saveNote', args),
     createFolder: (dirPath: string, name: string): Promise<string> =>
       ipcRenderer.invoke('workspace:createFolder', dirPath, name),
-    createNote: (dirPath: string, title:string): Promise<string> => 
+    createNote: (dirPath: string, title: string): Promise<string> =>
       ipcRenderer.invoke('workspace:createNote', dirPath, title),
     renameEntry: (oldPath: string, newName: string): Promise<string> =>
       ipcRenderer.invoke('workspace:renameEntry', oldPath, newName),
@@ -196,8 +196,8 @@ const api = {
       ipcRenderer.invoke('workspace:openPath', targetPath),
     prepareExport: (
       parentDir: string,
-      name: string, 
-      md: boolean, 
+      name: string,
+      md: boolean,
       pdf: boolean
     ): Promise<PrepareResult> =>
       ipcRenderer.invoke('workspace:prepareExport', parentDir, name, md, pdf),
@@ -207,13 +207,13 @@ const api = {
       ipcRenderer.invoke('workspace:applyRecovery', tmpPath, targetPath),
     discardRecovery: (tmpPath: string): Promise<void> =>
       ipcRenderer.invoke('workspace:discardRecovery', tmpPath),
-    listHistory: (filePath: string): Promise<HistoryEntry[]> => 
+    listHistory: (filePath: string): Promise<HistoryEntry[]> =>
       ipcRenderer.invoke('workspace:listHistory', filePath),
-    readHistory: (filePath: string, id: number): Promise<string> => 
+    readHistory: (filePath: string, id: number): Promise<string> =>
       ipcRenderer.invoke('workspace:readHistory', filePath, id),
     scanTodos: (
       overrides?: Record<string, string>
-    ): Promise<{ path: string; line: number; text: string; done: boolean }[]> => 
+    ): Promise<{ path: string; line: number; text: string; done: boolean }[]> =>
       ipcRenderer.invoke('workspace:scanTodos', overrides),
     getHistoryDir: (): Promise<string> => ipcRenderer.invoke('workspace:getHistoryDir'),
     pickFolder: (defaultPath?: string): Promise<string | null> =>
@@ -248,7 +248,7 @@ const api = {
   }
 }
 
-export type SyntaxNoteApi = typeof api
+export type MarkRoomApi = typeof api
 
 if (process.contextIsolated) {
   try {

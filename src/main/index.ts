@@ -87,7 +87,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.syntaxnote.app')
+  electronApp.setAppUserModelId('com.markroom.app')
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -120,8 +120,7 @@ app.whenReady().then(() => {
     autoUpdater.on('error', (err) => {
       console.error('자동 업데이트 확인에 실패했어요:', err)
     })
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {
-    })
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {})
   }
 
   protocol.handle('snote', (request) => {

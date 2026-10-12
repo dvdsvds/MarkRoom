@@ -56,7 +56,7 @@ const md = createMarkdownIt()
 
 const sanitizeConfig: SanitizeConfig = {
   ADD_TAGS: ['input'],
-  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink',' data-line']
+  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', ' data-line']
 }
 
 function toSnoteUrl(absPath: string): string {

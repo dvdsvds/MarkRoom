@@ -123,7 +123,6 @@ export function serializeCell(box: HTMLElement): string {
   return ser(Array.from(box.childNodes)).replace(/\n$/, '')
 }
 
-
 export interface TextChange {
   props: Record<string, string | null>
   flags: string[]
@@ -176,8 +175,14 @@ export function applyInline(box: HTMLElement, r: Range, ch: TextChange): Range |
     return n.nodeType === 3
       ? nr.comparePoint(n, 0) === 0 && nr.comparePoint(n, len) === 0
       : !!n.parentNode &&
-          nr.comparePoint(n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n)) === 0 &&
-          nr.comparePoint(n.parentNode, Array.prototype.indexOf.call(n.parentNode.childNodes, n) + 1) === 0
+          nr.comparePoint(
+            n.parentNode,
+            Array.prototype.indexOf.call(n.parentNode.childNodes, n)
+          ) === 0 &&
+          nr.comparePoint(
+            n.parentNode,
+            Array.prototype.indexOf.call(n.parentNode.childNodes, n) + 1
+          ) === 0
   }
   const found: Node[] = []
   const walk = (n: Node): void => {
@@ -289,7 +294,10 @@ export function applyCaret(box: HTMLElement, r: Range, ch: TextChange): Range | 
       splitRuns(box)
       where = 'after'
     } else where = off === 0 ? 'before' : 'after'
-    host = t.parentElement && t.parentElement !== box && t.parentElement.dataset.st !== undefined ? t.parentElement : t
+    host =
+      t.parentElement && t.parentElement !== box && t.parentElement.dataset.st !== undefined
+        ? t.parentElement
+        : t
   } else {
     host = sc
     where = 'child'
@@ -316,7 +324,10 @@ export interface InlineState {
 export function inlineAt(box: HTMLElement, r: Range): InlineState | null {
   const sc = r.startContainer
   if (!box.contains(sc)) return null
-  const n = sc.nodeType === 1 && r.startOffset < sc.childNodes.length && !r.collapsed ? sc.childNodes[r.startOffset] : sc
+  const n =
+    sc.nodeType === 1 && r.startOffset < sc.childNodes.length && !r.collapsed
+      ? sc.childNodes[r.startOffset]
+      : sc
   const el = n instanceof Element ? n : n.parentElement
   const run = el?.closest<HTMLElement>('[data-st]') ?? null
   const o = run && box.contains(run) ? parseAttr(run.dataset.st ?? '') : null

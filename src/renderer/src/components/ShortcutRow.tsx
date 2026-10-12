@@ -30,7 +30,7 @@ export function ShortcutRow({ action }: ShortcutRowProps): React.JSX.Element {
         return
       }
       const newCombo = eventToShortcut(e)
-      if (!newCombo) return 
+      if (!newCombo) return
       const conflictWith = findConflict(shortcuts, action, newCombo)
       if (conflictWith) {
         setConflictMessage(`이미 "${SHORTCUT_LABELS[conflictWith]}"에서 쓰고 있어요.`)

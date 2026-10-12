@@ -97,7 +97,9 @@ const mathBlock: BlockRule = (state, start, end, silent) => {
   const token = state.push('math_block', 'math', 0)
   token.block = true
   token.content =
-    (first.trim() ? first + '\n' : '') + state.getLines(start + 1, next, state.tShift[start], true) + (last.trim() ? last : '')
+    (first.trim() ? first + '\n' : '') +
+    state.getLines(start + 1, next, state.tShift[start], true) +
+    (last.trim() ? last : '')
   token.map = [start, state.line]
   token.markup = '$$'
   return true

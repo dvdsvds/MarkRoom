@@ -1,4 +1,9 @@
-import { EditorSelection, type ChangeSpec, type EditorState, type SelectionRange } from '@codemirror/state'
+import {
+  EditorSelection,
+  type ChangeSpec,
+  type EditorState,
+  type SelectionRange
+} from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
 import { startCompletion } from '@codemirror/autocomplete'
 
@@ -21,7 +26,10 @@ const starsAfter = (s: EditorState, pos: number): number => {
 export function isWrapped(s: EditorState, r: SelectionRange, mark: string): boolean {
   if (mark === '*') return Math.min(starsBefore(s, r.from), starsAfter(s, r.to)) % 2 === 1
   if (mark === '**') return Math.min(starsBefore(s, r.from), starsAfter(s, r.to)) >= 2
-  return s.sliceDoc(r.from - mark.length, r.from) === mark && s.sliceDoc(r.to, r.to + mark.length) === mark
+  return (
+    s.sliceDoc(r.from - mark.length, r.from) === mark &&
+    s.sliceDoc(r.to, r.to + mark.length) === mark
+  )
 }
 
 export function toggleWrap(view: EditorView, mark: string, close = mark): void {
@@ -37,7 +45,12 @@ export function toggleWrap(view: EditorView, mark: string, close = mark): void {
       }
     }
     const text = s.sliceDoc(r.from, r.to)
-    if (text.length >= mark.length * 2 && text.startsWith(mark) && text.endsWith(close) && close === mark) {
+    if (
+      text.length >= mark.length * 2 &&
+      text.startsWith(mark) &&
+      text.endsWith(close) &&
+      close === mark
+    ) {
       const inner = text.slice(mark.length, text.length - mark.length)
       return {
         changes: { from: r.from, to: r.to, insert: inner },
@@ -155,7 +168,10 @@ export function toggleQuote(view: EditorView): void {
   run(view, { changes })
 }
 
-function replaceSel(view: EditorView, make: (sel: string) => { text: string; from: number; to: number }): void {
+function replaceSel(
+  view: EditorView,
+  make: (sel: string) => { text: string; from: number; to: number }
+): void {
   const s = view.state
   const tr = s.changeByRange((r) => {
     const sel = s.sliceDoc(r.from, r.to)
@@ -191,7 +207,10 @@ function fenceLines(view: EditorView, open: string, close: string): void {
   const b = s.doc.lineAt(endPos)
   if (r.empty && a.text.trim() === '') {
     const text = `${open}\n\n${close}`
-    run(view, { changes: { from: a.from, to: a.to, insert: text }, selection: { anchor: a.from + open.length + 1 } })
+    run(view, {
+      changes: { from: a.from, to: a.to, insert: text },
+      selection: { anchor: a.from + open.length + 1 }
+    })
     return
   }
   const body = s.sliceDoc(a.from, b.to)
@@ -276,7 +295,8 @@ export function insertMathSnippet(view: EditorView, tpl: string): void {
   })
 }
 
-const COLOR_TOKEN = /^(bg:)?(red|orange|yellow|green|blue|purple|gray|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})$/
+const COLOR_TOKEN =
+  /^(bg:)?(red|orange|yellow|green|blue|purple|gray|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})$/
 
 export interface ColorSpan {
   from: number
@@ -337,7 +357,10 @@ export function applyColor(view: EditorView, kind: 'fg' | 'bg', color: string | 
           { from: span.from, to: span.contentFrom },
           { from: span.contentTo, to: span.to }
         ],
-        selection: EditorSelection.range(r.anchor - (span.contentFrom - span.from), r.head - (span.contentFrom - span.from))
+        selection: EditorSelection.range(
+          r.anchor - (span.contentFrom - span.from),
+          r.head - (span.contentFrom - span.from)
+        )
       })
       return
     }

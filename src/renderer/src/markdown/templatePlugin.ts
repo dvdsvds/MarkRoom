@@ -50,7 +50,7 @@ export type GridCell = {
   gridEnd: number | null
 }
 export type TNode =
-  | { k: 'block'; block: OutputBlock}
+  | { k: 'block'; block: OutputBlock }
   | { k: 'line'; kind: LineKind }
   | { k: 'space'; n: number }
   | { k: 'text'; text: string; style: Style; line: number | null; raw: string }
@@ -69,9 +69,7 @@ export type TNode =
       head: number
       close: number | null
     }
-export type ParsedTemplate =
-  | { page: Style; nodes: TNode[]; warnings: string[] }
-  | { error: string }
+export type ParsedTemplate = { page: Style; nodes: TNode[]; warnings: string[] } | { error: string }
 
 type Opt = Partial<Omit<Style, 'edges'>> & {
   h?: number
@@ -292,7 +290,10 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
       continue
     }
     if (key === 'ff') {
-      const name = val.replace(/["\\;{}<>\r\n]/g, '').trim().slice(0, 60)
+      const name = val
+        .replace(/["\\;{}<>\r\n]/g, '')
+        .trim()
+        .slice(0, 60)
       if (name === '') ctx.warn(`${where}: ff= 글꼴 이름이 비어 있어요.`)
       else o.ff = name
     } else if (key === 'fs' || key === 'ls' || key === 'lh' || key === 'p' || key === 'h') {
@@ -319,7 +320,8 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
     } else if (key === 'border') {
       if (deny('border')) continue
       const b = parseBorder(val)
-      if (b === null) ctx.warn(`${where}: border= 값이 틀려요. none, all, -left,-top 처럼 써 주세요: ${val}`)
+      if (b === null)
+        ctx.warn(`${where}: border= 값이 틀려요. none, all, -left,-top 처럼 써 주세요: ${val}`)
       else o.border = b
     } else if (/^border-(top|right|bottom|left)$/.test(key)) {
       if (deny('border')) continue
@@ -337,7 +339,8 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
       if (typeof v === 'string') {
         ctx.warn(`${where}: ${key}= ${v}: ${val}`)
       } else {
-        const d: Diag | null = v.kind === 'none' ? null : { kind: v.kind as LineKind, w: v.w, c: v.c }
+        const d: Diag | null =
+          v.kind === 'none' ? null : { kind: v.kind as LineKind, w: v.w, c: v.c }
         if (key === 'diag-down') o.dd = d
         else o.du = d
       }
@@ -347,7 +350,8 @@ function parseOpts(tokens: string[], ctx: Ctx, where: string, scope: Scope): Opt
       else o.ec = val
     } else if (key === 'line') {
       if (deny('line')) continue
-      if (!LINE_KINDS.includes(val)) ctx.warn(`${where}: line= 값은 solid, thick, double, dashed 중 하나예요: ${val}`)
+      if (!LINE_KINDS.includes(val))
+        ctx.warn(`${where}: line= 값은 solid, thick, double, dashed 중 하나예요: ${val}`)
       else o.line = val as LineKind
     } else {
       ctx.warn(`${where}: 모르는 옵션이에요: ${w}`)
@@ -466,7 +470,12 @@ function parsePage(t: string, ctx: Ctx, base: Style, index: number): Style {
   return merge(base, parseOpts(rest, ctx, 'page', 'page'))
 }
 
-function parseTable(lines: string[], pos: { i: number }, vars: Map<string, string>, ctx: Ctx): TNode {
+function parseTable(
+  lines: string[],
+  pos: { i: number },
+  vars: Map<string, string>,
+  ctx: Ctx
+): TNode {
   const raw: string[][] = []
   for (;;) {
     const line = nextRaw(lines, pos)
@@ -545,12 +554,14 @@ function parseGrid(
 
   const widths: (number | null)[] = Array<number | null>(cols).fill(null)
   if (widthsIn) {
-    if (widthsIn.length > cols) ctx.warn(`grid: widths= 값이 열 수(${cols})보다 많아서 넘친 값은 무시했어요.`)
+    if (widthsIn.length > cols)
+      ctx.warn(`grid: widths= 값이 열 수(${cols})보다 많아서 넘친 값은 무시했어요.`)
     widthsIn.slice(0, cols).forEach((w, i) => {
       widths[i] = w
     })
     const sum = widths.reduce<number>((a, b) => a + (b ?? 0), 0)
-    if (sum > PAPER_MM + 0.01) ctx.warn(`grid: 열 폭 합이 ${sum.toFixed(1)}mm라서 종이 폭(${PAPER_MM}mm)을 넘어요.`)
+    if (sum > PAPER_MM + 0.01)
+      ctx.warn(`grid: 열 폭 합이 ${sum.toFixed(1)}mm라서 종이 폭(${PAPER_MM}mm)을 넘어요.`)
   }
 
   const defs: Def[] = []
@@ -574,7 +585,9 @@ function parseGrid(
         continue
       }
       if (OPENER_RE.test(t)) {
-        ctx.warn(`grid 안에서 "${t}"는 쓰지 않아요. col= 칸 정의를 써 주세요. 이 블록은 건너뛰었어요.`)
+        ctx.warn(
+          `grid 안에서 "${t}"는 쓰지 않아요. col= 칸 정의를 써 주세요. 이 블록은 건너뛰었어요.`
+        )
         skipBlock(lines, pos)
         cur = null
         continue
@@ -634,12 +647,7 @@ function parseGrid(
       ctx.warn(`${label}: row는 1~${MAX_ROWS}이에요. 이 칸은 그리지 않았어요.`)
       ok = false
     }
-    const opt = parseOpts(
-      optTokens.concat(tail === null ? [] : tokenize(tail)),
-      ctx,
-      label,
-      'cell'
-    )
+    const opt = parseOpts(optTokens.concat(tail === null ? [] : tokenize(tail)), ctx, label, 'cell')
     cur = { c1, c2, r1, r2, opt, lines: [], indent: ind, label, d1: idx, d2: idx }
     if (ok) defs.push(cur)
   }
@@ -706,7 +714,18 @@ function parseGrid(
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < cols; c++) {
       if (occ[r][c] === -1) {
-        cells.push({ r, c, cs: 1, rs: 1, style: pageStyle, text: '', raw: '', src: null, ord: -1, gridEnd: null })
+        cells.push({
+          r,
+          c,
+          cs: 1,
+          rs: 1,
+          style: pageStyle,
+          text: '',
+          raw: '',
+          src: null,
+          ord: -1,
+          gridEnd: null
+        })
       }
     }
   }
@@ -720,7 +739,19 @@ function parseGrid(
   const lastEnd = defs.length > 0 ? Math.max(...defs.map((d) => d.d2)) : -1
   const gridEnd = lastEnd >= 0 ? ctx.lineBase + lastEnd : null
   for (const c of cells) c.gridEnd = gridEnd
-  return { k: 'grid', cols, frame, frameW, frameC, widths, heights, cells, endLine: gridEnd, head: headLine, close }
+  return {
+    k: 'grid',
+    cols,
+    frame,
+    frameW,
+    frameC,
+    widths,
+    heights,
+    cells,
+    endLine: gridEnd,
+    head: headLine,
+    close
+  }
 }
 
 function parseNodes(
@@ -789,19 +820,22 @@ function parseNodes(
       }
       const gm = /^grid=(\d{1,3})$/.exec(name)
       if (name === 'box') {
-        out.push({ k: 'box', children: parseNodes(lines, pos, vars, ctx, pageStyle, false, depth + 1) })
-        } else if (name === 'chart') {
-          const body: string[] = []
-          for (;;) {
-            const l = nextRaw(lines, pos)
-            if (l === null) break
-            const x = l.trim()
-            if (x === ']') break
-            body.push(x)
-          }
-          const r = parseBlock('chart', body)
-          if ('error' in r) ctx.warn(r.error)
-          else out.push({ k: 'block', block: r.block })
+        out.push({
+          k: 'box',
+          children: parseNodes(lines, pos, vars, ctx, pageStyle, false, depth + 1)
+        })
+      } else if (name === 'chart') {
+        const body: string[] = []
+        for (;;) {
+          const l = nextRaw(lines, pos)
+          if (l === null) break
+          const x = l.trim()
+          if (x === ']') break
+          body.push(x)
+        }
+        const r = parseBlock('chart', body)
+        if ('error' in r) ctx.warn(r.error)
+        else out.push({ k: 'block', block: r.block })
       } else if (name === 'table') {
         out.push(parseTable(lines, pos, vars, ctx))
       } else if (gm) {
@@ -824,7 +858,21 @@ function parseNodes(
           else ctx.warn(`grid: 모르는 옵션이에요 (frame=, widths=): ${tok}`)
         }
         const headLine = ctx.lineBase + pos.i - 1
-        out.push(parseGrid(lines, pos, vars, ctx, Number(gm[1]), frame, frameW, frameC, widthsIn, pageStyle, headLine))
+        out.push(
+          parseGrid(
+            lines,
+            pos,
+            vars,
+            ctx,
+            Number(gm[1]),
+            frame,
+            frameW,
+            frameC,
+            widthsIn,
+            pageStyle,
+            headLine
+          )
+        )
       } else {
         ctx.warn(`옛 문법은 읽지 않아요. grid=12 [ 처럼 써 주세요. 이 블록은 건너뛰었어요: ${t}`)
         skipBlock(lines, pos)
@@ -953,7 +1001,11 @@ export function templatePlugin(md: MD): void {
   }
 
   md.renderer.rules.snote_template = (tokens, idx, _options, env) => {
-    const { lines, index, line0 } = tokens[idx].meta as { lines: string[]; index: number; line0: number }
+    const { lines, index, line0 } = tokens[idx].meta as {
+      lines: string[]
+      index: number
+      line0: number
+    }
     const st = envOf(env)
     const result = parseTemplate(lines, st.vars, index, st.pageBase, line0 + 2)
     if (index === 1 && 'page' in result) st.pageBase = result.page

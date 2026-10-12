@@ -81,11 +81,43 @@ function make(
 }
 
 const FLAGS = [
-  'left', 'center', 'right', 'justify', 'distribute', 'top', 'middle', 'bottom',
-  'bold', 'italic', 'underline', 'strike', 'vertical'
+  'left',
+  'center',
+  'right',
+  'justify',
+  'distribute',
+  'top',
+  'middle',
+  'bottom',
+  'bold',
+  'italic',
+  'underline',
+  'strike',
+  'vertical'
 ]
-const TEXT_FLAGS = ['left', 'center', 'right', 'justify', 'distribute', 'bold', 'italic', 'underline', 'strike']
-const RESTART = new Set(['ff', 'fc', 'bg', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-color', 'line'])
+const TEXT_FLAGS = [
+  'left',
+  'center',
+  'right',
+  'justify',
+  'distribute',
+  'bold',
+  'italic',
+  'underline',
+  'strike'
+]
+const RESTART = new Set([
+  'ff',
+  'fc',
+  'bg',
+  'border',
+  'border-top',
+  'border-right',
+  'border-bottom',
+  'border-left',
+  'border-color',
+  'line'
+])
 
 const flagItems = (names: string[]): Completion[] =>
   names.map((n) => make(n, n, 'snote-opt', { space: true }))
@@ -94,11 +126,42 @@ const valueItems = (names: string[]): Completion[] =>
 
 const COL_ITEMS = [
   ...flagItems(FLAGS),
-  ...valueItems(['ff', 'fs', 'fc', 'bg', 'h', 'p', 'ls', 'lh', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-color', 'line'])
+  ...valueItems([
+    'ff',
+    'fs',
+    'fc',
+    'bg',
+    'h',
+    'p',
+    'ls',
+    'lh',
+    'border',
+    'border-top',
+    'border-right',
+    'border-bottom',
+    'border-left',
+    'border-color',
+    'line'
+  ])
 ]
 const PAGE_ITEMS = [
   ...flagItems(FLAGS),
-  ...valueItems(['ff', 'fs', 'fc', 'bg', 'p', 'ls', 'lh', 'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-color', 'line'])
+  ...valueItems([
+    'ff',
+    'fs',
+    'fc',
+    'bg',
+    'p',
+    'ls',
+    'lh',
+    'border',
+    'border-top',
+    'border-right',
+    'border-bottom',
+    'border-left',
+    'border-color',
+    'line'
+  ])
 ]
 const TEXT_ITEMS = [...flagItems(TEXT_FLAGS), ...valueItems(['ff', 'fs', 'fc', 'bg', 'ls', 'lh'])]
 const NODE_ITEMS = [
@@ -112,7 +175,9 @@ const NODE_ITEMS = [
 ]
 const GRID_ITEMS = [make('col=', 'col=', 'snote-kw'), make('row=', 'row=', 'snote-kw')]
 const COLOR_ITEMS = COLORS.map((c) => make(c, c, 'snote-color', { space: true }))
-const LINE_ITEMS = ['solid', 'thick', 'double', 'dashed'].map((v) => make(v, v, 'snote-opt', { space: true }))
+const LINE_ITEMS = ['solid', 'thick', 'double', 'dashed'].map((v) =>
+  make(v, v, 'snote-opt', { space: true })
+)
 const FRAME_ITEMS = ['none', 'solid', 'thick', 'double', 'dashed'].map((v) =>
   make(v, v, 'snote-opt', { space: true })
 )
@@ -155,13 +220,17 @@ export async function templateCompletionSource(
   else if (/^(col|row)=/.test(first)) lineKind = 'col'
   else if (/^grid=/.test(first)) lineKind = 'grid'
 
-  const vm = /(?:^|\s)(ff|fc|bg|border-top|border-right|border-bottom|border-left|border-color|border|line|frame)=("[^"]*|[^\s"]*)$/.exec(before)
+  const vm =
+    /(?:^|\s)(ff|fc|bg|border-top|border-right|border-bottom|border-left|border-color|border|line|frame)=("[^"]*|[^\s"]*)$/.exec(
+      before
+    )
   if (vm) {
     const key = vm[1]
     const typed = vm[2]
     if (lineKind === null) return null
     if (key === 'frame' ? lineKind !== 'grid' : lineKind === 'grid') return null
-    if (lineKind === 'text' && (key.startsWith('border') || key === 'line' || before.includes(':'))) return null
+    if (lineKind === 'text' && (key.startsWith('border') || key === 'line' || before.includes(':')))
+      return null
     const valueStart = pos - typed.length
     if (key === 'ff') {
       const quoted = typed.startsWith('"')
@@ -238,7 +307,9 @@ export const templateCompletion: Extension = [
           if (c.type === 'snote-font') {
             const s = document.createElement('span')
             s.className = 'snote-font-prev'
-            s.style.fontFamily = fontCandidates(c.label).map((f) => `"${f}"`).join(', ')
+            s.style.fontFamily = fontCandidates(c.label)
+              .map((f) => `"${f}"`)
+              .join(', ')
             s.textContent = c.label
             return s
           }

@@ -86,11 +86,9 @@ export function RecoveryDialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="flex h-[80vh] w-[860px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-2xl">
         <div className="shrink-0 border-b border-border px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold text-text">복구할 메모가 있어요</h2>
+          <h2 className="text-[15px] font-semibold text-text">복구할 파일이 있어요</h2>
           <p className="mt-0.5 text-[13px] leading-relaxed text-text-secondary">
-            지난번에 앱이 비정상 종료돼서 저장이 끝까지 안 된 메모예요. 오른쪽 미리보기에서{' '}
-            {shortcuts.diffApply}(적용하기) / {shortcuts.diffRestore}(복구하기)로 하나씩, 또는
-            체크박스로 골라 한꺼번에 처리할 수 있어요.
+            앱이 비정상 종료되어 저장되지 않은 파일이에요.
           </p>
         </div>
 

@@ -37,7 +37,9 @@ export function ChangelogDialog({ content, onClose }: ChangelogDialogProps): Rea
             ✕
           </button>
         </div>
-        <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">{content}</p>
+        <p className="mt-3 whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
+          {content}
+        </p>
         <div className="mt-5 flex justify-end">
           <button
             type="button"

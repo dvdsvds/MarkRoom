@@ -74,7 +74,8 @@ function appendToInbox(text: string): void {
 
 export function registerQuickCapture(): void {
   const ok = globalShortcut.register(SHORTCUT, showQuickWindow)
-  if (!ok) console.warn(`퀵캡처 단축키(${SHORTCUT})를 등록하지 못했어요. 다른 앱이 쓰고 있을 수 있어요.`)
+  if (!ok)
+    console.warn(`퀵캡처 단축키(${SHORTCUT})를 등록하지 못했어요. 다른 앱이 쓰고 있을 수 있어요.`)
 
   quickWin = createQuickWindow()
 

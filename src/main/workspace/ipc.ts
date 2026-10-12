@@ -15,14 +15,20 @@ import {
   createEmptyNote,
   moveEntry,
   revealInFolder,
-  saveAttachment,
+  saveAttachment
 } from './fileOps'
 import { findBacklinks, findBacklinkContexts, updateWikilinksOnRename } from './links'
 import { searchNotes, type SearchQuery } from './search'
 import { markRemovalByApp, markSavedByApp, startWatcher } from './watcher'
 import { checkExportLinks, exportFolder, listPdfNotes, type ExportOptions } from './exporter'
 import { applyRecovery, discardRecovery, findRecoverableFiles } from './recovery'
-import { changeHistoryDir, listSnapshots, moveHistory, readSnapshot, recordSnapshot } from './history'
+import {
+  changeHistoryDir,
+  listSnapshots,
+  moveHistory,
+  readSnapshot,
+  recordSnapshot
+} from './history'
 
 interface SaveNoteArgs {
   filePath: string | null
@@ -56,8 +62,7 @@ function saveNote({ filePath, content }: SaveNoteArgs): SaveNoteResult {
         recordSnapshot(filePath, before, Math.floor(statSync(filePath).mtimeMs))
       }
     }
-  } catch {
-  }
+  } catch {}
   writeFileAtomic(filePath, content)
   return { filePath, renamed: false }
 }
@@ -179,8 +184,9 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   })
   ipcMain.handle('workspace:discardRecovery', (_event, tmpPath: string) => discardRecovery(tmpPath))
   ipcMain.handle('workspace:listHistory', (_event, filePath: string) => listSnapshots(filePath))
-  ipcMain.handle('workspace:scanTodos', (_e, overrides?: Record<string, string>) => 
-    scanTodos(getRootDir(), overrides))
+  ipcMain.handle('workspace:scanTodos', (_e, overrides?: Record<string, string>) =>
+    scanTodos(getRootDir(), overrides)
+  )
   ipcMain.handle('workspace:readHistory', (_event, filePath: string, id: number) =>
     readSnapshot(filePath, id)
   )

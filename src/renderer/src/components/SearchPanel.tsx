@@ -152,7 +152,7 @@ export function SearchPanel({ rootDir, onOpenFile, onClose }: SearchPanelProps):
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="메모 이름이나 내용을 검색해요…"
+            placeholder="파일 이름이나 내용을 검색해요…"
             className="min-w-0 flex-1 bg-transparent text-[15px] text-text outline-none placeholder:text-text-tertiary"
           />
         </div>
@@ -167,7 +167,9 @@ export function SearchPanel({ rootDir, onOpenFile, onClose }: SearchPanelProps):
         >
           <div ref={innerRef} className="p-1.5">
             {results.length === 0 ? (
-              <p className="px-3 py-6 text-center text-[13px] text-text-tertiary">결과가 없어요</p>
+              <p className="px-3 py-6 text-center text-[13px] text-text-tertiary">
+                일치하는 파일이 없어요
+              </p>
             ) : (
               results.map((r, i) => {
                 const folder = folderLabel(r.path, rootDir)

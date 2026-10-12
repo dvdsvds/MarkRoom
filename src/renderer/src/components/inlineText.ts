@@ -29,7 +29,10 @@ export function parseAttr(attr: string): InlineOpts | null {
       if (!NAMED.includes(v) && !HEX.test(v)) return null
       o.fc = v
     } else if (k === 'ff') {
-      const name = v.replace(/["\;{}<>|\r\n]/g, '').trim().slice(0, 60)
+      const name = v
+        .replace(/["\;{}<>|\r\n]/g, '')
+        .trim()
+        .slice(0, 60)
       if (name === '') return null
       o.ff = name
     } else return null

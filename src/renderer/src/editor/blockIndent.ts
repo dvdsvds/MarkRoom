@@ -2,7 +2,8 @@ import { Prec, type Text } from '@codemirror/state'
 import { keymap } from '@codemirror/view'
 
 const OPEN_BRACE = /^(\s*)(table|chart)\s*\{$/
-const OPEN_BRACKET = /^(\s*)(template|value|box|table|grid=\d{1,2}(?:\s+(?:frame|widths)=\S+)*)\s*\[$/
+const OPEN_BRACKET =
+  /^(\s*)(template|value|box|table|grid=\d{1,2}(?:\s+(?:frame|widths)=\S+)*)\s*\[$/
 const COL_DEF = /^\s*(?:col|row)=\d/
 
 const indentOf = (s: string): number => s.length - s.trimStart().length

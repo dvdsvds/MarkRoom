@@ -23,7 +23,12 @@ export function splitMath(raw: string): Piece[] {
 export function renderMath(target: HTMLElement, tex: string): void {
   target.dataset.tex = tex
   try {
-    katex.render('\\displaystyle ' + tex, target, { displayMode: false, throwOnError: false, output: 'html', strict: 'ignore' })
+    katex.render('\\displaystyle ' + tex, target, {
+      displayMode: false,
+      throwOnError: false,
+      output: 'html',
+      strict: 'ignore'
+    })
   } catch {
     target.textContent = `$${tex}$`
   }

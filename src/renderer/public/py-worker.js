@@ -39,7 +39,8 @@ function alignOf(a) {
 }
 
 function pushTable(rows, opts) {
-  if (!Array.isArray(rows)) throw new Error('table()에는 리스트를 넘겨 주세요. 예: table([{"aaa": 1, "bbb": 2}])')
+  if (!Array.isArray(rows))
+    throw new Error('table()에는 리스트를 넘겨 주세요. 예: table([{"aaa": 1, "bbb": 2}])')
   if (rows.length === 0) throw new Error('table()에 넘긴 리스트가 비어 있어요.')
   opts = opts || {}
   let columns = []
@@ -48,7 +49,8 @@ function pushTable(rows, opts) {
     columns = rows[0].map((c) => String(cell(c)))
     if (columns.length > 50) throw new Error('table()은 50칸(열)까지 그릴 수 있어요.')
     for (let i = 1; i < rows.length; i++) {
-      if (!Array.isArray(rows[i])) throw new Error('table(): ' + (i + 1) + '번째 줄이 리스트가 아니에요.')
+      if (!Array.isArray(rows[i]))
+        throw new Error('table(): ' + (i + 1) + '번째 줄이 리스트가 아니에요.')
       const arr = []
       for (let j = 0; j < columns.length; j++) arr.push(tcell(rows[i][j]))
       body.push(arr)
@@ -109,7 +111,9 @@ function pushTable(rows, opts) {
 
 function pushChart(spec) {
   if (!spec || typeof spec !== 'object') {
-    throw new Error('chart()에는 딕셔너리를 넘겨 주세요. 예: chart({"type": "bar", "labels": ["aaa", "bbb"], "values": [1, 2]})')
+    throw new Error(
+      'chart()에는 딕셔너리를 넘겨 주세요. 예: chart({"type": "bar", "labels": ["aaa", "bbb"], "values": [1, 2]})'
+    )
   }
   const type = spec.type
   if (type !== 'bar' && type !== 'line' && type !== 'pie') {
@@ -134,16 +138,29 @@ function pushChart(spec) {
   if (raw.length === 0) throw new Error('chart(): series가 비어 있어요.')
   if (raw.length > 8) throw new Error('chart(): series는 8개까지예요.')
   const series = raw.map((s) => {
-    if (!Array.isArray(s.values)) throw new Error('chart(): "' + s.name + '" values가 리스트가 아니에요.')
+    if (!Array.isArray(s.values))
+      throw new Error('chart(): "' + s.name + '" values가 리스트가 아니에요.')
     if (s.values.length !== labels.length) {
       throw new Error(
-        'chart(): labels는 ' + labels.length + '개인데 ' + (s.name ? '"' + s.name + '" ' : '') + 'values는 ' + s.values.length + '개예요.'
+        'chart(): labels는 ' +
+          labels.length +
+          '개인데 ' +
+          (s.name ? '"' + s.name + '" ' : '') +
+          'values는 ' +
+          s.values.length +
+          '개예요.'
       )
     }
     return {
       name: s.name,
       values: s.values.map((v, idx) => {
-        if (v === null || v === undefined || v === '' || typeof v === 'boolean' || !isFinite(Number(v))) {
+        if (
+          v === null ||
+          v === undefined ||
+          v === '' ||
+          typeof v === 'boolean' ||
+          !isFinite(Number(v))
+        ) {
           throw new Error('chart(): ' + (idx + 1) + '번째 값이 숫자가 아니에요: ' + String(v))
         }
         return Number(v)
@@ -186,7 +203,9 @@ function snoteValue(nameJson, valueJson) {
     const name = JSON.parse(nameJson)
     const v = JSON.parse(valueJson)
     if (typeof name !== 'string' || !/^[\p{L}\p{N}_][\p{L}\p{N}_.-]*$/u.test(name)) {
-      throw new Error('set_value(): 이름은 글자·숫자·_·.·- 만 쓸 수 있고 공백은 안 돼요: ' + String(name))
+      throw new Error(
+        'set_value(): 이름은 글자·숫자·_·.·- 만 쓸 수 있고 공백은 안 돼요: ' + String(name)
+      )
     }
     let s
     if (typeof v === 'number') {
@@ -331,8 +350,16 @@ def __snote_run(src, ns):
 
 function lock() {
   const names = [
-    'fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource', 'importScripts',
-    'indexedDB', 'caches', 'Worker', 'SharedWorker', 'BroadcastChannel'
+    'fetch',
+    'XMLHttpRequest',
+    'WebSocket',
+    'EventSource',
+    'importScripts',
+    'indexedDB',
+    'caches',
+    'Worker',
+    'SharedWorker',
+    'BroadcastChannel'
   ]
   for (const k of names) {
     try {

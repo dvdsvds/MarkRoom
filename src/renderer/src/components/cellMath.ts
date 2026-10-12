@@ -89,7 +89,8 @@ export function insertMath(box: HTMLElement, latex = ''): MathfieldElement | nul
   r.insertNode(mf)
   const after = document.createTextNode(ZW)
   mf.after(after)
-  if (!mf.previousSibling || mf.previousSibling.nodeType !== 3) mf.before(document.createTextNode(ZW))
+  if (!mf.previousSibling || mf.previousSibling.nodeType !== 3)
+    mf.before(document.createTextNode(ZW))
   mf.focus()
   if (latex) mf.insert(latex, { selectionMode: 'placeholder' })
   return mf

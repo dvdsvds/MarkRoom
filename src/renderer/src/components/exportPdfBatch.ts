@@ -71,7 +71,6 @@ async function renderNote(note: PdfNote, css: string, pdfDir: string): Promise<s
   }
 }
 
-/** 실패한 메모 목록("경로: 이유")을 돌려준다. */
 export async function exportPdfBatch(
   notes: PdfNote[],
   pdfDir: string,

@@ -216,11 +216,11 @@ export function TodoDialog({
                 </svg>
                 <p className="mt-2 text-sm text-text">할 일이 없어요</p>
                 <p className="text-[12.5px] text-text-tertiary">
-                  메모에{' '}
+                  파일에{' '}
                   <code className="rounded bg-text/[0.07] px-1.5 py-px font-editor text-xs text-text-secondary">
                     - [ ] 할 일
                   </code>
-                  을 적으면 여기에 모여요
+                  을 작성하면 여기에 모여요
                 </p>
               </div>
             ) : (

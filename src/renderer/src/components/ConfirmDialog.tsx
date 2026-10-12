@@ -61,9 +61,7 @@ export function ConfirmDialog({
             <span className="min-w-0 truncate text-sm font-medium text-text">{subject.name}</span>
           </NameBox>
         )}
-        <div
-          className={`text-[13px] leading-relaxed text-text-secondary ${subject ? 'mt-3' : ''}`}
-        >
+        <div className={`text-[13px] leading-relaxed text-text-secondary ${subject ? 'mt-3' : ''}`}>
           {/* 마침표 뒤에 공백이 있으면 거기서 줄을 바꾼다 ("test.md"처럼 공백 없는 점은 그대로) */}
           {message.split(/(?<=\.)\s+/).map((line, i) => (
             <p key={i}>{line}</p>

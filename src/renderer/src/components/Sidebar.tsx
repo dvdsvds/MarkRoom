@@ -606,7 +606,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         const items: ContextMenuItem[] = []
         if (node.type === 'folder') {
           items.push({
-            label: '메모',
+            label: '파일',
             icon: <PlusIcon width={16} height={16} />,
             onClick: () => {
               expandPath(node.path)
@@ -777,19 +777,9 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             />
           </div>
         )}
-        {tree.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 px-3 py-6 text-center">
-            <button
-              type="button"
-              onClick={() => rootDir && setNewFileIn(rootDir)}
-              className="rounded-md border border-border px-3 py-1.5 text-[13px] text-text-secondary transition-colors hover:bg-bg-mute hover:text-text"
-            >
-              + 새 메모 만들기
-            </button>
-          </div>
-        ) : (
-          tree.map((node) => <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />)
-        )}
+        {tree.map((node) => (
+          <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />
+        ))}
       </div>
       {contextMenu && (
         <ContextMenu
@@ -801,18 +791,18 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       )}
       {deleteTarget && (
         <ConfirmDialog
-          title="삭제할까요"
+          title="삭제할까요?"
           subject={{ name: deleteTarget.node.name, kind: deleteTarget.node.type }}
           message={
             deleteTarget.node.type === 'folder'
               ? '폴더 안의 모든 파일이 휴지통으로 이동돼요. 언제든 복원할 수 있어요'
               : deleteTarget.loading
-                ? '이 메모를 가리키는 링크를 확인하고 있어요…'
+                ? '링크를 확인하고 있어요…'
                 : deleteTarget.backlinks && deleteTarget.backlinks.length > 0
-                  ? `이 메모를 가리키는 위키링크가 ${deleteTarget.backlinks.reduce((sum, b) => sum + b.count, 0)}개 있어요. 삭제하면 링크가 끊겨요.`
+                  ? `이 파일을 가리키는 위키링크가 ${deleteTarget.backlinks.reduce((sum, b) => sum + b.count, 0)}개 있어요. 삭제하면 링크가 끊겨요.`
                   : '휴지통으로 이동돼요. 언제든 복원할 수 있어요'
           }
-          items={deleteTarget.backlinks?.map((b) => b.path.split('/').pop() ?? b.path)}
+          items={deleteTarget.backlinks?.map((b) => b.path.split('/[\\/]/').pop() ?? b.path)}
           confirmLabel="삭제"
           danger
           onConfirm={confirmDelete}

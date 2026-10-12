@@ -23,7 +23,14 @@ const imp = (v: string): string => `${v} !important`
 export const codeHighlight = syntaxHighlighting(
   HighlightStyle.define([
     {
-      tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.modifier],
+      tag: [
+        t.keyword,
+        t.operatorKeyword,
+        t.controlKeyword,
+        t.definitionKeyword,
+        t.moduleKeyword,
+        t.modifier
+      ],
       color: imp('var(--code-keyword)')
     },
     { tag: [t.string, t.special(t.string), t.regexp], color: imp('var(--code-string)') },
@@ -38,7 +45,6 @@ export const codeHighlight = syntaxHighlighting(
     { tag: [t.tagName, t.attributeName], color: imp('var(--code-keyword)') }
   ])
 )
-
 
 function blockText(view: EditorView, pos: number): string {
   const doc = view.state.doc

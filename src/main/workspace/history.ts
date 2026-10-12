@@ -91,7 +91,6 @@ export function moveHistory(oldPath: string, newPath: string): void {
   }
 }
 
-
 function isInside(child: string, parent: string): boolean {
   return child === parent || child.startsWith(parent + sep)
 }
@@ -103,10 +102,10 @@ export function changeHistoryDir(newDir: string | null): string {
 
   const rootDir = resolve(getRootDir())
   if (isInside(target, rootDir) || isInside(rootDir, target)) {
-    throw new Error('메모 폴더 안이거나, 메모 폴더를 품고 있는 폴더는 고를 수 없어요.')
+    throw new Error('작업 폴더의 하위 폴더나 상위 폴더는 고를 수 없어요.')
   }
   if (isInside(target, oldDir) || isInside(oldDir, target)) {
-    throw new Error('지금 기록 폴더 안이거나 그 상위 폴더는 고를 수 없어요.')
+    throw new Error('현재 기록 폴더의 하위 폴더나 상위 디렉토리는 고를 수 없어요.')
   }
 
   mkdirSync(target, { recursive: true })
@@ -125,8 +124,7 @@ export function changeHistoryDir(newDir: string | null): string {
     }
     try {
       if (readdirSync(oldDir).length === 0) rmSync(oldDir, { recursive: true })
-    } catch {
-    }
+    } catch {}
   }
   setHistoryDirConfig(newDir === null ? null : target)
   return target

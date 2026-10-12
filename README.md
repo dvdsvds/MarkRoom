@@ -1,4 +1,4 @@
-# syntaxnote
+# MarkRoom
 
 An Electron application with React and TypeScript
 

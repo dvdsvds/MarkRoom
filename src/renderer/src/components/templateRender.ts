@@ -1,4 +1,12 @@
-import type { Diag, EdgeKind, Edges, LineKind, ParsedTemplate, Style, TNode } from '../markdown/templatePlugin'
+import type {
+  Diag,
+  EdgeKind,
+  Edges,
+  LineKind,
+  ParsedTemplate,
+  Style,
+  TNode
+} from '../markdown/templatePlugin'
 import { fontCandidates } from '../utils/systemFonts'
 import { plainInline, splitInline, type InlineOpts } from './inlineText'
 import { renderMath, splitMath } from './mathText'
@@ -8,7 +16,8 @@ type Ok = Exclude<ParsedTemplate, { error: string }>
 
 const NAMED = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/
-const SERIF_RE = /바탕|명조|궁서|batang|myeongjo|myungjo|serif|times|georgia|garamond|palatino|gungsuh/i
+const SERIF_RE =
+  /바탕|명조|궁서|batang|myeongjo|myungjo|serif|times|georgia|garamond|palatino|gungsuh/i
 const PAPER_MM = 186
 const V_ITEMS = { top: 'flex-start', middle: 'center', bottom: 'flex-end' } as const
 const GUIDE = '1px dashed #e5484d'
@@ -49,9 +58,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 function addDiag(cell: HTMLElement, dir: 'down' | 'up', dg: Diag): void {
   const svg = document.createElementNS(SVG_NS, 'svg')
   svg.setAttribute('class', 'tq-diag')
-  svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none'
+  svg.style.cssText =
+    'position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none'
   const ink = textColor(dg.c) ?? 'var(--tp-ink)'
-  const px = dg.w !== null ? (dg.w * 96) / 25.4 : dg.kind === 'thick' || dg.kind === 'double' ? 3 : 1
+  const px =
+    dg.w !== null ? (dg.w * 96) / 25.4 : dg.kind === 'thick' || dg.kind === 'double' ? 3 : 1
   const add = (dy: number, sw: number): void => {
     const ln = document.createElementNS(SVG_NS, 'line')
     ln.setAttribute('x1', '0')
@@ -60,7 +71,8 @@ function addDiag(cell: HTMLElement, dir: 'down' | 'up', dg: Diag): void {
     ln.setAttribute('y2', dir === 'down' ? '100%' : '0')
     ln.setAttribute('stroke', ink)
     ln.setAttribute('stroke-width', String(sw))
-    if (dg.kind === 'dashed') ln.setAttribute('stroke-dasharray', `${Math.max(3, sw * 3)} ${Math.max(2, sw * 2)}`)
+    if (dg.kind === 'dashed')
+      ln.setAttribute('stroke-dasharray', `${Math.max(3, sw * 3)} ${Math.max(2, sw * 2)}`)
     if (dy !== 0) ln.setAttribute('transform', `translate(0 ${dy})`)
     svg.appendChild(ln)
   }
@@ -144,7 +156,10 @@ function richPlain(target: HTMLElement, text: string): void {
 }
 export function applyInlineCss(e: HTMLElement, o: InlineOpts): void {
   if (o.fs) e.style.fontSize = `${o.fs}pt`
-  if (o.fc) { const c = textColor(o.fc); if (c) e.style.color = c }
+  if (o.fc) {
+    const c = textColor(o.fc)
+    if (c) e.style.color = c
+  }
   if (o.ff) e.style.fontFamily = fontFamily(o.ff)
   if ('bold' in o) e.style.fontWeight = '700'
   if ('italic' in o) e.style.fontStyle = 'italic'
@@ -156,15 +171,18 @@ export function applyInlineCss(e: HTMLElement, o: InlineOpts): void {
 
 function richText(target: HTMLElement, text: string): void {
   const pieces = splitInline(text)
-  if (!pieces.some((p) => 'opts' in p)) { richPlain(target, text); return }
+  if (!pieces.some((p) => 'opts' in p)) {
+    richPlain(target, text)
+    return
+  }
   for (const p of pieces) {
     if ('opts' in p) {
       const sp = document.createElement('span')
       applyInlineCss(sp, p.opts)
       richPlain(sp, p.inner)
       target.appendChild(sp)
-      } else richPlain(target, p.text)
-    }
+    } else richPlain(target, p.text)
+  }
 }
 
 function fillText(target: HTMLElement, text: string, align: Style['align']): void {
@@ -253,7 +271,7 @@ function build(n: TNode): HTMLElement {
       g.dataset.heights = JSON.stringify(n.heights)
       g.dataset.head = String(n.head)
       if (n.close !== null) g.dataset.close = String(n.close)
-        g.dataset.cols = String(n.cols)
+      g.dataset.cols = String(n.cols)
       const fixed = n.widths.reduce<number>((a, w) => a + (w ?? 0), 0)
       const free = n.widths.filter((w) => w === null).length
       const share = free > 0 ? Math.round((Math.max(0, PAPER_MM - fixed) / free) * 100) / 100 : 0
@@ -309,11 +327,21 @@ function build(n: TNode): HTMLElement {
       const outerExplicit = (i: number, side: 'l' | 'r' | 't' | 'b'): boolean => {
         if (i < 0) return false
         const k = n.cells[i]
-        const touch = side === 'l' ? k.c === 0 : side === 'r' ? k.c + k.cs === n.cols : side === 't' ? k.r === 0 : k.r + k.rs === rows
+        const touch =
+          side === 'l'
+            ? k.c === 0
+            : side === 'r'
+              ? k.c + k.cs === n.cols
+              : side === 't'
+                ? k.r === 0
+                : k.r + k.rs === rows
         return touch && k.style.set[side] !== undefined
       }
 
-      const reach = (d: HTMLElement, prop: 'marginLeft' | 'marginRight' | 'marginTop' | 'marginBottom'): void => {
+      const reach = (
+        d: HTMLElement,
+        prop: 'marginLeft' | 'marginRight' | 'marginTop' | 'marginBottom'
+      ): void => {
         if (fw === '0px') return
         d.style[prop] = `-${fw}`
         d.style.zIndex = '1'
@@ -363,8 +391,13 @@ function build(n: TNode): HTMLElement {
           d.style.width = '0'
           d.style.borderLeft = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
-          if (r === 0 && (outerExplicit(map[r][c - 1], 't') || outerExplicit(map[r][c], 't'))) reach(d, 'marginTop')
-          if (r === rows - 1 && (outerExplicit(map[r][c - 1], 'b') || outerExplicit(map[r][c], 'b'))) reach(d, 'marginBottom')
+          if (r === 0 && (outerExplicit(map[r][c - 1], 't') || outerExplicit(map[r][c], 't')))
+            reach(d, 'marginTop')
+          if (
+            r === rows - 1 &&
+            (outerExplicit(map[r][c - 1], 'b') || outerExplicit(map[r][c], 'b'))
+          )
+            reach(d, 'marginBottom')
           tag(d, 'v', c, r, r, e)
           g.appendChild(d)
         }
@@ -380,14 +413,26 @@ function build(n: TNode): HTMLElement {
           d.style.height = '0'
           d.style.borderTop = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
           d.style.pointerEvents = 'none'
-          if (c === 0 && (outerExplicit(map[r - 1][c], 'l') || outerExplicit(map[r][c], 'l'))) reach(d, 'marginLeft')
-          if (c === n.cols - 1 && (outerExplicit(map[r - 1][c], 'r') || outerExplicit(map[r][c], 'r'))) reach(d, 'marginRight')
+          if (c === 0 && (outerExplicit(map[r - 1][c], 'l') || outerExplicit(map[r][c], 'l')))
+            reach(d, 'marginLeft')
+          if (
+            c === n.cols - 1 &&
+            (outerExplicit(map[r - 1][c], 'r') || outerExplicit(map[r][c], 'r'))
+          )
+            reach(d, 'marginRight')
           tag(d, 'h', r, c, c, e)
           g.appendChild(d)
         }
       }
 
-      const tagOuter = (d: HTMLElement, o: 'v' | 'h', b: number, a1: number, a2: number, e: { kind: EdgeKind; color: string | null; w: number | null }): void => {
+      const tagOuter = (
+        d: HTMLElement,
+        o: 'v' | 'h',
+        b: number,
+        a1: number,
+        a2: number,
+        e: { kind: EdgeKind; color: string | null; w: number | null }
+      ): void => {
         tag(d, o, b, a1, a2, e)
         d.dataset.outer = '1'
       }
@@ -416,8 +461,18 @@ function build(n: TNode): HTMLElement {
             }
             d.style.pointerEvents = 'none'
           }
-          const MARGIN = { l: 'marginLeft', r: 'marginRight', t: 'marginTop', b: 'marginBottom' } as const
-          const BORDER = { l: 'borderLeft', r: 'borderRight', t: 'borderTop', b: 'borderBottom' } as const
+          const MARGIN = {
+            l: 'marginLeft',
+            r: 'marginRight',
+            t: 'marginTop',
+            b: 'marginBottom'
+          } as const
+          const BORDER = {
+            l: 'borderLeft',
+            r: 'borderRight',
+            t: 'borderTop',
+            b: 'borderBottom'
+          } as const
           if (fw !== '0px') {
             const under = el('div', 'tq-edge')
             area(under)
@@ -426,8 +481,11 @@ function build(n: TNode): HTMLElement {
             else under.style.height = cover
             under.style[MARGIN[side]] = `calc(-1 * ${cover})`
             if (kind === 'none') {
-              const none = (k: 'l' | 'r' | 't' | 'b'): boolean => sides.includes(k) && s.set[k] === 'none'
-              const [m1, k1, m2, k2] = vert ? (['marginTop', 't', 'marginBottom', 'b'] as const) : (['marginLeft', 'l', 'marginRight', 'r'] as const)
+              const none = (k: 'l' | 'r' | 't' | 'b'): boolean =>
+                sides.includes(k) && s.set[k] === 'none'
+              const [m1, k1, m2, k2] = vert
+                ? (['marginTop', 't', 'marginBottom', 'b'] as const)
+                : (['marginLeft', 'l', 'marginRight', 'r'] as const)
               if (none(k1)) under.style[m1] = `calc(-1 * ${cover})`
               if (none(k2)) under.style[m2] = `calc(-1 * ${cover})`
             }
@@ -441,9 +499,19 @@ function build(n: TNode): HTMLElement {
           const ew = e.kind === 'none' ? '1px' : edgeWidth(e.kind, e.w)
           const out = side === 'l' || side === 't' ? -1 : 1
           const axis = vert ? 'translateX' : 'translateY'
-          line.style.transform = ew === fw ? `${axis}(${out * 100}%)` : `${axis}(calc(${out * 50}% + ${out} * ${fw} / 2))`
+          line.style.transform =
+            ew === fw
+              ? `${axis}(${out * 100}%)`
+              : `${axis}(calc(${out * 50}% + ${out} * ${fw} / 2))`
           line.style[BORDER[side]] = e.kind === 'none' ? GUIDE : edgeCss(e.kind, e.color, e.w)
-          tagOuter(line, vert ? 'v' : 'h', side === 'l' || side === 't' ? 0 : vert ? n.cols : rows, vert ? c.r : c.c, vert ? c.r + c.rs - 1 : c.c + c.cs - 1, e)
+          tagOuter(
+            line,
+            vert ? 'v' : 'h',
+            side === 'l' || side === 't' ? 0 : vert ? n.cols : rows,
+            vert ? c.r : c.c,
+            vert ? c.r + c.rs - 1 : c.c + c.cs - 1,
+            e
+          )
           g.appendChild(line)
         }
       }

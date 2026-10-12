@@ -10,7 +10,6 @@ import {
   lineSample,
   icon,
   INPUT_CSS,
-
   panel,
   type DropItem
 } from './uiKit'
@@ -23,13 +22,22 @@ export interface BorderState {
 
 const WIDTHS = ['0.1', '0.15', '0.2', '0.3', '0.4', '0.5', '0.7', '1', '1.5', '2', '3']
 const COLORS: [string, string][] = [
-  ['red', '빨강'], ['orange', '주황'], ['yellow', '노랑'], ['green', '초록'], ['blue', '파랑'], ['purple', '보라'], ['gray', '회색']
+  ['red', '빨강'],
+  ['orange', '주황'],
+  ['yellow', '노랑'],
+  ['green', '초록'],
+  ['blue', '파랑'],
+  ['purple', '보라'],
+  ['gray', '회색']
 ]
 
 const FAINT = 'var(--tq-pv-off)'
 
 const edgeIcon = (draw: string): string =>
-  icon(`<rect x="2" y="2" width="12" height="12" stroke-opacity=".3" stroke-dasharray="2 2" stroke-width="1"/>${draw}`, 12)
+  icon(
+    `<rect x="2" y="2" width="12" height="12" stroke-opacity=".3" stroke-dasharray="2 2" stroke-width="1"/>${draw}`,
+    12
+  )
 const GHOST = 'stroke-opacity=".35" stroke-dasharray="2 2" stroke-width="1"'
 const FRAME_GHOST = `<rect x="2" y="2" width="12" height="12" ${GHOST}/>`
 const CROSS_GHOST = `<path d="M8 2V14M2 8H14" ${GHOST}/>`
@@ -52,7 +60,10 @@ export function openBorderPanel(d: {
   const mmPx = (mm: number): number => Math.max(1, mm * 3.78)
   const kindHtml = (k: BorderKind): string => lineSample(k, 1.5, 'full')
   const kind = dropdown({
-    label: '', title: '종류', width: 120, block: true,
+    label: '',
+    title: '종류',
+    width: 120,
+    block: true,
     items: () => [
       { text: '실선', value: 'solid', html: kindHtml('solid') },
       { text: '점선', value: 'dashed', html: kindHtml('dashed') },
@@ -75,7 +86,10 @@ export function openBorderPanel(d: {
   const widthHtml = (w: number | null): string =>
     `<span style="min-width:54px">${w === null ? '기본' : `${w}mm`}</span>${lineSample('solid', mmPx(w ?? 0.12), 60)}`
   const width = dropdown({
-    label: '', title: '굵기', width: 120, block: true,
+    label: '',
+    title: '굵기',
+    width: 120,
+    block: true,
     items: () => [
       { text: '기본', value: null, html: widthHtml(null) },
       ...WIDTHS.map((w): DropItem => ({ text: `${w}mm`, value: w, html: widthHtml(Number(w)) }))
@@ -90,7 +104,10 @@ export function openBorderPanel(d: {
   const colorHtml = (c: string | null, name = ''): string =>
     colorBar(c, name ? 56 : 'full') + (name ? `<span>${name}</span>` : '')
   const color = dropdown({
-    label: '', title: '색', width: 120, block: true,
+    label: '',
+    title: '색',
+    width: 120,
+    block: true,
     items: () => [
       { text: '기본(검정)', value: null, html: colorHtml(null, '기본') },
       ...COLORS.map(([k, t]): DropItem => ({ text: t, value: k, html: colorHtml(k, t) }))
@@ -106,7 +123,10 @@ export function openBorderPanel(d: {
   const right = document.createElement('div')
   const area = document.createElement('div')
   area.style.cssText = 'position:relative;width:184px;height:176px;margin:0 auto'
-  const BX = 24, BY = 34, BW = 132, BH = 132
+  const BX = 24,
+    BY = 34,
+    BW = 132,
+    BH = 132
   const pv = document.createElement('div')
   pv.style.cssText = `position:absolute;left:${BX}px;top:${BY}px;width:${BW}px;height:${BH}px;box-sizing:border-box;border:1px solid var(--tq-pv-border);border-radius:2px`
   pv.innerHTML =
@@ -136,7 +156,10 @@ export function openBorderPanel(d: {
   }
   const drawSide = (side: PvSide, v: EdgeVal | 'mixed' | null | undefined): void => {
     if (!v || (v !== 'mixed' && v.kind === 'none')) return
-    const css = v === 'mixed' ? `1px dotted var(--tq-text3)` : `${v.kind === 'double' ? Math.max(3, Math.round(widthPx(v))) : widthPx(v)}px ${v.kind === 'dashed' ? 'dashed' : v.kind === 'double' ? 'double' : 'solid'} ${inkOf(v.c)}`
+    const css =
+      v === 'mixed'
+        ? `1px dotted var(--tq-text3)`
+        : `${v.kind === 'double' ? Math.max(3, Math.round(widthPx(v))) : widthPx(v)}px ${v.kind === 'dashed' ? 'dashed' : v.kind === 'double' ? 'double' : 'solid'} ${inkOf(v.c)}`
     const e = document.createElement('div')
     e.style.cssText = `position:absolute;${SIDE_CSS[side](css)}`
     pv.appendChild(e)
@@ -163,7 +186,8 @@ export function openBorderPanel(d: {
     else if (v.kind === 'double') {
       line(-2, 1, '')
       line(2, 1, '')
-    } else line(0, widthPx(v), v.kind === 'dashed' ? `${widthPx(v) * 3 + 2} ${widthPx(v) * 2 + 2}` : '')
+    } else
+      line(0, widthPx(v), v.kind === 'dashed' ? `${widthPx(v) * 3 + 2} ${widthPx(v) * 2 + 2}` : '')
     pv.appendChild(svg as unknown as HTMLElement)
     drawn.set(`d-${dir}`, svg as unknown as HTMLElement)
   }
@@ -178,7 +202,11 @@ export function openBorderPanel(d: {
   }
 
   const place = (html: string, title: string, where: BorderWhere, cx: number, cy: number): void => {
-    const b = button(html, title, () => act(where), { square: true, outline: true, css: 'width:18px;height:18px;border-radius:4px' })
+    const b = button(html, title, () => act(where), {
+      square: true,
+      outline: true,
+      css: 'width:18px;height:18px;border-radius:4px'
+    })
     b.style.position = 'absolute'
     b.style.left = `${cx - 9}px`
     b.style.top = `${cy - 9}px`

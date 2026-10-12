@@ -12,7 +12,6 @@ function pad(n: number): string {
   return n.toString().padStart(2, '0')
 }
 
-/** 클립보드 이미지 붙여넣기용 "붙여넣은 시각" 이름 (기획 문서 5장). */
 function timestampFileName(mimeType: string): string {
   const now = new Date()
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
@@ -22,13 +21,6 @@ function timestampFileName(mimeType: string): string {
   return `붙여넣기 ${stamp}.${ext}`
 }
 
-/**
- * 붙여넣기/드래그로 들어온 파일들을 메모 폴더의 img·files 하위 폴더에 저장하고
- * 커서 위치에 마크다운 링크를 삽입한다 (기획 문서 5장).
- *
- * useTimestampName이 true면(클립보드 붙여넣기) 이미지 이름을 시각 이름으로
- * 바꾸고, false면(드래그 앤 드롭) 원본 이름을 그대로 쓴다.
- */
 export async function insertAttachments(
   files: File[],
   view: EditorView,

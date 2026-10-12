@@ -1,5 +1,5 @@
-appId: com.syntaxnote.app
-productName: SyntaxNote
+appId: com.markroom.app
+productName: MarkRoom
 directories:
   buildResources: build
 files:
@@ -18,7 +18,7 @@ extraResources:
     to: changelog.json
 compression: maximum
 win:
-  executableName: SyntaxNote
+  executableName: MarkRoom
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -49,5 +49,5 @@ npmRebuild: false
 publish:
   provider: github
   owner: dvdsvds
-  repo: syntaxnote-releases
+  repo: markroom-releases
   releaseType: draft

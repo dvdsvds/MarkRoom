@@ -67,7 +67,7 @@ export function TitleBar({ children }: TitleBarProps): React.JSX.Element {
         {children}
       </div>
       <div className="flex flex-1 items-center justify-center">
-        <span className="text-[11px] font-medium tracking-wide text-text-tertiary">SyntaxNote</span>
+        <span className="text-[11px] font-medium tracking-wide text-text-tertiary">MarkRoom</span>
       </div>
       {platform && (
         <div onDoubleClick={(e) => e.stopPropagation()}>

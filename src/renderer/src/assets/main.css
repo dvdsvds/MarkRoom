@@ -91,23 +91,66 @@ body {
   letter-spacing: -0.01em;
   margin: 1.6em 0 0.5em;
 }
-.prose-preview h1 { font-size: 1.85em; letter-spacing: -0.02em; margin-bottom: 0.6em; }
-.prose-preview h2 { font-size: 1.45em; letter-spacing: -0.015em; margin-top: 1.8em; }
-.prose-preview h3 { font-size: 1.2em; }
-.prose-preview h4 { font-size: 1.05em; }
+.prose-preview h1 {
+  font-size: 1.85em;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6em;
+}
+.prose-preview h2 {
+  font-size: 1.45em;
+  letter-spacing: -0.015em;
+  margin-top: 1.8em;
+}
+.prose-preview h3 {
+  font-size: 1.2em;
+}
+.prose-preview h4 {
+  font-size: 1.05em;
+}
 .prose-preview h5,
-.prose-preview h6 { font-size: 1em; color: var(--color-text-secondary); }
-.prose-preview p { margin: 1em 0; }
-.prose-preview strong { font-weight: 600; }
-.prose-preview em { font-style: italic; }
-.prose-preview del { color: var(--color-text-tertiary); }
-.prose-preview a { color: var(--color-accent); text-decoration: underline; }
-.prose-preview ul { margin: 0.6em 0; padding-left: 1.6em; list-style: disc; }
-.prose-preview ol { margin: 0.6em 0; padding-left: 1.6em; list-style: decimal; }
-.prose-preview ul ul { list-style: circle; }
-.prose-preview ul ul ul { list-style: square; }
-.prose-preview li { margin: 0.25em 0; }
-.prose-preview ul.contains-task-list { list-style: none; padding-left: 0.2em; }
+.prose-preview h6 {
+  font-size: 1em;
+  color: var(--color-text-secondary);
+}
+.prose-preview p {
+  margin: 1em 0;
+}
+.prose-preview strong {
+  font-weight: 600;
+}
+.prose-preview em {
+  font-style: italic;
+}
+.prose-preview del {
+  color: var(--color-text-tertiary);
+}
+.prose-preview a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.prose-preview ul {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+  list-style: disc;
+}
+.prose-preview ol {
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+  list-style: decimal;
+}
+.prose-preview ul ul {
+  list-style: circle;
+}
+.prose-preview ul ul ul {
+  list-style: square;
+}
+.prose-preview li {
+  margin: 0.25em 0;
+}
+.prose-preview ul.contains-task-list {
+  list-style: none;
+  padding-left: 0.2em;
+}
 .prose-preview input[type='checkbox'],
 .ui-checkbox {
   appearance: none;
@@ -142,8 +185,12 @@ body {
   background: color-mix(in srgb, var(--color-accent) 7%, transparent);
   color: var(--color-text-secondary);
 }
-.prose-preview blockquote > :first-child { margin-top: 0; }
-.prose-preview blockquote > :last-child { margin-bottom: 0; }
+.prose-preview blockquote > :first-child {
+  margin-top: 0;
+}
+.prose-preview blockquote > :last-child {
+  margin-bottom: 0;
+}
 .prose-preview code {
   font-family: var(--font-editor);
   background: color-mix(in srgb, var(--color-accent) 13%, transparent);
@@ -273,19 +320,40 @@ body {
   overflow-wrap: anywhere;
 }
 .prose-preview th + th,
-.prose-preview td + td { border-left: 1px solid var(--color-border); }
-.prose-preview thead th { border-top: none; }
+.prose-preview td + td {
+  border-left: 1px solid var(--color-border);
+}
+.prose-preview thead th {
+  border-top: none;
+}
 .prose-preview th {
   background: var(--color-bg-mute);
   color: var(--color-text-secondary);
   font-size: 0.92em;
   font-weight: 500;
 }
-.prose-preview hr { border: none; border-top: 1px solid var(--color-border); margin: 1.5em 0; }
-.snote-math-block { overflow-x: auto; overflow-y: hidden; }
-.prose-preview img { max-width: none; height: auto; border-radius: 4px; }
-.prose-preview .snote-page img { max-width: 100%; }
-.prose-preview .footnotes { font-size: 0.85em; color: var(--color-text-secondary); margin-top: 2em; }
+.prose-preview hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+.snote-math-block {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.prose-preview img {
+  max-width: none;
+  height: auto;
+  border-radius: 4px;
+}
+.prose-preview .snote-page img {
+  max-width: 100%;
+}
+.prose-preview .footnotes {
+  font-size: 0.85em;
+  color: var(--color-text-secondary);
+  margin-top: 2em;
+}
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -518,7 +586,9 @@ button:not(:disabled) {
 .cm-fat-cursor {
   color: #000 !important;
 }
-.cm-fat-cursor * { color: var(--color-bg) !important; }
+.cm-fat-cursor * {
+  color: var(--color-bg) !important;
+}
 .cm-cursorLayer .cm-cursor,
 .cm-cursorLayer .cm-cursor-primary {
   border-left-color: var(--color-text) !important;
@@ -530,10 +600,15 @@ button:not(:disabled) {
   box-sizing: content-box !important;
   height: var(--cm-cur-h, 16px) !important;
   padding-top: var(--cm-cur-top, 0px) !important;
-  padding-bottom: max(0px, calc(var(--cm-line-h, 22.4px) - var(--cm-cur-top, 0px) - var(--cm-cur-h, 16px))) !important;
+  padding-bottom: max(
+    0px,
+    calc(var(--cm-line-h, 22.4px) - var(--cm-cur-top, 0px) - var(--cm-cur-h, 16px))
+  ) !important;
   margin-top: calc(-1 * var(--cm-cur-top, 0px)) !important;
 }
-.cm-focused .cm-fat-cursor { background: var(--color-text) !important; }
+.cm-focused .cm-fat-cursor {
+  background: var(--color-text) !important;
+}
 .cm-editor:not(.cm-focused) .cm-fat-cursor {
   background: none !important;
   outline: 1px solid var(--color-text) !important;
@@ -843,20 +918,48 @@ select option::checkmark {
   border-radius: 3px;
   padding: 0.05em 0.2em;
 }
-.snote-color[data-fg='red'] { --snote-fg: var(--c-red); }
-.snote-color[data-fg='orange'] { --snote-fg: var(--c-orange); }
-.snote-color[data-fg='yellow'] { --snote-fg: var(--c-yellow); }
-.snote-color[data-fg='green'] { --snote-fg: var(--c-green); }
-.snote-color[data-fg='blue'] { --snote-fg: var(--c-blue); }
-.snote-color[data-fg='purple'] { --snote-fg: var(--c-purple); }
-.snote-color[data-fg='gray'] { --snote-fg: var(--c-gray); }
-.snote-color[data-bg='red'] { --snote-bg: var(--c-red); }
-.snote-color[data-bg='orange'] { --snote-bg: var(--c-orange); }
-.snote-color[data-bg='yellow'] { --snote-bg: var(--c-yellow); }
-.snote-color[data-bg='green'] { --snote-bg: var(--c-green); }
-.snote-color[data-bg='blue'] { --snote-bg: var(--c-blue); }
-.snote-color[data-bg='purple'] { --snote-bg: var(--c-purple); }
-.snote-color[data-bg='gray'] { --snote-bg: var(--c-gray); }
+.snote-color[data-fg='red'] {
+  --snote-fg: var(--c-red);
+}
+.snote-color[data-fg='orange'] {
+  --snote-fg: var(--c-orange);
+}
+.snote-color[data-fg='yellow'] {
+  --snote-fg: var(--c-yellow);
+}
+.snote-color[data-fg='green'] {
+  --snote-fg: var(--c-green);
+}
+.snote-color[data-fg='blue'] {
+  --snote-fg: var(--c-blue);
+}
+.snote-color[data-fg='purple'] {
+  --snote-fg: var(--c-purple);
+}
+.snote-color[data-fg='gray'] {
+  --snote-fg: var(--c-gray);
+}
+.snote-color[data-bg='red'] {
+  --snote-bg: var(--c-red);
+}
+.snote-color[data-bg='orange'] {
+  --snote-bg: var(--c-orange);
+}
+.snote-color[data-bg='yellow'] {
+  --snote-bg: var(--c-yellow);
+}
+.snote-color[data-bg='green'] {
+  --snote-bg: var(--c-green);
+}
+.snote-color[data-bg='blue'] {
+  --snote-bg: var(--c-blue);
+}
+.snote-color[data-bg='purple'] {
+  --snote-bg: var(--c-purple);
+}
+.snote-color[data-bg='gray'] {
+  --snote-bg: var(--c-gray);
+}
 .cm-color-swatch {
   display: inline-block;
   width: 0.8em;
@@ -1024,8 +1127,14 @@ select option::checkmark {
 .snote-ac {
   font-family: var(--font-editor);
 }
-.snote-font-opt .cm-completionLabel { display: none; }
-.snote-font-prev { font-size: 15px; line-height: 1.5; color: var(--color-text); }
+.snote-font-opt .cm-completionLabel {
+  display: none;
+}
+.snote-font-prev {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--color-text);
+}
 .snote-swatch {
   display: inline-block;
   width: 10px;
@@ -1196,16 +1305,36 @@ select option::checkmark {
     0 0 0 1px rgba(0, 0, 0, 0.12),
     0 6px 20px rgba(0, 0, 0, 0.25);
 }
-.snote-page .tp-text { min-height: 1.5em; padding: 2px 0; white-space: pre-wrap; }
-.snote-page .tp-line { height: 0; margin: 6px 0; border-top: 1px solid var(--tp-ink); }
-.snote-page .tp-line-thick { border-top-width: 3px; }
-.snote-page .tp-line-dashed { border-top-style: dashed; }
+.snote-page .tp-text {
+  min-height: 1.5em;
+  padding: 2px 0;
+  white-space: pre-wrap;
+}
+.snote-page .tp-line {
+  height: 0;
+  margin: 6px 0;
+  border-top: 1px solid var(--tp-ink);
+}
+.snote-page .tp-line-thick {
+  border-top-width: 3px;
+}
+.snote-page .tp-line-dashed {
+  border-top-style: dashed;
+}
 .snote-page .tp-line-double {
   height: 3px;
   border-bottom: 1px solid var(--tp-ink);
 }
-.snote-page .tp-box { margin: 6px 0; padding: 6px 8px; border: 1px solid var(--tp-ink); }
-.snote-page table.tp-table { width: 100%; margin: 4px 0; border-collapse: collapse; }
+.snote-page .tp-box {
+  margin: 6px 0;
+  padding: 6px 8px;
+  border: 1px solid var(--tp-ink);
+}
+.snote-page table.tp-table {
+  width: 100%;
+  margin: 4px 0;
+  border-collapse: collapse;
+}
 .snote-page .tp-table th,
 .snote-page .tp-table td {
   padding: 3px 6px;
@@ -1222,16 +1351,32 @@ select option::checkmark {
 }
 
 /* 격자 */
-.snote-page .tq-grid { display: grid; box-sizing: border-box; margin: 0; }
-.snote-page .tq-cell { display: flex; box-sizing: border-box; min-width: 0; padding: 2pt 4pt; }
+.snote-page .tq-grid {
+  display: grid;
+  box-sizing: border-box;
+  margin: 0;
+}
+.snote-page .tq-cell {
+  display: flex;
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 2pt 4pt;
+}
 .snote-page .tq-text {
   width: 100%;
   white-space: pre-wrap;
   word-break: break-word;
   font-variant-numeric: tabular-nums;
 }
-.snote-page .tq-dist { display: flex; flex-wrap: wrap; justify-content: space-between; width: 100%; }
-.snote-page .tq-cell.tq-vertical { justify-content: center; }
+.snote-page .tq-dist {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  width: 100%;
+}
+.snote-page .tq-cell.tq-vertical {
+  justify-content: center;
+}
 .snote-page .tq-vertical .tq-text {
   width: auto;
   white-space: pre;
@@ -1240,8 +1385,13 @@ select option::checkmark {
 }
 
 /* 종이 바깥 포장과 경고 */
-.snote-template-wrap { position: relative; margin: 0; }
-.snote-template-wrap .snote-page { margin: 0 auto; }
+.snote-template-wrap {
+  position: relative;
+  margin: 0;
+}
+.snote-template-wrap .snote-page {
+  margin: 0 auto;
+}
 .tp-warn {
   max-width: 210mm;
   margin: 6px auto 0;
@@ -1272,8 +1422,12 @@ select option::checkmark {
   border-color: var(--color-accent);
   opacity: 1;
 }
-.snote-template-wrap .tq-cell { cursor: default; }
-.snote-template-wrap.tq-editmode .tq-cell { cursor: text; }
+.snote-template-wrap .tq-cell {
+  cursor: default;
+}
+.snote-template-wrap.tq-editmode .tq-cell {
+  cursor: text;
+}
 .snote-page .tq-cell.tq-selected {
   background-image: linear-gradient(rgba(128, 128, 128, 0.28), rgba(128, 128, 128, 0.28));
 }
@@ -1310,8 +1464,12 @@ select option::checkmark {
 .tq-editmode .tq-grid.tq-frame-none {
   outline: 1px dashed #e5484d;
 }
-.snote-page .tq-math .katex { font-size: 1.1em; }
-.katex .msupsub { font-size: 0.8em; }
+.snote-page .tq-math .katex {
+  font-size: 1.1em;
+}
+.katex .msupsub {
+  font-size: 0.8em;
+}
 .snote-page math-field.tq-mf {
   display: inline-block;
   font-size: 1em;
@@ -1325,10 +1483,17 @@ select option::checkmark {
   --selection-background-color: rgba(59, 130, 246, 0.3);
   --selection-color: inherit;
 }
-.snote-page math-field.tq-mf:focus-within { border-color: #3b82f6; outline: none; }
+.snote-page math-field.tq-mf:focus-within {
+  border-color: #3b82f6;
+  outline: none;
+}
 .snote-page math-field.tq-mf::part(virtual-keyboard-toggle),
-.snote-page math-field.tq-mf::part(menu-toggle) { display: none; }
-.snote-page .tp-block { margin: 6px 0; }
+.snote-page math-field.tq-mf::part(menu-toggle) {
+  display: none;
+}
+.snote-page .tp-block {
+  margin: 6px 0;
+}
 .snote-page .code-chart {
   --color-bg: #fff;
   --color-text-secondary: #444;
@@ -1336,7 +1501,9 @@ select option::checkmark {
   --color-border: #ddd;
   --color-border-strong: #999;
 }
-.cm-codeblock-first { position: relative; }
+.cm-codeblock-first {
+  position: relative;
+}
 .cm-codebar {
   display: inline-block !important;
   width: 0 !important;
@@ -1353,7 +1520,10 @@ select option::checkmark {
   top: 50% !important;
   transform: translateY(-50%) !important;
 }
-.katex-display { margin: 0 !important; text-align: left !important; }
+.katex-display {
+  margin: 0 !important;
+  text-align: left !important;
+}
 .snote-page .tp-text[contenteditable] {
   outline: none;
   background: none;

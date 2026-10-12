@@ -32,7 +32,11 @@ function combine(list: (EdgeVal | null)[]): EdgeVal | 'mixed' | null {
 const parseDiag = (s: string | undefined): EdgeVal | null => {
   if (!s) return null
   const [kind, w, c] = s.split(',')
-  return { kind, w: w === '' || w === undefined ? null : Number(w), c: c === '' || c === undefined ? null : c }
+  return {
+    kind,
+    w: w === '' || w === undefined ? null : Number(w),
+    c: c === '' || c === undefined ? null : c
+  }
 }
 
 export function readEdges(
@@ -78,10 +82,13 @@ export function readEdges(
     for (const b of bs) for (let c = rect.c1; c <= rect.c2; c++) out.push(at('h', b, c))
     return out
   }
-  const range = (a: number, b: number): number[] => Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i)
+  const range = (a: number, b: number): number[] =>
+    Array.from({ length: Math.max(0, b - a + 1) }, (_, i) => a + i)
   const cells = Array.from(grid.querySelectorAll<HTMLElement>('.tq-cell')).filter((x) => {
-    const r = Number(x.dataset.r), c = Number(x.dataset.c)
-    const rs = Number(x.dataset.rs), cs = Number(x.dataset.cs)
+    const r = Number(x.dataset.r),
+      c = Number(x.dataset.c)
+    const rs = Number(x.dataset.rs),
+      cs = Number(x.dataset.cs)
     return r + rs > rect.r1 && r <= rect.r2 && c + cs > rect.c1 && c <= rect.c2
   })
   return {

@@ -88,7 +88,7 @@ interface RunResult {
   values: Record<string, string>
 }
 
-export interface SyntaxNoteApi {
+export interface MarkRoomApi {
   app: {
     getChangelog: () => Promise<string | null>
   }
@@ -154,8 +154,8 @@ export interface SyntaxNoteApi {
     openPath: (targetPath: string) => Promise<string>
     prepareExport: (
       parentDir: string,
-      name: string, 
-      md: boolean, 
+      name: string,
+      md: boolean,
       pdf: boolean
     ) => Promise<PrepareResult>
     listRecoverable: () => Promise<RecoverableItem[]>
@@ -181,6 +181,6 @@ export interface SyntaxNoteApi {
 declare global {
   interface Window {
     electron: ElectronAPI
-    api: SyntaxNoteApi
+    api: MarkRoomApi
   }
 }

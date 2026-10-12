@@ -10,7 +10,17 @@ import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { runPython } from '@renderer/python/pyRunner'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
-import { addCellText, applyGridEdit, deleteEmptyTextLine, readGrid, redoEditor, replaceCellText, replaceTextLine, splitTextLine, undoEditor } from '../editor/MarkdownEditor'
+import {
+  addCellText,
+  applyGridEdit,
+  deleteEmptyTextLine,
+  readGrid,
+  redoEditor,
+  replaceCellText,
+  replaceTextLine,
+  splitTextLine,
+  undoEditor
+} from '../editor/MarkdownEditor'
 import { createToolbar, type Toolbar } from './templateToolbar'
 import {
   deleteCols,
@@ -35,7 +45,17 @@ import { toast } from './uiKit'
 import { openBorderPanel, openSplitPanel, type BorderState } from './templatePanels'
 import { readEdges } from './templateRead'
 import { renderMath } from './mathText'
-import { applyCaret, applyInline, fillCell, inlineAt, mkScript, serializeCell, styleScript, textChangeOf, type TextChange } from './cellInline'
+import {
+  applyCaret,
+  applyInline,
+  fillCell,
+  inlineAt,
+  mkScript,
+  serializeCell,
+  styleScript,
+  textChangeOf,
+  type TextChange
+} from './cellInline'
 import { enterMath, isMath, mathBeside, texOf } from './cellMath'
 
 export interface MarkdownPreviewHandle {
@@ -48,7 +68,7 @@ interface MarkdownPreviewProps {
   onScrollRatio?: (ratio: number) => void
   onWikilinkClick?: (title: string) => void
   onToggleTask?: (line: number) => void
-  onReplaceSource? : (next: string) => void
+  onReplaceSource?: (next: string) => void
   /** 문서 안 가장 넓은 이미지가 줄어들지 않고 들어갈 프리뷰 최소 너비(px). 이미지가 없으면 0. */
   onMinWidthChange?: (px: number) => void
   /** 문서에 서식(template)이 들어 있는지. 들어 있으면 App이 5:5로 고정한다. */
@@ -57,7 +77,20 @@ interface MarkdownPreviewProps {
 }
 
 export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(
-  function MarkdownPreview({ source, baseDir, onScrollRatio, onWikilinkClick, onToggleTask, onReplaceSource, onMinWidthChange, onHasTemplateChange, className }, ref) {
+  function MarkdownPreview(
+    {
+      source,
+      baseDir,
+      onScrollRatio,
+      onWikilinkClick,
+      onToggleTask,
+      onReplaceSource,
+      onMinWidthChange,
+      onHasTemplateChange,
+      className
+    },
+    ref
+  ) {
     const containerRef = useRef<HTMLDivElement>(null)
     const onScrollRatioRef = useRef(onScrollRatio)
     const onWikilinkClickRef = useRef(onWikilinkClick)
@@ -135,7 +168,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       el.addEventListener('click', handleClick)
       return () => el.removeEventListener('click', handleClick)
     }, [])
-    
+
     useEffect(() => {
       const el = containerRef.current
       if (!el) return
@@ -289,7 +322,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           e.textContent = parsed.error
           node.replaceChildren(e)
         } else {
-          const wrap =renderTemplate(parsed)
+          const wrap = renderTemplate(parsed)
           const btn = document.createElement('button')
           btn.type = 'button'
           btn.className = 'tp-edit-btn'
@@ -311,7 +344,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
               wrap.classList.add('tq-editmode')
               btn.textContent = '편집 끝'
             }
-            for (const n of Array.from(el.querySelectorAll('.tq-selected'))) n.classList.remove('tq-selected')
+            for (const n of Array.from(el.querySelectorAll('.tq-selected')))
+              n.classList.remove('tq-selected')
           })
           wrap.appendChild(btn)
           node.replaceChildren(wrap)
@@ -463,13 +497,13 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
 
         const onApplyValues = (): void => {
-        const next = applyValues(sourceRef.current, pendingValues)
-        if (next === null) {
-          valueBtn.textContent = 'template을 못 찾았어요'
-          return
+          const next = applyValues(sourceRef.current, pendingValues)
+          if (next === null) {
+            valueBtn.textContent = 'template을 못 찾았어요'
+            return
+          }
+          onReplaceSourceRef.current?.(next)
         }
-        onReplaceSourceRef.current?.(next)
-      }
 
         button.addEventListener('click', onClick)
         saveBtn?.addEventListener('click', onSave)
@@ -537,7 +571,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
           ? null
-          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[editIdxRef.current] ?? null)
+          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[
+              editIdxRef.current
+            ] ?? null)
       let gridIdx: number | null = null
       const gridEl = (): HTMLElement | null => {
         const g = grid()
@@ -583,7 +619,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         return { rows, cols }
       }
       const paint = (): void => {
-        for (const n of Array.from(el.querySelectorAll('.tq-selected'))) n.classList.remove('tq-selected')
+        for (const n of Array.from(el.querySelectorAll('.tq-selected')))
+          n.classList.remove('tq-selected')
         toolbar?.refresh()
         refreshBorderPanel()
         el.dispatchEvent(new Event('snote-editmode'))
@@ -597,15 +634,15 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }
       const normalize = (s: Sel): Sel => {
         let { r1, c1, r2, c2 } = s
-        for (let again = true; again; ) {
+        for (let again = true; again;) {
           again = false
           for (const x of cells()) {
             const p = rcOf(x)
             if (p.r + p.rs > r1 && p.r <= r2 && p.c + p.cs > c1 && p.c <= c2) {
-              if (p.r < r1) (r1 = p.r), (again = true)
-              if (p.c < c1) (c1 = p.c), (again = true)
-              if (p.r + p.rs - 1 > r2) (r2 = p.r + p.rs - 1), (again = true)
-              if (p.c + p.cs - 1 > c2) (c2 = p.c + p.cs - 1), (again = true)
+              if (p.r < r1) ((r1 = p.r), (again = true))
+              if (p.c < c1) ((c1 = p.c), (again = true))
+              if (p.r + p.rs - 1 > r2) ((r2 = p.r + p.rs - 1), (again = true))
+              if (p.c + p.cs - 1 > c2) ((c2 = p.c + p.cs - 1), (again = true))
             }
           }
         }
@@ -681,7 +718,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         let placed = false
         if (at) {
           const d = document as Document & {
-            caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null
+            caretPositionFromPoint?: (
+              x: number,
+              y: number
+            ) => { offsetNode: Node; offset: number } | null
             caretRangeFromPoint?: (x: number, y: number) => Range | null
           }
           const cp = d.caretPositionFromPoint?.(at.x, at.y)
@@ -708,13 +748,16 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           if (isMath(hit)) enterMath(hit, 'end')
         }
       }
-      const moveTab = (from: { r: number; c: number; rs: number; cs: number }, dir: number): void => {
+      const moveTab = (
+        from: { r: number; c: number; rs: number; cs: number },
+        dir: number
+      ): void => {
         const { rows, cols } = size()
         let r = from.r
         let c = dir > 0 ? from.c + from.cs : from.c - 1
         for (let guard = 0; guard < rows * cols + 2; guard++) {
-          if (c >= cols) (c = 0), r++
-          if (c < 0) (c = cols - 1), r--
+          if (c >= cols) ((c = 0), r++)
+          if (c < 0) ((c = cols - 1), r--)
           if (r < 0 || r >= rows) return
           const x = cellAt(r, c)
           if (x) {
@@ -732,7 +775,12 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       function onEditKey(e: KeyboardEvent): void {
         e.stopPropagation()
         if (e.isComposing) return
-        if ((e.target as Element | null)?.closest?.('math-field') && e.key !== 'Escape' && e.key !== 'F5') return
+        if (
+          (e.target as Element | null)?.closest?.('math-field') &&
+          e.key !== 'Escape' &&
+          e.key !== 'F5'
+        )
+          return
         if ((e.key === ' ' || e.key === 'Enter') && !e.ctrlKey && !e.altKey && !e.metaKey) {
           const s0 = window.getSelection()
           const sp = s0 && s0.isCollapsed ? spanOf(s0.anchorNode) : null
@@ -762,7 +810,12 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           commit()
           window.setTimeout(() => moveTab(p, e.shiftKey ? -1 : 1), 0)
         } else if (e.key.startsWith('Arrow') && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-          const near = e.key === 'ArrowRight' ? mathBeside(box, 1) : e.key === 'ArrowLeft' ? mathBeside(box, -1) : null
+          const near =
+            e.key === 'ArrowRight'
+              ? mathBeside(box, 1)
+              : e.key === 'ArrowLeft'
+                ? mathBeside(box, -1)
+                : null
           if (near) {
             e.preventDefault()
             enterMath(near, e.key === 'ArrowRight' ? 'start' : 'end')
@@ -822,7 +875,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         replaceTextLine(Number(box.dataset.tline), value)
       }
 
-      const openText = (t: HTMLElement, at: { x: number; y: number } | null, where: 'start' | 'end'): void => {
+      const openText = (
+        t: HTMLElement,
+        at: { x: number; y: number } | null,
+        where: 'start' | 'end'
+      ): void => {
         if (tEdit) tCommit()
         tEdit = t
         tHtml = t.innerHTML
@@ -833,121 +890,134 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         t.addEventListener('focusout', tOut)
         t.addEventListener('keydown', tKey)
         t.focus()
-        const d = document as Document & { caretRangeFromPoint?: (x: number, y: number) => Range | null }
+        const d = document as Document & {
+          caretRangeFromPoint?: (x: number, y: number) => Range | null
+        }
         let rg = at ? (d.caretRangeFromPoint?.(at.x, at.y) ?? null) : null
         if (!rg || !t.contains(rg.startContainer)) {
           rg = document.createRange()
           rg.selectNodeContents(t)
           rg.collapse(where === 'start')
+        }
+        const s = window.getSelection()
+        s?.removeAllRanges()
+        s?.addRange(rg)
       }
-      const s = window.getSelection()
-      s?.removeAllRanges()
-      s?.addRange(rg)
-    }
 
-    const root0 = (): HTMLElement => el as HTMLElement
-    function tOut(e: FocusEvent): void {
-      const to = e.relatedTarget as Node | null
-      if (to && tEdit && (tEdit.contains(to) || toolbar?.el.contains(to))) return
-      tCommit()
-    }
-
-    function tKey(e: KeyboardEvent): void {
-      e.stopPropagation()
-      if (e.isComposing) return
-      if (e.key === 'Escape') {
-        e.preventDefault()
+      const root0 = (): HTMLElement => el as HTMLElement
+      function tOut(e: FocusEvent): void {
+        const to = e.relatedTarget as Node | null
+        if (to && tEdit && (tEdit.contains(to) || toolbar?.el.contains(to))) return
         tCommit()
-        return
       }
-      if (e.key === 'Backspace') {
-        const bx = e.currentTarget as HTMLElement
-        const sl = window.getSelection()
-        if (!sl || !sl.isCollapsed) return
-        if (bx.innerText.replace(/[\s\u200b]/g, '') !== '') return
+
+      function tKey(e: KeyboardEvent): void {
+        e.stopPropagation()
+        if (e.isComposing) return
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          tCommit()
+          return
+        }
+        if (e.key === 'Backspace') {
+          const bx = e.currentTarget as HTMLElement
+          const sl = window.getSelection()
+          if (!sl || !sl.isCollapsed) return
+          if (bx.innerText.replace(/[\s\u200b]/g, '') !== '') return
+          e.preventDefault()
+          const ln = Number(bx.dataset.tline)
+          let removed = true
+          const root = el
+          onceRendered(() => {
+            if (!removed) return
+            const prev = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${ln - 1}"]`)
+            if (prev) openText(prev, null, 'end')
+          })
+          removed = deleteEmptyTextLine(ln)
+          if (!removed) return
+          tEdit = null
+          bx.removeEventListener('focusout', tOut)
+          bx.removeEventListener('keydown', tKey)
+          bx.contentEditable = 'false'
+          return
+        }
+        if (
+          (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
+          !e.shiftKey &&
+          !e.ctrlKey &&
+          !e.altKey &&
+          !e.metaKey
+        ) {
+          const ax = e.currentTarget as HTMLElement
+          const sa = window.getSelection()
+          if (!sa || !sa.isCollapsed || !sa.anchorNode || !ax.contains(sa.anchorNode)) return
+          const all = ax.innerText.replace(/\n$/, '')
+          const rr = document.createRange()
+          rr.selectNodeContents(ax)
+          rr.setEnd(sa.anchorNode, sa.anchorOffset)
+          const off = rr.toString().length
+          const up = e.key === 'ArrowUp'
+          if (up ? all.slice(0, off).includes('\n') : all.slice(off).includes('\n')) return
+          const list = Array.from(root0().querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
+          const nx = list[list.indexOf(ax) + (up ? -1 : 1)]
+          if (!nx) return
+          e.preventDefault()
+          openText(nx, null, up ? 'end' : 'end')
+        }
+        if (e.key !== 'Enter') return
         e.preventDefault()
-        const ln = Number(bx.dataset.tline)
-        let removed = true
+        const box = e.currentTarget as HTMLElement
+        const s = window.getSelection()
+        if (!s || s.rangeCount === 0 || !box.contains(s.anchorNode)) return
+        const r = s.getRangeAt(0)
+        const full = box.innerText.replace(/\n$/, '')
+        const pre = document.createRange()
+        pre.selectNodeContents(box)
+        pre.setEnd(r.startContainer, r.startOffset)
+        const upTo = document.createRange()
+        upTo.selectNodeContents(box)
+        upTo.setEnd(r.endContainer, r.endOffset)
+        const before = full.slice(0, pre.toString().length)
+        const after = full.slice(upTo.toString().length)
+        const line = Number(box.dataset.tline)
+        tEdit = null
+        box.removeEventListener('focusout', tOut)
+        box.removeEventListener('keydown', tKey)
+        box.contentEditable = 'false'
         const root = el
         onceRendered(() => {
-          if (!removed) return
-          const prev = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${ln - 1}"]`)
-          if (prev) openText(prev, null, 'end')
+          const next = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${line + 1}"]`)
+          if (next) openText(next, null, 'start')
         })
-        removed = deleteEmptyTextLine(ln)
-        if (!removed) return
-        tEdit = null
-        bx.removeEventListener('focusout', tOut)
-        bx.removeEventListener('keydown', tKey)
-        bx.contentEditable = 'false'
-        return
+        splitTextLine(line, before, after)
       }
-      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        const ax = e.currentTarget as HTMLElement
-        const sa = window.getSelection()
-        if (!sa || !sa.isCollapsed || !sa.anchorNode || !ax.contains(sa.anchorNode)) return
-        const all = ax.innerText.replace(/\n$/, '')
-        const rr = document.createRange()
-        rr.selectNodeContents(ax)
-        rr.setEnd(sa.anchorNode, sa.anchorOffset)
-        const off = rr.toString().length
-        const up = e.key === 'ArrowUp'
-        if (up ? all.slice(0, off).includes('\n') : all.slice(off).includes('\n')) return
-        const list = Array.from(root0().querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
-        const nx = list[list.indexOf(ax) + (up ? -1 : 1)]
-        if (!nx) return
-        e.preventDefault()
-        openText(nx, null, up ? 'end' : 'end')
-      }
-      if (e.key !== 'Enter') return
-      e.preventDefault()
-      const box = e.currentTarget as HTMLElement
-      const s = window.getSelection()
-      if (!s || s.rangeCount === 0 || !box.contains(s.anchorNode)) return
-      const r = s.getRangeAt(0)
-      const full = box.innerText.replace(/\n$/, '')
-      const pre = document.createRange()
-      pre.selectNodeContents(box)
-      pre.setEnd(r.startContainer, r.startOffset)
-      const upTo = document.createRange()
-      upTo.selectNodeContents(box)
-      upTo.setEnd(r.endContainer, r.endOffset)
-      const before = full.slice(0, pre.toString().length)
-      const after = full.slice(upTo.toString().length)
-      const line = Number(box.dataset.tline)
-      tEdit = null
-      box.removeEventListener('focusout', tOut)
-      box.removeEventListener('keydown', tKey)
-      box.contentEditable = 'false'
-      const root = el
-      onceRendered(() => {
-        const next = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${line + 1}"]`)
-        if (next) openText(next, null, 'start')
-      })
-      splitTextLine(line, before, after)
-    }
-    const onTextClick = (e: MouseEvent): void => {
-      if (!editModeRef.current || e.button !== 0) return
-      const tg = e.target instanceof Element ? e.target : null
-      if (!tg || tg.closest('.tq-cell, .tp-edit-btn')) return
-      let t = tg.closest<HTMLElement>('.tp-text[data-tline]')
-      const direct = t !== null
-      if (!t) {
-        const page = tg.closest<HTMLElement>('.snote-page')
-        if (!page) return
-        let bestD = Infinity
-        for (const x of Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))) {
-          const r = x.getBoundingClientRect()
-          const d = e.clientY < r.top ? r.top - e.clientY : e.clientY > r.bottom ? e.clientY - r.bottom : 0
-          if (d < bestD) {
-            bestD = d
-            t = x
+      const onTextClick = (e: MouseEvent): void => {
+        if (!editModeRef.current || e.button !== 0) return
+        const tg = e.target instanceof Element ? e.target : null
+        if (!tg || tg.closest('.tq-cell, .tp-edit-btn')) return
+        let t = tg.closest<HTMLElement>('.tp-text[data-tline]')
+        const direct = t !== null
+        if (!t) {
+          const page = tg.closest<HTMLElement>('.snote-page')
+          if (!page) return
+          let bestD = Infinity
+          for (const x of Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))) {
+            const r = x.getBoundingClientRect()
+            const d =
+              e.clientY < r.top
+                ? r.top - e.clientY
+                : e.clientY > r.bottom
+                  ? e.clientY - r.bottom
+                  : 0
+            if (d < bestD) {
+              bestD = d
+              t = x
+            }
           }
         }
+        if (!t || t === tEdit) return
+        openText(t, direct ? { x: e.clientX, y: e.clientY } : null, 'end')
       }
-      if (!t || t === tEdit) return
-      openText(t, direct ? { x: e.clientX, y: e.clientY } : null, 'end')
-    }
       const onDown = (e: MouseEvent): void => {
         if (!editModeRef.current || e.button !== 0) return
         const x = cellOf(e.target)
@@ -1044,7 +1114,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           }
         })
       }
-      const doEdit = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): void => {
+      const doEdit = (
+        fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
+      ): void => {
         const info = gridInfo()
         if (!info || !sel) return
         const rect: Rect = normalize(sel)
@@ -1197,12 +1269,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         let acc = 0
         for (let k = 0; k < cols.length - 1; k++) {
           acc += cols[k]
-          if (Math.abs(e.clientX - (r.left + (acc / sc) * r.width)) <= TOL) return { g: t, kind: 'col', idx: k }
+          if (Math.abs(e.clientX - (r.left + (acc / sc) * r.width)) <= TOL)
+            return { g: t, kind: 'col', idx: k }
         }
         acc = 0
         for (let k = 0; k < rows.length; k++) {
           acc += rows[k]
-          if (Math.abs(e.clientY - (r.top + (acc / sr) * r.height)) <= TOL) return { g: t, kind: 'row', idx: k }
+          if (Math.abs(e.clientY - (r.top + (acc / sr) * r.height)) <= TOL)
+            return { g: t, kind: 'row', idx: k }
         }
         return null
       }
@@ -1251,7 +1325,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           hit.g.style.gridTemplateColumns = list.map((v) => `${v}mm`).join(' ')
         } else {
           const sum = rz.rowsPx.reduce((a, b) => a + b, 0)
-          const dmm = (((e.clientY - rz.start) * sum) / rect.height) / PX_MM
+          const dmm = ((e.clientY - rz.start) * sum) / rect.height / PX_MM
           const h = Math.max(3, Math.round((rz.rowsPx[hit.idx] / PX_MM + dmm) * 2) / 2)
           rz.h = h
           hit.g.style.gridTemplateRows = rz.rowsPx
@@ -1290,7 +1364,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           undoStyle()
         }
       }
-      const bs: BorderState = { kind: 'solid', w: null, c: null}
+      const bs: BorderState = { kind: 'solid', w: null, c: null }
       let borderPanel: ReturnType<typeof openBorderPanel> | null = null
       const closeBorderPanel = (): void => {
         borderPanel?.box.remove()
@@ -1301,7 +1375,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const g = gridEl()
         borderPanel.setEdges(g && sel ? readEdges(g, normalize(sel)) : {})
       }
-      const runBorder = (fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult): boolean => {
+      const runBorder = (
+        fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
+      ): boolean => {
         const info = gridInfo()
         if (!info || !sel) {
           toast('칸을 먼저 선택해 주세요')
@@ -1356,7 +1432,12 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!box) return null
         const s = window.getSelection()
         if (s && s.rangeCount > 0 && box.contains(s.anchorNode)) return s.getRangeAt(0)
-        if (lastRange && box.contains(lastRange.startContainer) && box.contains(lastRange.endContainer)) return lastRange
+        if (
+          lastRange &&
+          box.contains(lastRange.startContainer) &&
+          box.contains(lastRange.endContainer)
+        )
+          return lastRange
         return null
       }
       const applyText = (box: HTMLElement, tc: TextChange): void => {
@@ -1398,7 +1479,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             if (x) startEdit(x)
           }
           commit()
-          if (changed) onceRendered(() => { if (runCell(t, ch)) onceRendered(reopen) })
+          if (changed)
+            onceRendered(() => {
+              if (runCell(t, ch)) onceRendered(reopen)
+            })
           else if (runCell(t, ch)) onceRendered(reopen)
         },
         script: (kind) => {
@@ -1465,8 +1549,17 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           }
           if (xs.length === 0) return null
           const same = (a: string[]): string | null => (a.every((v) => v === a[0]) ? a[0] : null)
-          const fs = same(xs.map((x) => String(Math.round(parseFloat(x.style.fontSize) * 100) / 100)))
-          const ff = same(xs.map((x) => getComputedStyle(x).fontFamily.split(',')[0].trim().replace(/^["']|["']$/g, '')))
+          const fs = same(
+            xs.map((x) => String(Math.round(parseFloat(x.style.fontSize) * 100) / 100))
+          )
+          const ff = same(
+            xs.map((x) =>
+              getComputedStyle(x)
+                .fontFamily.split(',')[0]
+                .trim()
+                .replace(/^["']|["']$/g, '')
+            )
+          )
           return { fs: fs === 'NaN' ? null : fs, ff }
         },
         read: () => {
@@ -1491,7 +1584,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const onSel = (): void => {
         if (!editing) return
         const s = window.getSelection()
-        if (s && s.rangeCount > 0 && editing.contains(s.anchorNode)) lastRange = s.getRangeAt(0).cloneRange()
+        if (s && s.rangeCount > 0 && editing.contains(s.anchorNode))
+          lastRange = s.getRangeAt(0).cloneRange()
         toolbar?.syncScript()
         toolbar?.refresh()
       }

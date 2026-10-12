@@ -1,18 +1,59 @@
 import { mdToolbarKeys, mdToolbarPanel } from './editorToolbar'
 import { slashMenu } from './slashMenu'
-import { HighlightStyle, syntaxHighlighting, syntaxTree, foldable, foldedRanges, foldEffect, unfoldEffect } from '@codemirror/language'
+import {
+  HighlightStyle,
+  syntaxHighlighting,
+  syntaxTree,
+  foldable,
+  foldedRanges,
+  foldEffect,
+  unfoldEffect
+} from '@codemirror/language'
 import chevronSvg from '../icons/chevron.svg?raw'
 import boldIcon from '../icons/tb-bold.svg?raw'
 import italicIcon from '../icons/tb-italic.svg?raw'
 import strikeIcon from '../icons/tb-strike.svg?raw'
 import codeIcon from '../icons/tb-code-inline.svg?raw'
 import linkIcon from '../icons/tb-link.svg?raw'
-import { tags } from "@lezer/highlight"
+import { tags } from '@lezer/highlight'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import { Annotation, ChangeSet, Compartment, EditorState, Prec, RangeSetBuilder, StateEffect, StateField, RangeSet, type Text, type Extension } from '@codemirror/state'
-import { EditorView, keymap, drawSelection, Decoration, ViewPlugin, showTooltip, gutter, GutterMarker, tooltips, type DecorationSet, type ViewUpdate, type Tooltip, type TooltipView } from '@codemirror/view'
+import {
+  Annotation,
+  ChangeSet,
+  Compartment,
+  EditorState,
+  Prec,
+  RangeSetBuilder,
+  StateEffect,
+  StateField,
+  RangeSet,
+  type Text,
+  type Extension
+} from '@codemirror/state'
+import {
+  EditorView,
+  keymap,
+  drawSelection,
+  Decoration,
+  ViewPlugin,
+  showTooltip,
+  gutter,
+  GutterMarker,
+  tooltips,
+  type DecorationSet,
+  type ViewUpdate,
+  type Tooltip,
+  type TooltipView
+} from '@codemirror/view'
 import { basicSetup } from 'codemirror'
-import { defaultKeymap, history, historyKeymap, indentWithTab, redo, undo } from '@codemirror/commands'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  indentWithTab,
+  redo,
+  undo
+} from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { search, searchKeymap } from '@codemirror/search'
@@ -138,7 +179,9 @@ export function readGrid<T>(compute: (getLine: (n: number) => string) => T): T |
 
 /** 격자 편집(합치기/나누기) 결과를 문서에 적용한다. 실패하면 오류 글자를, 성공하면 null을 돌려준다. */
 export function applyGridEdit(
-  compute: (getLine: (n: number) => string) => { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }
+  compute: (
+    getLine: (n: number) => string
+  ) => { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }
 ): string | null {
   const view = currentView
   if (!view) return '편집기를 찾을 수 없어요'
@@ -238,7 +281,11 @@ export function addCellText(
 
 const markdownHighlight = HighlightStyle.define([
   { tag: tags.processingInstruction, color: 'var(--color-text-tertiary)' },
-  { tag: [tags.heading1, tags.heading2, tags.heading3, tags.heading4, tags.heading5, tags.heading6], fontWeight: '400', color: 'var(--color-syntax-heading)' },
+  {
+    tag: [tags.heading1, tags.heading2, tags.heading3, tags.heading4, tags.heading5, tags.heading6],
+    fontWeight: '400',
+    color: 'var(--color-syntax-heading)'
+  },
   { tag: tags.strong, fontWeight: '400', color: 'var(--color-syntax-strong)' },
   { tag: tags.emphasis, fontStyle: 'italic', color: 'var(--color-syntax-em)' },
   { tag: tags.strikethrough, textDecoration: 'line-through', color: 'var(--color-text-secondary)' },
@@ -465,7 +512,9 @@ function changeGutter(base: string, onClick: () => void): Extension {
       schedule(view: EditorView, delay: number): void {
         if (this.timer) clearTimeout(this.timer)
         this.timer = setTimeout(() => {
-          view.dispatch({ effects: setChangeMarkers.of(computeChangeMarkers(base, view.state.doc)) })
+          view.dispatch({
+            effects: setChangeMarkers.of(computeChangeMarkers(base, view.state.doc))
+          })
         }, delay)
       }
       destroy(): void {
@@ -507,7 +556,11 @@ class FoldChevron extends GutterMarker {
 const chevronOpen = new FoldChevron(false)
 const chevronFolded = new FoldChevron(true)
 
-function foldedAt(state: EditorState, from: number, to: number): { from: number; to: number } | null {
+function foldedAt(
+  state: EditorState,
+  from: number,
+  to: number
+): { from: number; to: number } | null {
   let found = null as { from: number; to: number } | null
   foldedRanges(state).between(from, to, (a, b) => {
     if (a >= from && a <= to) {
@@ -617,12 +670,14 @@ function buildExtensions(
               const head = view.state.selection.main.head
               const c = view.coordsAtPos(head)
               const node = view.domAtPos(head).node
-              const el = (node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest('.cm-line')
+              const el = (node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest(
+                '.cm-line'
+              )
               let topS = 0
               let chS = lineHs
               if (c && el) {
                 const lr = el.getBoundingClientRect()
-                topS = Math.max(0, ((((c.top - lr.top) % lineHs) + lineHs) % lineHs))
+                topS = Math.max(0, (((c.top - lr.top) % lineHs) + lineHs) % lineHs)
                 chS = c.bottom - c.top
               }
               return { lineHs, lineH, topS, chS, sy }
@@ -676,7 +731,7 @@ function buildExtensions(
             const beforeCursor = line.text.slice(0, pos - line.from)
             if (pos !== line.to || !/^\s*[-*+]$/.test(beforeCursor)) return false
             view.dispatch({
-              changes: { from: pos, insert: ' '},
+              changes: { from: pos, insert: ' ' },
               selection: { anchor: pos + 1 }
             })
             return true
@@ -711,23 +766,21 @@ function buildExtensions(
       beforeinput: (e, view) => {
         const vs = getCM(view)?.state.vim
         if (
-          vs && 
-          !vs.insertMode && 
-          (e.inputType === 'deleteContentBackward' || 
+          vs &&
+          !vs.insertMode &&
+          (e.inputType === 'deleteContentBackward' ||
             e.inputType === 'deleteCompositionText' ||
             e.inputType === 'insertText' ||
-            e.inputType === 'insertCompositionText') 
+            e.inputType === 'insertCompositionText')
         ) {
           e.preventDefault()
           return true
         }
         return false
-      },
+      }
     }),
     EditorState.transactionFilter.of((tr) =>
-      (tr.docChanged || tr.selection) &&
-      Date.now() < imeGuardUntil &&
-      !tr.annotation(imeRestore)
+      (tr.docChanged || tr.selection) && Date.now() < imeGuardUntil && !tr.annotation(imeRestore)
         ? []
         : tr
     ),
@@ -827,7 +880,7 @@ function buildExtensions(
         lineHeight: 'var(--editor-line-height)',
         caretColor: 'var(--color-accent)',
         paddingTop: '0px',
-        paddingBottom: '0px',
+        paddingBottom: '0px'
       },
       '.cm-cursor, .cm-cursor-primary': {
         borderLeftColor: 'var(--color-text)',

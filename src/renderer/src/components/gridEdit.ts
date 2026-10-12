@@ -24,8 +24,7 @@ export interface Rect {
 }
 
 export type GridResult =
-  | { ok: true; from: number; to: number; lines: string[] }
-  | { ok: false; error: string }
+  { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }
 
 type GetLine = (n: number) => string
 
@@ -177,14 +176,10 @@ function splitSizes(vals: number[], ns: number[]): number[] | null {
 function cellsIn(info: GridInfo, rect: Rect): CellInfo[] | string {
   const out: CellInfo[] = []
   for (const c of info.cells) {
-    const hit =
-      c.r + c.rs > rect.r1 && c.r <= rect.r2 && c.c + c.cs > rect.c1 && c.c <= rect.c2
+    const hit = c.r + c.rs > rect.r1 && c.r <= rect.r2 && c.c + c.cs > rect.c1 && c.c <= rect.c2
     if (!hit) continue
     const inside =
-      c.r >= rect.r1 &&
-      c.r + c.rs - 1 <= rect.r2 &&
-      c.c >= rect.c1 &&
-      c.c + c.cs - 1 <= rect.c2
+      c.r >= rect.r1 && c.r + c.rs - 1 <= rect.r2 && c.c >= rect.c1 && c.c + c.cs - 1 <= rect.c2
     if (!inside) return '선택한 범위가 칸 경계와 맞지 않아요.'
     out.push(c)
   }
@@ -235,9 +230,7 @@ export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridRes
   if (typeof inside === 'string') return fail(inside)
   if (inside.length < 2) return fail('합칠 칸을 둘 이상 선택해 주세요.')
   const set = new Set(inside)
-  const real = inside
-    .filter((c) => c.def !== null)
-    .sort((a, b) => a.r - b.r || a.c - b.c)
+  const real = inside.filter((c) => c.def !== null).sort((a, b) => a.r - b.r || a.c - b.c)
   const rs = rect.r2 - rect.r1 + 1
   const cs = rect.c2 - rect.c1 + 1
   const gridIndent = (/^\s*/.exec(getLine(info.head))?.[0] ?? '') + '  '
@@ -290,7 +283,11 @@ export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridRes
   return assemble(info, getLine, items, null)
 }
 
-function equalColumns(info: GridInfo, inside: CellInfo[], nCols: number): Map<number, number> | null {
+function equalColumns(
+  info: GridInfo,
+  inside: CellInfo[],
+  nCols: number
+): Map<number, number> | null {
   const groups = new Map<number, number>()
   for (const cell of inside) {
     if (nCols <= cell.cs) return null
@@ -343,7 +340,7 @@ export function splitGrid(
   const colEnd: number[] = []
   let newW: number[] | null = []
   if (eq) {
-    for (let j = 0; j < info.cols; ) {
+    for (let j = 0; j < info.cols;) {
       const len = eq.get(j)
       if (len !== undefined) {
         const pieces = splitSizes([sum(eff, j, len)], [nCols])
@@ -437,23 +434,48 @@ function emptyDef(info: GridInfo, getLine: GetLine): DefParts {
   return { indent: (/^\s*/.exec(getLine(info.head))?.[0] ?? '') + '  ', head: [], tail: [] }
 }
 
-function ensureLastRow(info: GridInfo, getLine: GetLine, items: Out[], rows: number, h: number): void {
+function ensureLastRow(
+  info: GridInfo,
+  getLine: GetLine,
+  items: Out[],
+  rows: number,
+  h: number
+): void {
   if (items.some((it) => it.r + it.rs === rows)) return
   const used = new Set<number>()
   for (const it of items) {
-    if (it.r <= rows - 1 && it.r + it.rs > rows - 1) for (let c = it.c; c < it.c + it.cs; c++) used.add(c)
+    if (it.r <= rows - 1 && it.r + it.rs > rows - 1)
+      for (let c = it.c; c < it.c + it.cs; c++) used.add(c)
   }
   let col = 0
   while (used.has(col)) col++
-  items.push({ key: NEW_KEY, seq: items.length, r: rows - 1, c: col, rs: 1, cs: 1, parts: emptyDef(info, getLine), body: [], h })
+  items.push({
+    key: NEW_KEY,
+    seq: items.length,
+    r: rows - 1,
+    c: col,
+    rs: 1,
+    cs: 1,
+    parts: emptyDef(info, getLine),
+    body: [],
+    h
+  })
 }
 
 function fitWidths(list: number[], total: number): number[] | null {
   const now = list.reduce((a, b) => a + b, 0)
-  return splitSizes(list.map((v) => (v * total) / now), list.map(() => 1))
+  return splitSizes(
+    list.map((v) => (v * total) / now),
+    list.map(() => 1)
+  )
 }
 
-export function insertRows(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
+export function insertRows(
+  info: GridInfo,
+  rect: Rect,
+  after: boolean,
+  getLine: GetLine
+): GridResult {
   const n = rect.r2 - rect.r1 + 1
   const rows = info.heights.length
   if (rows + n > MAX_ROWS) return fail(`줄은 ${MAX_ROWS}개까지예요.`)
@@ -473,22 +495,44 @@ export function insertRows(info: GridInfo, rect: Rect, after: boolean, getLine: 
       const old = hOf(parts)
       if (old !== null) h = r2((old * rs) / cell.rs)
     }
-    items.push({ key: cell.def, seq: 0, r, c: cell.c, rs, cs: cell.cs, parts, body: bodyOf(cell, getLine), h })
+    items.push({
+      key: cell.def,
+      seq: 0,
+      r,
+      c: cell.c,
+      rs,
+      cs: cell.cs,
+      parts,
+      body: bodyOf(cell, getLine),
+      h
+    })
   }
   for (let i = 0; i < n; i++) {
     let col = 0
     while (straddle.some((s) => col >= s.c && col < s.c + s.cs)) col++
     if (col >= info.cols) continue
     items.push({
-      key: NEW_KEY, seq: i, r: p + i, c: col, rs: 1, cs: 1,
-      parts: emptyDef(info, getLine), body: [], h: info.heights[rect.r1 + i]
+      key: NEW_KEY,
+      seq: i,
+      r: p + i,
+      c: col,
+      rs: 1,
+      cs: 1,
+      parts: emptyDef(info, getLine),
+      body: [],
+      h: info.heights[rect.r1 + i]
     })
   }
   ensureLastRow(info, getLine, items, rows + n, info.heights[Math.min(rows - 1, rect.r2)])
   return assemble(info, getLine, items, null)
 }
 
-export function insertCols(info: GridInfo, rect: Rect, after: boolean, getLine: GetLine): GridResult {
+export function insertCols(
+  info: GridInfo,
+  rect: Rect,
+  after: boolean,
+  getLine: GetLine
+): GridResult {
   const n = rect.c2 - rect.c1 + 1
   if (info.cols + n > MAX_COLS) return fail(`열은 ${MAX_COLS}개까지예요.`)
   const p = after ? rect.c2 + 1 : rect.c1
@@ -500,8 +544,14 @@ export function insertCols(info: GridInfo, rect: Rect, after: boolean, getLine: 
     if (cell.c >= p) c += n
     else if (cell.c + cell.cs > p) cs += n
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c, rs: cell.rs, cs,
-      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c,
+      rs: cell.rs,
+      cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine)
     })
   }
   let widths: number[] | null = null
@@ -532,8 +582,14 @@ export function deleteRows(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
     }
     if (cell.def === null) continue
     items.push({
-      key: cell.def, seq: 0, r: cell.r > rect.r2 ? cell.r - n : cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r > rect.r2 ? cell.r - n : cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine)
     })
   }
   const keepLast = rect.r2 === rows - 1 ? rect.r1 - 1 : rows - 1
@@ -555,15 +611,24 @@ export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
     }
     if (cell.def === null) continue
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c > rect.c2 ? cell.c - n : cell.c, rs: cell.rs, cs: cell.cs,
-      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c > rect.c2 ? cell.c - n : cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine)
     })
   }
   let widths: number[] | null = null
   if (info.widths.some((w) => w !== null)) {
     const eff = effectiveWidths(info.widths, info.cols)
     const total = eff.reduce((a, b) => a + b, 0)
-    widths = fitWidths(eff.filter((_, i) => i < rect.c1 || i > rect.c2), total)
+    widths = fitWidths(
+      eff.filter((_, i) => i < rect.c1 || i > rect.c2),
+      total
+    )
     if (widths === null) return fail('열이 너무 좁아져서 지울 수 없어요.')
   }
   ensureLastRow(info, getLine, items, info.heights.length, info.heights[info.heights.length - 1])
@@ -574,7 +639,12 @@ const MIN_COL_MM = 5
 const MIN_ROW_MM = 3
 const snap = (v: number, step: number): number => Math.round(v / step) * step
 
-export function dragColWidths(info: GridInfo, k: number, deltaMm: number, step = 0.5): number[] | null {
+export function dragColWidths(
+  info: GridInfo,
+  k: number,
+  deltaMm: number,
+  step = 0.5
+): number[] | null {
   if (k < 0 || k + 1 >= info.cols) return null
   const eff = effectiveWidths(info.widths, info.cols).map(r2)
   const pair = r2(eff[k] + eff[k + 1])
@@ -593,14 +663,26 @@ export function setColWidths(info: GridInfo, widths: number[], getLine: GetLine)
   for (const cell of info.cells) {
     if (cell.def === null) continue
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine)
     })
   }
   return assemble(info, getLine, items, { n: info.cols, widths: widths.map(r2) })
 }
 
-export function setRowHeight(info: GridInfo, row: number, h: number, getLine: GetLine, step = 0.5): GridResult {
+export function setRowHeight(
+  info: GridInfo,
+  row: number,
+  h: number,
+  getLine: GetLine,
+  step = 0.5
+): GridResult {
   const H = r2(Math.min(MAX_MM, Math.max(MIN_ROW_MM, snap(h, step))))
   const items: Out[] = []
   let carried = false
@@ -609,31 +691,42 @@ export function setRowHeight(info: GridInfo, row: number, h: number, getLine: Ge
     const own = cell.rs === 1 && cell.r === row
     if (own) carried = true
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: parseDef(getLine(cell.def)), body: bodyOf(cell, getLine), h: own ? H : undefined
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: parseDef(getLine(cell.def)),
+      body: bodyOf(cell, getLine),
+      h: own ? H : undefined
     })
   }
   if (!carried) {
     const covered = (c: number): boolean =>
-      info.cells.some((x) => x.def !== null && x.r <= row && row < x.r + x.rs && c >= x.c && c < x.c + x.cs)
+      info.cells.some(
+        (x) => x.def !== null && x.r <= row && row < x.r + x.rs && c >= x.c && c < x.c + x.cs
+      )
     let col = 0
     while (col < info.cols && covered(col)) col++
     if (col >= info.cols) return fail('합친 칸이 이 줄을 덮고 있어서 높이를 바꿀 수 없어요.')
-    items.push({ key: NEW_KEY, seq: 0, r: row, c: col, rs: 1, cs: 1, parts: emptyDef(info, getLine), body: [], h: H })
+    items.push({
+      key: NEW_KEY,
+      seq: 0,
+      r: row,
+      c: col,
+      rs: 1,
+      cs: 1,
+      parts: emptyDef(info, getLine),
+      body: [],
+      h: H
+    })
   }
   return assemble(info, getLine, items, null)
 }
 
 export type BorderWhere =
-  | 'all'
-  | 'outer'
-  | 'inner'
-  | 'top'
-  | 'bottom'
-  | 'left'
-  | 'right'
-  | 'vmid'
-  | 'hmid'
+  'all' | 'outer' | 'inner' | 'top' | 'bottom' | 'left' | 'right' | 'vmid' | 'hmid'
 export type BorderKind = 'none' | 'solid' | 'thick' | 'double' | 'dashed'
 export interface BorderStyle {
   kind: BorderKind
@@ -662,7 +755,9 @@ function withOpts(p: DefParts, put: Record<string, string>, remove: string[] = [
 }
 
 function hasExplicit(p: DefParts, side: Side): boolean {
-  return [...p.head, ...(p.tail ?? [])].some((t) => t.startsWith('border=') || t.startsWith(`border-${SIDE_WORD[side]}=`))
+  return [...p.head, ...(p.tail ?? [])].some(
+    (t) => t.startsWith('border=') || t.startsWith(`border-${SIDE_WORD[side]}=`)
+  )
 }
 
 function withFrame(line: string, st: BorderStyle): string {
@@ -685,7 +780,8 @@ export function setBorders(
   const rows = info.heights.length
   const value = borderValue(st)
   const picked = new Set(inside)
-  const wholeGrid = rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
+  const wholeGrid =
+    rect.r1 === 0 && rect.c1 === 0 && rect.r2 === rows - 1 && rect.c2 === info.cols - 1
   const frame = wholeGrid && (where === 'all' || where === 'outer')
   const edits = new Map<CellInfo, Partial<Record<Side, string>>>()
   const put = (c: CellInfo, s: Side): void => {
@@ -733,10 +829,13 @@ export function setBorders(
       for (const n of info.cells) {
         if (picked.has(n) || n === c) continue
         const touches =
-          s === 't' ? n.r + n.rs === c.r && n.c < c.c + c.cs && n.c + n.cs > c.c
-          : s === 'b' ? n.r === c.r + c.rs && n.c < c.c + c.cs && n.c + n.cs > c.c
-          : s === 'l' ? n.c + n.cs === c.c && n.r < c.r + c.rs && n.r + n.rs > c.r
-          : n.c === c.c + c.cs && n.r < c.r + c.rs && n.r + n.rs > c.r
+          s === 't'
+            ? n.r + n.rs === c.r && n.c < c.c + c.cs && n.c + n.cs > c.c
+            : s === 'b'
+              ? n.r === c.r + c.rs && n.c < c.c + c.cs && n.c + n.cs > c.c
+              : s === 'l'
+                ? n.c + n.cs === c.c && n.r < c.r + c.rs && n.r + n.rs > c.r
+                : n.c === c.c + c.cs && n.r < c.r + c.rs && n.r + n.rs > c.r
         const p = touches ? defOf(n) : null
         const horizEdge = s === 't' || s === 'b'
         const nSpan = horizEdge ? n.cs : n.rs
@@ -753,12 +852,19 @@ export function setBorders(
   for (const cell of info.cells) {
     const e = edits.get(cell)
     const opts: Record<string, string> = {}
-    if (e) for (const s of SIDES) if (e[s] !== undefined) opts[`border-${SIDE_WORD[s]}`] = e[s] as string
+    if (e)
+      for (const s of SIDES) if (e[s] !== undefined) opts[`border-${SIDE_WORD[s]}`] = e[s] as string
     if (cell.def === null) {
       if (e) {
         items.push({
-          key: NEW_KEY, seq: items.length, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-          parts: withOpts(emptyDef(info, getLine), opts), body: []
+          key: NEW_KEY,
+          seq: items.length,
+          r: cell.r,
+          c: cell.c,
+          rs: cell.rs,
+          cs: cell.cs,
+          parts: withOpts(emptyDef(info, getLine), opts),
+          body: []
         })
       }
       continue
@@ -766,7 +872,12 @@ export function setBorders(
     const parts = parseDef(getLine(cell.def))
     const clear = wipe && picked.has(cell)
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
       parts: e || clear ? withOpts(parts, opts, clear ? ['diag-down', 'diag-up'] : []) : parts,
       body: bodyOf(cell, getLine)
     })
@@ -795,21 +906,32 @@ export function setDiagonals(
     if (cell.def === null) {
       if (on && st.kind !== 'none') {
         items.push({
-          key: NEW_KEY, seq: items.length, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-          parts: withOpts(emptyDef(info, getLine), put), body: []
+          key: NEW_KEY,
+          seq: items.length,
+          r: cell.r,
+          c: cell.c,
+          rs: cell.rs,
+          cs: cell.cs,
+          parts: withOpts(emptyDef(info, getLine), put),
+          body: []
         })
       }
       continue
     }
     const parts = parseDef(getLine(cell.def))
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: on ? withOpts(parts, put, remove) : parts, body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: on ? withOpts(parts, put, remove) : parts,
+      body: bodyOf(cell, getLine)
     })
   }
   return assemble(info, getLine, items, null)
 }
-
 
 export type FlagName = 'bold' | 'italic' | 'underline' | 'strike'
 export type HAlign = 'left' | 'center' | 'right' | 'justify' | 'distribute'
@@ -882,16 +1004,28 @@ export function setCellOpts(
     if (cell.def === null) {
       if (on) {
         items.push({
-          key: NEW_KEY, seq: items.length, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-          parts: applyOptChange(emptyDef(info, getLine), ch), body: []
+          key: NEW_KEY,
+          seq: items.length,
+          r: cell.r,
+          c: cell.c,
+          rs: cell.rs,
+          cs: cell.cs,
+          parts: applyOptChange(emptyDef(info, getLine), ch),
+          body: []
         })
       }
       continue
     }
     const parts = parseDef(getLine(cell.def))
     items.push({
-      key: cell.def, seq: 0, r: cell.r, c: cell.c, rs: cell.rs, cs: cell.cs,
-      parts: on ? applyOptChange(parts, ch) : parts, body: bodyOf(cell, getLine)
+      key: cell.def,
+      seq: 0,
+      r: cell.r,
+      c: cell.c,
+      rs: cell.rs,
+      cs: cell.cs,
+      parts: on ? applyOptChange(parts, ch) : parts,
+      body: bodyOf(cell, getLine)
     })
   }
   return assemble(info, getLine, items, null)
@@ -912,10 +1046,12 @@ export function readCellOpts(info: GridInfo, rect: Rect, getLine: GetLine): Cell
     const vals = toks.map(pick)
     return vals.every((v) => v === vals[0]) ? vals[0] : null
   }
-  const kv = (k: string) => (t: string[]): string | null => {
-    const hit = t.find((x) => x.startsWith(`${k}=`))
-    return hit ? hit.slice(k.length + 1).replace(/^"|"$/g, '') : null
-  }
+  const kv =
+    (k: string) =>
+    (t: string[]): string | null => {
+      const hit = t.find((x) => x.startsWith(`${k}=`))
+      return hit ? hit.slice(k.length + 1).replace(/^"|"$/g, '') : null
+    }
   return {
     flags,
     ff: common(kv('ff')),

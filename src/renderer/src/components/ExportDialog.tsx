@@ -113,9 +113,7 @@ export function ExportDialog({
       if (pdfDir) {
         const notes = await window.api.workspace.listPdfNotes(folderPath)
         setProgress({ done: 0, total: notes.length })
-        failed = await exportPdfBatch(notes, pdfDir, (done, total) =>
-          setProgress({ done, total })
-        )
+        failed = await exportPdfBatch(notes, pdfDir, (done, total) => setProgress({ done, total }))
       }
       void window.api.workspace.openPath(baseDir)
       if (failed.length > 0) {
@@ -125,7 +123,9 @@ export function ExportDialog({
         onClose()
       }
     } catch {
-      setError('내보내기에 실패했어요. 보호 폴더(문서, 사진, 바탕화면)면 Windows 보안이 막을 수 있어요.')
+      setError(
+        '내보내기에 실패했어요. 보호 폴더(문서, 사진, 바탕화면)면 Windows 보안이 막을 수 있어요.'
+      )
     }
   }
 
@@ -181,7 +181,12 @@ export function ExportDialog({
   if (phase === 'result') {
     return (
       <Dialog onClose={onClose}>
-        <DialogHeader icon={HEAD_ICON} title="일부 PDF를 만들지 못했어요" subtitle={folderLabel} danger />
+        <DialogHeader
+          icon={HEAD_ICON}
+          title="일부 PDF를 만들지 못했어요"
+          subtitle={folderLabel}
+          danger
+        />
         <DialogBody>
           <ListBox items={failures} />
         </DialogBody>

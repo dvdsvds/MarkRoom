@@ -50,7 +50,12 @@ export function TabBar({
   const activeRef = useRef<HTMLDivElement>(null)
   // 활성 탭 배경의 위치. 탭 줄 안쪽(스크롤 내용) 기준 좌표라서, 탭 줄이 스크롤되거나
   // 사이드바 크기가 바뀌어도 탭에 붙어 있고, 활성 탭이 바뀔 때만 미끄러진다.
-  const [pill, setPill] = useState<{ left: number; width: number; top: number; height: number } | null>(null)
+  const [pill, setPill] = useState<{
+    left: number
+    width: number
+    top: number
+    height: number
+  } | null>(null)
 
   useLayoutEffect(() => {
     const el = activeRef.current
@@ -58,7 +63,12 @@ export function TabBar({
       setPill(null)
       return
     }
-    const next = { left: el.offsetLeft, width: el.offsetWidth, top: el.offsetTop, height: el.offsetHeight }
+    const next = {
+      left: el.offsetLeft,
+      width: el.offsetWidth,
+      top: el.offsetTop,
+      height: el.offsetHeight
+    }
     setPill((prev) =>
       prev &&
       prev.left === next.left &&

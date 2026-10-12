@@ -97,7 +97,7 @@ export function uniqueEntryName(targetDir: string, name: string): string {
 }
 
 export function moveEntry(
-  sourcePath: string, 
+  sourcePath: string,
   targetDirPath: string,
   beforeMove?: (destination: string) => void
 ): string {

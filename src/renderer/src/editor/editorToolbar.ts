@@ -251,7 +251,10 @@ function build(view: EditorView): Panel {
     flat.forEach((it, i) => setShown(it.el, i < flat.length - n))
     // 묶음 구분선: 그 묶음 아이콘이 하나라도 보일 때만. 첫 묶음 앞 선은 » 앞 구분선으로 남긴다
     groups.forEach((g, gi) =>
-      setShown(g.sep, gi === 0 || g.els.some((el) => el.style.getPropertyValue('display') !== 'none'))
+      setShown(
+        g.sep,
+        gi === 0 || g.els.some((el) => el.style.getPropertyValue('display') !== 'none')
+      )
     )
     setShown(more, n > 0)
   }

@@ -40,13 +40,25 @@ const CMDS: SlashCmd[] = [
   { cmd: 'h3', label: '제목 3', icon: headingIcon, group: 0, run: (v) => setHeading(v, 3) },
   { cmd: 'ul', label: '글머리 기호', icon: bulletIcon, group: 1, run: (v) => toggleList(v, 'ul') },
   { cmd: 'ol', label: '번호 목록', icon: numberIcon, group: 1, run: (v) => toggleList(v, 'ol') },
-  { cmd: 'todo', label: '체크리스트', icon: checkIcon, group: 1, run: (v) => toggleList(v, 'task') },
+  {
+    cmd: 'todo',
+    label: '체크리스트',
+    icon: checkIcon,
+    group: 1,
+    run: (v) => toggleList(v, 'task')
+  },
   { cmd: 'quote', label: '인용', icon: quoteIcon, group: 1, run: (v) => toggleQuote(v) },
   { cmd: 'link', label: '링크', icon: linkIcon, group: 2, run: (v) => insertLink(v) },
   { cmd: 'wiki', label: '위키링크', icon: wikilinkIcon, group: 2, run: (v) => insertWikilink(v) },
   { cmd: 'foot', label: '각주', icon: footnoteIcon, group: 2, run: (v) => insertFootnote(v) },
   { cmd: 'table', label: '표', icon: tableIcon, group: 3, run: (v) => insertTable(v) },
-  { cmd: 'code', label: '코드 블록', icon: codeBlockIcon, group: 3, run: (v) => insertCodeBlock(v) },
+  {
+    cmd: 'code',
+    label: '코드 블록',
+    icon: codeBlockIcon,
+    group: 3,
+    run: (v) => insertCodeBlock(v)
+  },
   { cmd: 'rule', label: '구분선', icon: ruleIcon, group: 3, run: (v) => insertRule(v) }
 ]
 

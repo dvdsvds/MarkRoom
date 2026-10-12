@@ -9,7 +9,7 @@ const OLD_EDITOR_FONT_FAMILY = "'IBM Plex Mono', 'D2Coding', Pretendard, monospa
 const DEFAULT_EDITOR_FONT_FAMILY = "'Roboto Mono', Pretendard, monospace"
 const DEFAULT_EDITOR_FONT_SIZE = 13.5
 const DEFAULT_EDITOR_LINE_HEIGHT = 1.8
-const DEFAULT_PREVIEW_FONT_FAMILY = "Pretendard, sans-serif"
+const DEFAULT_PREVIEW_FONT_FAMILY = 'Pretendard, sans-serif'
 
 interface SettingsState {
   theme: ThemePreference
@@ -149,9 +149,8 @@ export const useSettingsStore = create<SettingsState>()(
       resetAllShortcuts: () => set({ shortcuts: DEFAULT_SHORTCUTS })
     }),
     {
-      name: 'syntaxnote-settings',
+      name: 'markroom-settings',
       version: 2,
-      // 예전 기본값 그대로 쓰던 사람은 새 기본값으로 옮긴다. 직접 바꾼 값은 건드리지 않는다.
       migrate: (persisted, version) => {
         const s = persisted as Partial<SettingsState>
         if (version < 1) {
@@ -164,7 +163,6 @@ export const useSettingsStore = create<SettingsState>()(
           if (s.editorLineHeight === 1.6) s.editorLineHeight = DEFAULT_EDITOR_LINE_HEIGHT
         }
         if (version < 2) {
-          // 프리뷰 예전 기본값(세리프)을 쓰던 사람은 Pretendard로 옮긴다.
           if (s.previewFontFamily?.includes('Source Serif')) {
             s.previewFontFamily = DEFAULT_PREVIEW_FONT_FAMILY
           }

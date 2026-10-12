@@ -1,13 +1,13 @@
 export const KO_FONTS: Record<string, string[]> = {
   '맑은 고딕': ['Malgun Gothic'],
-  '바탕': ['Batang', 'BatangChe'],
-  '돋움': ['Dotum', 'DotumChe'],
-  '굴림': ['Gulim', 'GulimChe'],
-  '궁서': ['Gungsuh', 'GungsuhChe'],
-  '함초롬바탕': ['HCR Batang', 'HCR Batang LVT'],
-  '함초롬돋움': ['HCR Dotum', 'HCR Dotum LVT'],
-  '나눔고딕': ['NanumGothic', 'Nanum Gothic'],
-  '나눔명조': ['NanumMyeongjo', 'Nanum Myeongjo']
+  바탕: ['Batang', 'BatangChe'],
+  돋움: ['Dotum', 'DotumChe'],
+  굴림: ['Gulim', 'GulimChe'],
+  궁서: ['Gungsuh', 'GungsuhChe'],
+  함초롬바탕: ['HCR Batang', 'HCR Batang LVT'],
+  함초롬돋움: ['HCR Dotum', 'HCR Dotum LVT'],
+  나눔고딕: ['NanumGothic', 'Nanum Gothic'],
+  나눔명조: ['NanumMyeongjo', 'Nanum Myeongjo']
 }
 
 const FALLBACK = [
@@ -53,7 +53,11 @@ export function fontCandidates(name: string): string[] {
   const clean = name.replace(/["\\]/g, '').trim()
   if (clean === '') return []
   const out: string[] = [clean]
-  const ko = KO_FONTS[clean] ?? (ENG_TO_KO.has(clean.toLowerCase()) ? KO_FONTS[ENG_TO_KO.get(clean.toLowerCase()) as string] : undefined)
+  const ko =
+    KO_FONTS[clean] ??
+    (ENG_TO_KO.has(clean.toLowerCase())
+      ? KO_FONTS[ENG_TO_KO.get(clean.toLowerCase()) as string]
+      : undefined)
   if (KO_FONTS[clean]) out.push(...KO_FONTS[clean])
   else if (ko) out.push(...ko)
   return [...new Set(out)]
@@ -62,7 +66,8 @@ export function fontCandidates(name: string): string[] {
 export function loadSystemFonts(): Promise<string[]> {
   if (cache) return Promise.resolve(cache)
   if (pending) return pending
-  const query = (window as unknown as { queryLocalFonts?: () => Promise<LocalFont[]> }).queryLocalFonts
+  const query = (window as unknown as { queryLocalFonts?: () => Promise<LocalFont[]> })
+    .queryLocalFonts
   if (typeof query !== 'function') return Promise.resolve(toDisplay(FALLBACK))
   pending = query
     .call(window)

@@ -111,7 +111,8 @@ async function doRun(code: string, baseDir: string): Promise<RunResult> {
       resolve(r)
     }
     const timer = setTimeout(
-      () => finish(failure(`${RUN_TIMEOUT_MS / 1000}초 안에 끝나지 않아서 중단했어요.`, true), true),
+      () =>
+        finish(failure(`${RUN_TIMEOUT_MS / 1000}초 안에 끝나지 않아서 중단했어요.`, true), true),
       RUN_TIMEOUT_MS
     )
     const onMessage = (e: MessageEvent): void => {

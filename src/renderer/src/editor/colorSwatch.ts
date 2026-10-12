@@ -19,7 +19,15 @@ const cssColor = (token: string): string => (token.startsWith('#') ? token : `va
 function toHex6(token: string): string {
   if (/^#[0-9a-f]{6}$/i.test(token)) return token.toLowerCase()
   if (/^#[0-9a-f]{3}$/i.test(token)) {
-    return '#' + token.slice(1).split('').map((c) => c + c).join('').toLowerCase()
+    return (
+      '#' +
+      token
+        .slice(1)
+        .split('')
+        .map((c) => c + c)
+        .join('')
+        .toLowerCase()
+    )
   }
   const v = getComputedStyle(document.documentElement).getPropertyValue(`--c-${token}`).trim()
   return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '#000000'

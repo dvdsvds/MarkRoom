@@ -31,7 +31,7 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
 }
 
 export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
-  newNote: '새 메모',
+  newNote: '새 파일',
   toggleSettings: '설정 열기/닫기',
   copyPathAbsolute: '절대 경로 복사',
   copyPathRelative: '상대 경로 복사',

@@ -1,4 +1,15 @@
-import { button as uiButton, closeMenus, dropdown, HOVER_BG, icon, LINE, PALETTE, registerMenu, setOn, type DropItem } from './uiKit'
+import {
+  button as uiButton,
+  closeMenus,
+  dropdown,
+  HOVER_BG,
+  icon,
+  LINE,
+  PALETTE,
+  registerMenu,
+  setOn,
+  type DropItem
+} from './uiKit'
 import minusIcon from '../icons/minus.svg?raw'
 import plusIcon from '../icons/plus.svg?raw'
 import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from './gridEdit'
@@ -8,7 +19,12 @@ export interface ToolbarApi {
   script: (kind: 'sup' | 'sub') => void
   scriptState?: () => 'sup' | 'sub' | null
   effective?: () => { fs: string | null; ff: string | null } | null
-  selStyle?: () => { fs: string | null; fc: string | null; ff: string | null; flags: Record<string, boolean> | null } | null
+  selStyle?: () => {
+    fs: string | null
+    fc: string | null
+    ff: string | null
+    flags: Record<string, boolean> | null
+  } | null
   read: () => CellOptState | null
 }
 
@@ -21,23 +37,44 @@ export interface Toolbar {
 
 const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
 const COLOR_KO: Record<string, string> = {
-  red: '빨강', orange: '주황', yellow: '노랑', green: '초록', blue: '파랑', purple: '보라', gray: '회색'
+  red: '빨강',
+  orange: '주황',
+  yellow: '노랑',
+  green: '초록',
+  blue: '파랑',
+  purple: '보라',
+  gray: '회색'
 }
 const BASE_FONTS = [
-  '맑은 고딕', '굴림', '돋움', '바탕', '궁서', '함초롬바탕', '함초롬돋움', '나눔고딕', '나눔명조',
-  'Arial', 'Times New Roman', 'Consolas'
+  '맑은 고딕',
+  '굴림',
+  '돋움',
+  '바탕',
+  '궁서',
+  '함초롬바탕',
+  '함초롬돋움',
+  '나눔고딕',
+  '나눔명조',
+  'Arial',
+  'Times New Roman',
+  'Consolas'
 ]
-
 
 const ALIGN_ICON: Record<HAlign, string> = {
   left: icon('<path d="M2 3h12M2 6.5h8M2 10h12M2 13.5h8"/>'),
   center: icon('<path d="M2 3h12M4 6.5h8M2 10h12M4 13.5h8"/>'),
   right: icon('<path d="M2 3h12M6 6.5h8M2 10h12M6 13.5h8"/>'),
   justify: icon('<path d="M2 3h12M2 6.5h12M2 10h12M2 13.5h12"/>'),
-  distribute: icon('<path d="M2 3h12M2 8h12M2 13h12"/><path d="M4 5.5v0M8 5.5v0M12 5.5v0" stroke-width="2"/>')
+  distribute: icon(
+    '<path d="M2 3h12M2 8h12M2 13h12"/><path d="M4 5.5v0M8 5.5v0M12 5.5v0" stroke-width="2"/>'
+  )
 }
 const ALIGN_KO: Record<HAlign, string> = {
-  left: '왼쪽', center: '가운데', right: '오른쪽', justify: '양쪽', distribute: '배분'
+  left: '왼쪽',
+  center: '가운데',
+  right: '오른쪽',
+  justify: '양쪽',
+  distribute: '배분'
 }
 const VALIGN_ICON: Record<VAlign, string> = {
   top: icon('<path d="M2 2.5h12"/><path d="M8 14V5.5M5 8.5l3-3 3 3"/>'),
@@ -80,29 +117,44 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   const root = bar()
 
   const button = (html: string, title: string, onClick: () => void): HTMLButtonElement =>
-    uiButton(html, title, () => {
-      closeMenus()
-      onClick()
-    }, { square: true })
+    uiButton(
+      html,
+      title,
+      () => {
+        closeMenus()
+        onClick()
+      },
+      { square: true }
+    )
 
   let fonts = [...BASE_FONTS]
-  const lf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string }[]> }).queryLocalFonts
+  const lf = (window as unknown as { queryLocalFonts?: () => Promise<{ family: string }[]> })
+    .queryLocalFonts
   if (typeof lf === 'function') {
     void lf
       .call(window)
       .then((all) => {
-        const fam = Array.from(new Set(all.map((f) => f.family))).sort((a, b) => a.localeCompare(b, 'ko'))
+        const fam = Array.from(new Set(all.map((f) => f.family))).sort((a, b) =>
+          a.localeCompare(b, 'ko')
+        )
         if (fam.length > 0) fonts = [...BASE_FONTS, ...fam.filter((f) => !BASE_FONTS.includes(f))]
       })
       .catch(() => undefined)
   }
 
   const font = dropdown({
-    label: '글꼴', title: '글꼴', width: 110, flat: true,
+    label: '글꼴',
+    title: '글꼴',
+    width: 110,
+    flat: true,
     items: () => {
       const d = api.effective?.()?.ff
       const list = d && !fonts.includes(d) ? [d, ...fonts] : fonts
-      return list.map((f): DropItem => ({ text: f, value: f, css: `font-family:"${f}",sans-serif` }))
+      return list.map((f): DropItem => ({
+        text: f,
+        value: f,
+        css: `font-family:"${f}",sans-serif`
+      }))
     },
     pick: (v) => api.apply({ kv: { ff: v } })
   })
@@ -120,7 +172,9 @@ export function createToolbar(api: ToolbarApi): Toolbar {
   sizeBox.style.cssText = 'position:relative;display:flex'
   const sizeMenu = document.createElement('div')
   sizeMenu.style.cssText =
-    'display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:3px;z-index:10001;min-width:56px;max-height:240px;overflow-y:auto;scrollbar-width:none;padding:4px;background:var(--tq-panel);color:var(--tq-text);border:' + LINE + ';border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.45);box-sizing:border-box'
+    'display:none;position:absolute;left:50%;transform:translateX(-50%);top:100%;margin-top:3px;z-index:10001;min-width:56px;max-height:240px;overflow-y:auto;scrollbar-width:none;padding:4px;background:var(--tq-panel);color:var(--tq-text);border:' +
+    LINE +
+    ';border-radius:8px;box-shadow:0 10px 28px rgba(0,0,0,.45);box-sizing:border-box'
   const closeSizeMenu = (): void => {
     sizeMenu.style.display = 'none'
   }
@@ -130,7 +184,8 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     for (const n of SIZE_PRESETS) {
       const row = document.createElement('div')
       row.textContent = String(n)
-      row.style.cssText = 'padding:5px 10px;border-radius:6px;cursor:pointer;text-align:center;font-size:13px'
+      row.style.cssText =
+        'padding:5px 10px;border-radius:6px;cursor:pointer;text-align:center;font-size:13px'
       if (String(n) === shownSize) row.style.fontWeight = '700'
       row.addEventListener('mouseenter', () => (row.style.background = HOVER_BG))
       row.addEventListener('mouseleave', () => (row.style.background = ''))
@@ -199,8 +254,33 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     return b
   }
 
-  const fc = dropdown({ flat: true, label: '글자색', title: '글자 색', width: 0, icon: '<b style="font-size:14px;font-family:serif;line-height:14px">A</b>', colorBar: true, palette: PALETTE, noneText: '기본(검정)', items: () => [], pick: (v) => api.apply({ kv: { fc: v } }) })
-  const bg = dropdown({ flat: true, label: '배경색', title: '칸 배경 색', width: 0, icon: icon('<path d="M3 9.5l5-5.5 4.5 4.5-5.5 5z"/><path d="M12.5 11c.8 1 1 1.6 1 2a1 1 0 0 1-2 0c0-.4.2-1 1-2z"/>', 14), colorBar: true, palette: PALETTE, noneText: '없음', items: () => [], pick: (v) => api.apply({ kv: { bg: v } }) })
+  const fc = dropdown({
+    flat: true,
+    label: '글자색',
+    title: '글자 색',
+    width: 0,
+    icon: '<b style="font-size:14px;font-family:serif;line-height:14px">A</b>',
+    colorBar: true,
+    palette: PALETTE,
+    noneText: '기본(검정)',
+    items: () => [],
+    pick: (v) => api.apply({ kv: { fc: v } })
+  })
+  const bg = dropdown({
+    flat: true,
+    label: '배경색',
+    title: '칸 배경 색',
+    width: 0,
+    icon: icon(
+      '<path d="M3 9.5l5-5.5 4.5 4.5-5.5 5z"/><path d="M12.5 11c.8 1 1 1.6 1 2a1 1 0 0 1-2 0c0-.4.2-1 1-2z"/>',
+      14
+    ),
+    colorBar: true,
+    palette: PALETTE,
+    noneText: '없음',
+    items: () => [],
+    pick: (v) => api.apply({ kv: { bg: v } })
+  })
 
   const alignBtn: Partial<Record<HAlign, HTMLButtonElement>> = {}
   const valignBtn: Partial<Record<VAlign, HTMLButtonElement>> = {}
@@ -236,8 +316,16 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     valignBtn[v] = b
     root.appendChild(b)
   }
-  const supBtn = button('<span>x<sup style="font-size:9px">2</sup></span>', '위 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sup'))
-  const subBtn = button('<span>x<sub style="font-size:9px">2</sub></span>', '아래 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용', () => api.script('sub'))
+  const supBtn = button(
+    '<span>x<sup style="font-size:9px">2</sup></span>',
+    '위 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용',
+    () => api.script('sup')
+  )
+  const subBtn = button(
+    '<span>x<sub style="font-size:9px">2</sub></span>',
+    '아래 첨자: 누르면 켜짐/꺼짐, 글자를 선택하고 누르면 바로 적용',
+    () => api.script('sub')
+  )
   root.append(sepScript, supBtn, subBtn)
 
   // 좁아지면 맨 뒤 아이콘부터 하나씩 » 메뉴로 옮긴다 (정렬 ~ 아래 첨자)
@@ -361,7 +449,11 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     entries.forEach((it, i) => setShown(it.el, i < entries.length - n))
     // 첫 묶음 앞 구분선은 » 앞 구분선으로 남기고, 나머지는 그 묶음이 보일 때만
     groupSeps.forEach((sp, gi) =>
-      setShown(sp, gi === 0 || entries.some((it) => it.gi === gi && it.el.style.getPropertyValue('display') !== 'none'))
+      setShown(
+        sp,
+        gi === 0 ||
+          entries.some((it) => it.gi === gi && it.el.style.getPropertyValue('display') !== 'none')
+      )
     )
     setShown(moreBtn, n > 0)
   }
@@ -394,7 +486,8 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     } catch {
       sel = null
     }
-    for (const f of Object.keys(flagBtn) as FlagName[]) setOn(flagBtn[f], !!(sel?.flags ? sel.flags[f] : st?.flags[f]))
+    for (const f of Object.keys(flagBtn) as FlagName[])
+      setOn(flagBtn[f], !!(sel?.flags ? sel.flags[f] : st?.flags[f]))
     for (const a of Object.keys(alignBtn) as HAlign[]) setOn(alignBtn[a], st?.align === a)
     for (const v of Object.keys(valignBtn) as VAlign[]) setOn(valignBtn[v], st?.valign === v)
     let eff: { fs: string | null; ff: string | null } | null = null
@@ -407,8 +500,14 @@ export function createToolbar(api: ToolbarApi): Toolbar {
     shownSize = sel?.fs ?? st?.fs ?? eff?.fs ?? DEFAULT_SIZE
     if (document.activeElement !== sizeInput) syncSize()
     const fcv = sel?.fc ?? st?.fc ?? null
-    fc.set(fcv ? COLOR_KO[fcv] ?? fcv : '글자색', fcv ? (COLORS.includes(fcv) ? `var(--c-${fcv})` : fcv) : null)
-    bg.set(st?.bg ? COLOR_KO[st.bg] ?? st.bg : '배경색', st?.bg ? (COLORS.includes(st.bg) ? `var(--c-${st.bg})` : st.bg) : null)
+    fc.set(
+      fcv ? (COLOR_KO[fcv] ?? fcv) : '글자색',
+      fcv ? (COLORS.includes(fcv) ? `var(--c-${fcv})` : fcv) : null
+    )
+    bg.set(
+      st?.bg ? (COLOR_KO[st.bg] ?? st.bg) : '배경색',
+      st?.bg ? (COLORS.includes(st.bg) ? `var(--c-${st.bg})` : st.bg) : null
+    )
     syncScript()
   }
   const setVisible = (on: boolean): void => {

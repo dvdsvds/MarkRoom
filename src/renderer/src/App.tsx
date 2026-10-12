@@ -34,14 +34,13 @@ import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
-/** 에디터 칸 최소 너비. 툴바가 글머리 기호부터 전부 » 로 접힌 상태(되돌리기~배경색 + » )가 딱 들어가는 크기 */
 const EDITOR_MIN_WIDTH = 396
 
 const MOD = navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl'
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
 const EMPTY_HINTS: { label: string; keys: string }[] = [
-  { label: '새 메모', keys: `${MOD}+N` },
+  { label: '새 파일', keys: `${MOD}+N` },
   { label: '검색', keys: `${MOD}+P` },
   { label: '할 일', keys: `${MOD}+Shift+T` },
   { label: '백링크', keys: `${MOD}+Shift+B` },
@@ -57,10 +56,7 @@ function EmptyState(): React.JSX.Element {
       transition={{ duration: 0.25, ease: 'easeOut' }}
     >
       <div className="text-center">
-        <div className="text-[15px] font-medium tracking-tight text-text-secondary">SyntaxNote</div>
-        <div className="mt-1 text-xs text-text-tertiary">
-          왼쪽에서 메모를 열거나 새로 만들어 보세요
-        </div>
+        <div className="text-[15px] font-medium tracking-tight text-text-secondary">MarkRoom</div>
       </div>
       <dl className="grid grid-cols-[auto_auto] items-center gap-x-8 gap-y-2.5 text-xs">
         {EMPTY_HINTS.map((h) => (
@@ -262,30 +258,24 @@ function App(): React.JSX.Element {
       const initialTree = await window.api.workspace.getTree()
       setTree(initialTree)
 
-      if (initialTree.length === 0) {
-        const filePath = await window.api.workspace.createNote(dir, '제목 없음')
-        const fileContent = await window.api.workspace.readFile(filePath)
-        openFile(filePath, fileContent)
-      } else {
-        const known = new Set(flattenNotes(initialTree).map((n) => n.path))
-        let restored: { paths: string[]; activeTabId: string | null } | null = null
-        try {
-          const raw = localStorage.getItem('syntaxnote-open-tabs')
-          restored = raw ? JSON.parse(raw) : null
-        } catch {
-          restored = null
-        }
-        const validPaths = (restored?.paths ?? []).filter((p) => known.has(p))
-        for (const p of validPaths) {
-          const fileContent = await window.api.workspace.readFile(p)
-          useTabsStore.getState().openFile(p, fileContent)
-        }
-        if (restored?.activeTabId) {
-          const restoredTab = useTabsStore
-            .getState()
-            .tabs.find((t) => t.filePath === restored?.activeTabId)
-          if (restoredTab) setActiveTab(restoredTab.id)
-        }
+      const known = new Set(flattenNotes(initialTree).map((n) => n.path))
+      let restored: { paths: string[]; activeTabId: string | null } | null = null
+      try {
+        const raw = localStorage.getItem('markroom-open-tabs')
+        restored = raw ? JSON.parse(raw) : null
+      } catch {
+        restored = null
+      }
+      const validPaths = (restored?.paths ?? []).filter((p) => known.has(p))
+      for (const p of validPaths) {
+        const fileContent = await window.api.workspace.readFile(p)
+        useTabsStore.getState().openFile(p, fileContent)
+      }
+      if (restored?.activeTabId) {
+        const restoredTab = useTabsStore
+          .getState()
+          .tabs.find((t) => t.filePath === restored?.activeTabId)
+        if (restoredTab) setActiveTab(restoredTab.id)
       }
 
       const recoverable = await window.api.workspace.listRecoverable()
@@ -300,7 +290,7 @@ function App(): React.JSX.Element {
     const paths = tabs.filter((t) => t.filePath).map((t) => t.filePath as string)
     try {
       localStorage.setItem(
-        'syntaxnote-open-tabs',
+        'markroom-open-tabs',
         JSON.stringify({ paths, activeTabId: active?.filePath ?? null })
       )
     } catch {
@@ -318,7 +308,7 @@ function App(): React.JSX.Element {
       const newName = newPath.split(/[\\/]/).pop() ?? newPath
       pushToast({
         kind: 'info',
-        message: `파일 이름에 쓸 수 없는 문자가 있어서 "${newName}"(으)로 바꿨어요.`
+        message: `파일 이름에 사용할 수 없는 문자가 있어서 이름을 바꿨어요: "${newName}"`
       })
     })
   }, [renamePath, pushToast])
@@ -336,14 +326,14 @@ function App(): React.JSX.Element {
     if (items.length >= 3) {
       pushToast({
         kind: 'external-change-batch',
-        message: `메모 ${items.length}개가 외부에서 변경되어 다시 불러왔어요.`,
+        message: `외부에서 변경된 파일 ${items.length}개를 다시 불러왔어요.`,
         items
       })
     } else {
       for (const item of items) {
         pushToast({
           kind: 'external-change',
-          message: `${item.title}이(가) 외부에서 변경되어 다시 불러왔어요. Ctrl+Z로 되돌릴 수 있어요`,
+          message: `"${item.title}" 파일의 외부 변경 내용을 불러왔어요. Ctrl+Z로 되돌릴 수 있어요.`,
           filePath: item.filePath,
           oldContent: item.oldContent,
           newContent: item.newContent
@@ -361,7 +351,7 @@ function App(): React.JSX.Element {
         if (!priorTab || !priorTab.dirty || priorTab.content === fresh) return
         externalChangeBufferRef.current.push({
           filePath: changedPath,
-          title: changedPath.split(/[\\]/).pop() ?? changedPath,
+          title: changedPath.split(/[\\/]/).pop() ?? changedPath,
           oldContent: priorTab.content,
           newContent: fresh
         })
@@ -550,7 +540,7 @@ function App(): React.JSX.Element {
   const handleMissingTabClick = useCallback(
     (tab: Tab): void => {
       setActiveTab(tab.id)
-      pushToast({ kind: 'info', message: '파일이 없어요.' })
+      pushToast({ kind: 'info', message: '파일이 삭제되었거나 이동되었어요.' })
     },
     [setActiveTab, pushToast]
   )
@@ -651,7 +641,7 @@ function App(): React.JSX.Element {
       setHistoryTarget(null)
       pushToast({
         kind: 'info',
-        message: '이전 버전으로 되돌렸어요. Ctrl+S로 저장하고, Ctrl+Z로 취소할 수 있어요.'
+        message: '이전 버전으로 되돌렸어요.'
       })
     },
     [historyTarget, openFile, setContent, pushToast]
@@ -663,7 +653,7 @@ function App(): React.JSX.Element {
       if (match) {
         handleOpenFile(match.path)
       } else {
-        pushToast({ kind: 'info', message: `"${title}" 메모를 찾을 수 없어요.` })
+        pushToast({ kind: 'info', message: `"${title}" 파일을 찾을 수 없어요.` })
       }
     },
     [handleOpenFile, pushToast]
@@ -785,7 +775,7 @@ function App(): React.JSX.Element {
         <button
           type="button"
           onClick={() => setTodoOpen((v) => !v)}
-          title="할일 (Ctrl+Shift+T)"
+          title="할 일 (Ctrl+Shift+T)"
           className={TITLE_BTN}
         >
           <TodoIcon />
@@ -925,7 +915,7 @@ function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setUiZoom(100)}
-                title="클릭하면 100%로"
+                title="100%로 초기화"
                 className="hover:text-text"
               >
                 {uiZoom}%

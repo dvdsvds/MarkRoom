@@ -51,7 +51,7 @@ function ToastCard({
       onClick={handleClick}
       onMouseEnter={stop}
       onMouseLeave={start}
-            className="w-auto max-w-md min-w-[16rem] break-words rounded-xl border border-border bg-bg-elevated px-4 py-3 text-left text-[13px] text-text shadow-2xl hover:border-border-strong"
+      className="w-auto max-w-md min-w-[16rem] break-words rounded-xl border border-border bg-bg-elevated px-4 py-3 text-left text-[13px] text-text shadow-2xl hover:border-border-strong"
     >
       {toast.message}
     </button>

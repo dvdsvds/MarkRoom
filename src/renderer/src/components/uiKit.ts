@@ -40,7 +40,9 @@ export function button(
     BTN_BASE +
     (o.square ? ';width:28px;padding:0' : '') +
     (o.outline ? ';border-color:var(--tq-field-border);background:var(--tq-field-bg)' : '') +
-    (o.primary ? ';background:var(--tq-accent);border-color:var(--tq-accent);color:var(--tq-ink);font-weight:600' : '') +
+    (o.primary
+      ? ';background:var(--tq-accent);border-color:var(--tq-accent);color:var(--tq-ink);font-weight:600'
+      : '') +
     (o.css ? ';' + o.css : '')
   b.innerHTML = html
   b.addEventListener('mousedown', (e) => e.preventDefault())
@@ -85,14 +87,86 @@ export function hintLine(parts: (string | { key: string })[]): HTMLElement {
 }
 
 export const PALETTE = [
-  '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
-  '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
-  '#e6b8af', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc',
-  '#dd7e6b', '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd',
-  '#cc4125', '#e06666', '#f6b26b', '#ffd966', '#93c47d', '#76a5af', '#6d9eeb', '#6fa8dc', '#8e7cc3', '#c27ba0',
-  '#a61c00', '#cc0000', '#e69138', '#f1c232', '#6aa84f', '#45818e', '#3c78d8', '#3d85c6', '#674ea7', '#a64d79',
-  '#85200c', '#990000', '#b45f06', '#bf9000', '#38761d', '#134f5c', '#1155cc', '#0b5394', '#351c75', '#741b47',
-  '#5b0f00', '#660000', '#783f04', '#7f6000', '#274e13', '#0c343d', '#1c4587', '#073763', '#20124d', '#4c1130'
+  '#000000',
+  '#434343',
+  '#666666',
+  '#999999',
+  '#b7b7b7',
+  '#cccccc',
+  '#d9d9d9',
+  '#efefef',
+  '#f3f3f3',
+  '#ffffff',
+  '#980000',
+  '#ff0000',
+  '#ff9900',
+  '#ffff00',
+  '#00ff00',
+  '#00ffff',
+  '#4a86e8',
+  '#0000ff',
+  '#9900ff',
+  '#ff00ff',
+  '#e6b8af',
+  '#f4cccc',
+  '#fce5cd',
+  '#fff2cc',
+  '#d9ead3',
+  '#d0e0e3',
+  '#c9daf8',
+  '#cfe2f3',
+  '#d9d2e9',
+  '#ead1dc',
+  '#dd7e6b',
+  '#ea9999',
+  '#f9cb9c',
+  '#ffe599',
+  '#b6d7a8',
+  '#a2c4c9',
+  '#a4c2f4',
+  '#9fc5e8',
+  '#b4a7d6',
+  '#d5a6bd',
+  '#cc4125',
+  '#e06666',
+  '#f6b26b',
+  '#ffd966',
+  '#93c47d',
+  '#76a5af',
+  '#6d9eeb',
+  '#6fa8dc',
+  '#8e7cc3',
+  '#c27ba0',
+  '#a61c00',
+  '#cc0000',
+  '#e69138',
+  '#f1c232',
+  '#6aa84f',
+  '#45818e',
+  '#3c78d8',
+  '#3d85c6',
+  '#674ea7',
+  '#a64d79',
+  '#85200c',
+  '#990000',
+  '#b45f06',
+  '#bf9000',
+  '#38761d',
+  '#134f5c',
+  '#1155cc',
+  '#0b5394',
+  '#351c75',
+  '#741b47',
+  '#5b0f00',
+  '#660000',
+  '#783f04',
+  '#7f6000',
+  '#274e13',
+  '#0c343d',
+  '#1c4587',
+  '#073763',
+  '#20124d',
+  '#4c1130'
 ]
 
 export interface DropItem {
@@ -200,10 +274,12 @@ export function dropdown(o: {
     b.style.padding = '0 6px'
     b.style.gap = '3px'
     b.style.justifyContent = 'center'
-    txt.style.cssText = 'display:inline-flex;flex-direction:column;align-items:center;gap:1px;line-height:1;max-width:none'
+    txt.style.cssText =
+      'display:inline-flex;flex-direction:column;align-items:center;gap:1px;line-height:1;max-width:none'
     txt.innerHTML = o.icon
     if (o.colorBar) {
-      bar.style.cssText = 'display:block;width:14px;height:3px;border-radius:1px;background:var(--tq-text3)'
+      bar.style.cssText =
+        'display:block;width:14px;height:3px;border-radius:1px;background:var(--tq-text3)'
       txt.appendChild(bar)
     }
   }
@@ -213,7 +289,13 @@ export function dropdown(o: {
   const close = (): void => {
     menu.style.display = 'none'
   }
-  menus.add({ wrap: { contains: (n: Node) => wrap.contains(n) || menu.contains(n), isConnected: true } as unknown as HTMLElement, close })
+  menus.add({
+    wrap: {
+      contains: (n: Node) => wrap.contains(n) || menu.contains(n),
+      isConnected: true
+    } as unknown as HTMLElement,
+    close
+  })
   b.addEventListener('mousedown', (e) => e.preventDefault())
   b.addEventListener('click', () => {
     const open = menu.style.display !== 'none'
@@ -237,7 +319,8 @@ export function dropdown(o: {
       if (o.noneText) {
         const none = document.createElement('div')
         none.textContent = o.noneText
-        none.style.cssText = 'padding:6px 10px;margin-bottom:4px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:13px'
+        none.style.cssText =
+          'padding:6px 10px;margin-bottom:4px;border-radius:6px;cursor:pointer;white-space:nowrap;font-size:13px'
         none.addEventListener('mouseenter', () => (none.style.background = HOVER_BG))
         none.addEventListener('mouseleave', () => (none.style.background = ''))
         none.addEventListener('mousedown', (e) => e.preventDefault())
@@ -245,7 +328,8 @@ export function dropdown(o: {
         menu.appendChild(none)
       }
       const grid = document.createElement('div')
-      grid.style.cssText = 'display:grid;grid-template-columns:repeat(10,18px);gap:4px;padding:2px 4px 4px'
+      grid.style.cssText =
+        'display:grid;grid-template-columns:repeat(10,18px);gap:4px;padding:2px 4px 4px'
       for (const c of o.palette) {
         const sw = document.createElement('div')
         sw.title = c
@@ -320,11 +404,12 @@ export function dropdown(o: {
   }
 }
 
-export function panel(o: {
-  title: string
-  top?: string
-  onClose: () => void
-}): { box: HTMLElement; body: HTMLElement; foot: HTMLElement; close: () => void } {
+export function panel(o: { title: string; top?: string; onClose: () => void }): {
+  box: HTMLElement
+  body: HTMLElement
+  foot: HTMLElement
+  close: () => void
+} {
   const box = document.createElement('div')
   box.style.cssText = `position:fixed;left:50%;top:${o.top ?? '12%'};transform:translateX(-50%);z-index:9999;background:var(--tq-panel);color:var(--tq-text);border:${LINE};border-radius:10px;box-shadow:0 14px 40px rgba(0,0,0,.5);font-size:13px;font-family:inherit;user-select:none;min-width:240px`
   const head = document.createElement('div')
@@ -332,7 +417,10 @@ export function panel(o: {
   const t = document.createElement('span')
   t.textContent = o.title
   t.style.cssText = 'font-weight:600;font-size:13px'
-  const x = button(icon('<path d="M4 4l8 8M12 4l-8 8"/>', 14), '닫기', o.onClose, { square: true, css: 'width:24px;height:24px' })
+  const x = button(icon('<path d="M4 4l8 8M12 4l-8 8"/>', 14), '닫기', o.onClose, {
+    square: true,
+    css: 'width:24px;height:24px'
+  })
   head.append(t, x)
   const body = document.createElement('div')
   body.style.cssText = 'padding:14px'

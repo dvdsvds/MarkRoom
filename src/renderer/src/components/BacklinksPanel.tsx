@@ -7,7 +7,6 @@ interface BacklinkWithContext {
 }
 
 interface BacklinksPanelProps {
-  /** 지금 보고 있는 메모의 경로. 저장 안 한 새 메모면 null. */
   filePath: string | null
   onOpen: (path: string, line: number) => void
   onClose: () => void
@@ -22,7 +21,6 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** 문장 안의 [[이 노트]] 부분만 강조해서 보여준다. */
 function Snippet({ text, title }: { text: string; title: string }): React.JSX.Element {
   const re = new RegExp(`(\\[\\[\\s*${escapeRegExp(title)}\\s*\\]\\])`)
   const parts = text.split(re)
@@ -95,9 +93,7 @@ export function BacklinksPanel({
         {links === null ? (
           <p className="px-1 py-2 text-xs text-text-tertiary">찾는 중…</p>
         ) : links.length === 0 ? (
-          <p className="px-1 py-2 text-xs text-text-tertiary">
-            이 메모를 가리키는 링크가 없어요
-          </p>
+          <p className="px-1 py-2 text-xs text-text-tertiary">이 파일을 가리키는 링크가 없어요</p>
         ) : (
           <ul>
             {links.map((b) => (
