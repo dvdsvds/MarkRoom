@@ -36,8 +36,8 @@ import { readFileContent } from './utils/fileKind'
 import { FileViewer } from './components/FileViewer'
 import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
+import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 
-const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 const EDITOR_MIN_WIDTH = 396
 
 const TITLE_BTN =
@@ -71,6 +71,7 @@ function App(): React.JSX.Element {
   useAppliedTheme()
   useAppliedFonts()
   useAppliedZoom()
+  useWorkspaceEvents()
 
   const rootDir = useWorkspaceStore((s) => s.rootDir)
   const tree = useWorkspaceStore((s) => s.tree)
@@ -83,9 +84,7 @@ function App(): React.JSX.Element {
   const setContent = useTabsStore((s) => s.setContent)
   const markSaved = useTabsStore((s) => s.markSaved)
   const closeTab = useTabsStore((s) => s.closeTab)
-  const syncExternalChange = useTabsStore((s) => s.syncExternalChange)
   const renamePath = useTabsStore((s) => s.renamePath)
-  const markMissingByPath = useTabsStore((s) => s.markMissingByPath)
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const isViewer = activeTab !== null && activeTab.kind !== 'text'
   const [sidebarWidth, setSidebarWidth] = useState(224)
@@ -186,10 +185,6 @@ function App(): React.JSX.Element {
       })
     })
   }, [])
-  const externalChangeBufferRef = useRef<
-    { filePath: string; title: string; oldContent: string; newContent: string }[]
-  >([])
-  const externalChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vimMode = useSettingsStore((s) => s.vimMode)
   const vimMouse = useSettingsStore((s) => s.vimMouse)
   const setUiZoom = useSettingsStore((s) => s.setUiZoom)
@@ -251,75 +246,8 @@ function App(): React.JSX.Element {
         JSON.stringify({ paths, activeTabId: active?.filePath ?? null })
       )
     } catch {
-      // 저장소를 쓸 수 없어도 앱은 계속 동작해요
     }
   }, [tabs, activeTabId])
-
-  useEffect(() => {
-    return window.api.workspace.onTreeChanged((newTree) => setTree(newTree))
-  }, [setTree])
-
-  useEffect(() => {
-    return window.api.workspace.onExternalNameSanitized((oldPath, newPath) => {
-      renamePath(oldPath, newPath)
-      const newName = newPath.split(/[\\/]/).pop() ?? newPath
-      pushToast({
-        kind: 'info',
-        message: `파일 이름에 사용할 수 없는 문자가 있어서 이름을 바꿨어요: "${newName}"`
-      })
-    })
-  }, [renamePath, pushToast])
-
-  useEffect(() => {
-    return window.api.workspace.onFileExternallyRemoved((filePath) => {
-      markMissingByPath(filePath)
-    })
-  }, [markMissingByPath])
-
-  const flushExternalChangeBuffer = useCallback((): void => {
-    const items = externalChangeBufferRef.current
-    externalChangeBufferRef.current = []
-    if (items.length === 0) return
-    if (items.length >= 3) {
-      pushToast({
-        kind: 'external-change-batch',
-        message: `외부에서 변경된 파일 ${items.length}개를 다시 불러왔어요.`,
-        items
-      })
-    } else {
-      for (const item of items) {
-        pushToast({
-          kind: 'external-change',
-          message: `"${item.title}" 파일의 외부 변경 내용을 불러왔어요. Ctrl+Z로 되돌릴 수 있어요.`,
-          filePath: item.filePath,
-          oldContent: item.oldContent,
-          newContent: item.newContent
-        })
-      }
-    }
-  }, [pushToast])
-
-  useEffect(() => {
-    return window.api.workspace.onFileChanged((changedPath) => {
-      const tabsState = useTabsStore.getState()
-      const priorTab = tabsState.tabs.find((t) => t.filePath === changedPath)
-      void readFileContent(changedPath).then((fresh) => {
-        syncExternalChange(changedPath, fresh)
-        if (!priorTab || !priorTab.dirty || priorTab.content === fresh) return
-        externalChangeBufferRef.current.push({
-          filePath: changedPath,
-          title: changedPath.split(/[\\/]/).pop() ?? changedPath,
-          oldContent: priorTab.content,
-          newContent: fresh
-        })
-        if (externalChangeTimerRef.current) clearTimeout(externalChangeTimerRef.current)
-        externalChangeTimerRef.current = setTimeout(
-          flushExternalChangeBuffer,
-          EXTERNAL_CHANGE_BATCH_WINDOW_MS
-        )
-      })
-    })
-  }, [syncExternalChange, flushExternalChangeBuffer])
 
   const handleCursorChange = useCallback((pos: { line: number; col: number }): void => {
     setCursorPos(pos)
