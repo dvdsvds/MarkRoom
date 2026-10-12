@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence } from 'motion/react'
 import { MarkdownEditor, type MarkdownEditorHandle } from './editor/MarkdownEditor'
 import { MarkdownPreview, type MarkdownPreviewHandle } from './components/MarkdownPreview'
 import { Sidebar, type SidebarHandle } from './components/Sidebar'
@@ -34,50 +34,14 @@ import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
 import { readFileContent } from './utils/fileKind'
 import { FileViewer } from './components/FileViewer'
+import { EmptyState } from './components/EmptyState'
+import { StatusBar } from './components/StatusBar'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 const EDITOR_MIN_WIDTH = 396
 
-const MOD = navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl'
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
-const EMPTY_HINTS: { label: string; keys: string }[] = [
-  { label: '새 파일', keys: `${MOD}+N` },
-  { label: '검색', keys: `${MOD}+P` },
-  { label: '할 일', keys: `${MOD}+Shift+T` },
-  { label: '백링크', keys: `${MOD}+Shift+B` },
-  { label: '설정', keys: `${MOD}+,` }
-]
-
-function EmptyState(): React.JSX.Element {
-  return (
-    <motion.div
-      className="flex flex-1 flex-col items-center justify-center gap-7"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-    >
-      <div className="text-center">
-        <div className="text-[15px] font-medium tracking-tight text-text-secondary">MarkRoom</div>
-      </div>
-      <dl className="grid grid-cols-[auto_auto] items-center gap-x-8 gap-y-2.5 text-xs">
-        {EMPTY_HINTS.map((h) => (
-          <div key={h.label} className="contents">
-            <dt className="text-text-tertiary">{h.label}</dt>
-            <dd className="justify-self-end">
-              <kbd
-                className="rounded-md border border-border px-1.5 py-0.5 text-[11px] text-text-secondary"
-                style={{ fontFamily: 'var(--font-editor)' }}
-              >
-                {h.keys}
-              </kbd>
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </motion.div>
-  )
-}
 
 function resolveNotePath(filePath: string): string {
   const norm = (p: string): string => p.replace(/\\/g, '/')
@@ -228,13 +192,7 @@ function App(): React.JSX.Element {
   const externalChangeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vimMode = useSettingsStore((s) => s.vimMode)
   const vimMouse = useSettingsStore((s) => s.vimMouse)
-  const uiZoom = useSettingsStore((s) => s.uiZoom)
   const setUiZoom = useSettingsStore((s) => s.setUiZoom)
-  const showLineCol = useSettingsStore((s) => s.showLineCol)
-  const showWordCount = useSettingsStore((s) => s.showWordCount)
-  const showCharCount = useSettingsStore((s) => s.showCharCount)
-  const charCountIncludeSpaces = useSettingsStore((s) => s.charCountIncludeSpaces)
-  const charCountExcludeSpaces = useSettingsStore((s) => s.charCountExcludeSpaces)
 
   const saveTab = useCallback(
     async (tabId: string): Promise<void> => {
@@ -735,20 +693,10 @@ function App(): React.JSX.Element {
     editorRef.current?.focus()
   }, [])
 
-  const wordCount = useMemo(() => {
-    const content = activeTab?.content ?? ''
-    return content.split(/\s+/).filter((w) => w.length > 0).length
-  }, [activeTab?.content])
-  const charCountWithSpaces = activeTab?.content.length ?? 0
-  const charCountWithoutSpaces = useMemo(
-    () => (activeTab?.content ?? '').replace(/\s/g, '').length,
-    [activeTab?.content]
-  )
   const dirtyFilePaths = useMemo(
     () => tabs.filter((t) => t.dirty && t.filePath).map((t) => t.filePath as string),
     [tabs]
   )
-  const filePathLabel = activeTab?.filePath?.split(/[\\/]/).pop() ?? ''
 
   return (
     <div className="flex h-full flex-col bg-bg-soft text-text">
@@ -884,43 +832,12 @@ function App(): React.JSX.Element {
           ) : (
             <EmptyState />
           )}
-          <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] tabular-nums text-text-tertiary">
-            <div className="flex items-center gap-2">
-              {vimMode && !isViewer ? (
-                <span className="font-semibold text-accent">-- {vimModeLabel} --</span>
-              ) : (
-                <span className="truncate">{filePathLabel}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-3">
-              {vimMode && !isViewer && <span className="truncate">{filePathLabel}</span>}
-              {activeTab && !isViewer && showLineCol && (
-                <span>
-                  {cursorPos.line}:{cursorPos.col}
-                </span>
-              )}
-
-              {activeTab && !isViewer && showWordCount && <span>{wordCount}단어</span>}
-              {activeTab && !isViewer && showCharCount && (charCountIncludeSpaces || charCountExcludeSpaces) && (
-                <span>
-                  {[
-                    charCountIncludeSpaces ? `${charCountWithSpaces}자` : null,
-                    charCountExcludeSpaces ? `공백 제외 ${charCountWithoutSpaces}자` : null
-                  ]
-                    .filter(Boolean)
-                    .join(' / ')}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setUiZoom(100)}
-                title="100%로 초기화"
-                className="hover:text-text"
-              >
-                {uiZoom}%
-              </button>
-            </div>
-          </footer>
+          <StatusBar
+            tab={activeTab}
+            isViewer={isViewer}
+            vimModeLabel={vimModeLabel}
+            cursorPos={cursorPos}
+          />
         </div>
       </main>
       <AnimatePresence>
