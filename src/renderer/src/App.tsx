@@ -26,7 +26,6 @@ import { useTabsStore, type Tab } from './stores/tabsStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useToastStore } from './stores/toastStore'
 import { flattenFilePaths, flattenNotes } from './utils/noteIndex'
-import { matchesShortcut } from './utils/shortcuts'
 import { extractToc } from './utils/toc'
 import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
@@ -37,6 +36,7 @@ import { FileViewer } from './components/FileViewer'
 import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
+import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 
 const EDITOR_MIN_WIDTH = 396
 
@@ -187,7 +187,6 @@ function App(): React.JSX.Element {
   }, [])
   const vimMode = useSettingsStore((s) => s.vimMode)
   const vimMouse = useSettingsStore((s) => s.vimMouse)
-  const setUiZoom = useSettingsStore((s) => s.setUiZoom)
 
   const saveTab = useCallback(
     async (tabId: string): Promise<void> => {
@@ -203,6 +202,11 @@ function App(): React.JSX.Element {
     },
     [markSaved]
   )
+
+  const saveActiveTab = useCallback((): void => {
+    const id = useTabsStore.getState().activeTabId
+    if (id) void saveTab(id)
+  }, [saveTab])
 
   useEffect(() => {
     void (async (): Promise<void> => {
@@ -268,98 +272,21 @@ function App(): React.JSX.Element {
     [selectedFolderPath]
   )
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent): void => {
-      const shortcuts = useSettingsStore.getState().shortcuts
-      if (matchesShortcut(e, shortcuts.save)) {
-        e.preventDefault()
-        const id = useTabsStore.getState().activeTabId
-        if (id) void saveTab(id)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.search)) {
-        e.preventDefault()
-        setSearchOpen(true)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.newNote)) {
-        e.preventDefault()
-        sidebarRef.current?.startNewFile(resolveNewNoteDir())
-        return
-      }
-      if (matchesShortcut(e, shortcuts.toggleSettings)) {
-        e.preventDefault()
-        setSettingsOpen((v) => !v)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.copyPathAbsolute)) {
-        const tabsState = useTabsStore.getState()
-        const tab = tabsState.tabs.find((t) => t.id === tabsState.activeTabId)
-        if (tab?.filePath) {
-          e.preventDefault()
-          void window.api.workspace.copyPath(tab.filePath, false)
-        }
-        return
-      }
-      if (matchesShortcut(e, shortcuts.copyPathRelative)) {
-        const tabsState = useTabsStore.getState()
-        const tab = tabsState.tabs.find((t) => t.id === tabsState.activeTabId)
-        if (tab?.filePath) {
-          e.preventDefault()
-          void window.api.workspace.copyPath(tab.filePath, true)
-        }
-        return
-      }
-      if (matchesShortcut(e, shortcuts.zoomIn)) {
-        e.preventDefault()
-        setUiZoom(useSettingsStore.getState().uiZoom + 10)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.zoomOut)) {
-        e.preventDefault()
-        setUiZoom(useSettingsStore.getState().uiZoom - 10)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.zoomReset)) {
-        e.preventDefault()
-        setUiZoom(100)
-        return
-      }
-      if (matchesShortcut(e, shortcuts.toggleToc)) {
-        e.preventDefault()
-        setTocOpen((wasOpen) => {
-          if (wasOpen) setTocFocusToken((n) => n + 1)
-          return true
-        })
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyT') {
-        e.preventDefault()
-        setTodoOpen((v) => !v)
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyB') {
-        e.preventDefault()
-        setBacklinksOpen((v) => !v)
-        return
-      }
-      if (e.key === 'Escape' && settingsOpen) {
-        setSettingsOpen(false)
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [saveTab, setUiZoom, settingsOpen, resolveNewNoteDir])
-
-  useEffect(() => {
-    const handler = (e: WheelEvent): void => {
-      if (!e.ctrlKey) return
-      e.preventDefault()
-      setUiZoom(useSettingsStore.getState().uiZoom + (e.deltaY < 0 ? 10 : -10))
-    }
-    window.addEventListener('wheel', handler, { passive: false })
-    return () => window.removeEventListener('wheel', handler)
-  }, [setUiZoom])
+  useGlobalShortcuts({
+    settingsOpen,
+    save: saveActiveTab,
+    openSearch: () => setSearchOpen(true),
+    newFile: () => sidebarRef.current?.startNewFile(resolveNewNoteDir()),
+    toggleSettings: () => setSettingsOpen((v) => !v),
+    closeSettings: () => setSettingsOpen(false),
+    openOrFocusToc: () =>
+      setTocOpen((wasOpen) => {
+        if (wasOpen) setTocFocusToken((n) => n + 1)
+        return true
+      }),
+    toggleTodo: () => setTodoOpen((v) => !v),
+    toggleBacklinks: () => setBacklinksOpen((v) => !v)
+  })
 
   const handleOpenFile = useCallback(
     (filePath: string): void => {
@@ -724,10 +651,7 @@ function App(): React.JSX.Element {
                     vimMouse={vimMouse}
                     baseContent={activeTab.baseContent}
                     onOpenBaseDiff={handleOpenBaseDiff}
-                    onSave={() => {
-                      const id = useTabsStore.getState().activeTabId
-                      if (id) void saveTab(id)
-                    }}
+                    onSave={saveActiveTab}
                     onVimModeChange={setVimModeLabel}
                     onCursorChange={handleCursorChange}
                     onScrollRatio={handleEditorScrollRatio}
