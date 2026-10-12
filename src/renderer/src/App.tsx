@@ -40,6 +40,7 @@ import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
+import { dirOf } from './utils/path'
 
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
@@ -187,10 +188,7 @@ function App(): React.JSX.Element {
       if (selectedFolderPath) return selectedFolderPath
       const tabsState = useTabsStore.getState()
       const tab = tabsState.tabs.find((t) => t.id === tabsState.activeTabId)
-      if (tab?.filePath) {
-        const idx = Math.max(tab.filePath.lastIndexOf('/'), tab.filePath.lastIndexOf('\\'))
-        return idx >= 0 ? tab.filePath.slice(0, idx) : tab.filePath
-      }
+      if (tab?.filePath) return dirOf(tab.filePath)
       return useWorkspaceStore.getState().rootDir ?? ''
     },
     [selectedFolderPath]
@@ -236,7 +234,7 @@ function App(): React.JSX.Element {
       .getState()
       .tabs.find((t) => t.id === useTabsStore.getState().activeTabId)
     if (!tab) return useWorkspaceStore.getState().rootDir ?? ''
-    if (tab.filePath) return tab.filePath.replace(/[\\/][^\\/]*$/, '')
+    if (tab.filePath) return dirOf(tab.filePath)
     return useWorkspaceStore.getState().rootDir ?? ''
   }, [])
 

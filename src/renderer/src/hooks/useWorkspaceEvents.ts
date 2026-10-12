@@ -3,6 +3,7 @@ import { useTabsStore } from '../stores/tabsStore'
 import { useToastStore } from '../stores/toastStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { readFileContent } from '../utils/fileKind'
+import { fileNameOf } from '@renderer/utils/path'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 
@@ -29,7 +30,7 @@ export function useWorkspaceEvents(): void {
   useEffect(() => {
     return window.api.workspace.onExternalNameSanitized((oldPath, newPath) => {
       renamePath(oldPath, newPath)
-      const newName = newPath.split(/[\\/]/).pop() ?? newPath
+      const newName = fileNameOf(newPath)
       pushToast({
         kind: 'info',
         message: `사용할 수 없는 문자가 있어 파일 이름을 ${newName}"(으)로 변경했어요`
@@ -74,7 +75,7 @@ export function useWorkspaceEvents(): void {
         if (!priorTab || !priorTab.dirty || priorTab.content === fresh) return
         bufferRef.current.push({
           filePath: changedPath,
-          title: changedPath.split(/[\\/]/).pop() ?? changedPath,
+          title: fileNameOf(changedPath),
           oldContent: priorTab.content,
           newContent: fresh
         })

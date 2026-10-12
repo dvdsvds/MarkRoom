@@ -1,3 +1,4 @@
+import { fileNameOf } from '@renderer/utils/path';
 import { useCallback, useEffect, useState } from 'react'
 
 interface BacklinkWithContext {
@@ -13,7 +14,7 @@ interface BacklinksPanelProps {
 }
 
 function fileTitle(path: string): string {
-  const name = path.split(/[\\/]/).pop() ?? path
+  const name = fileNameOf(path)
   return name.replace(/\.md$/i, '')
 }
 

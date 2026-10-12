@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useSettingsStore } from '../stores/settingsStore'
 import type { Tab } from '../stores/tabsStore'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface StatusBarProps {
   tab: Tab | null
@@ -28,7 +29,7 @@ export function StatusBar({
   const wordCount = useMemo(() => content.split(/\s+/).filter((w) => w.length > 0).length, [content])
   const charCountWithSpaces = content.length
   const charCountWithoutSpaces = useMemo(() => content.replace(/\s/g, '').length, [content])
-  const filePathLabel = tab?.filePath?.split(/[\\/]/).pop() ?? ''
+  const filePathLabel = tab?.filePath ? fileNameOf(tab.filePath) : ''
 
   return (
     <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border px-3 text-[11px] tabular-nums text-text-tertiary">

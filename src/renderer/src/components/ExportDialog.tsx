@@ -11,6 +11,7 @@ import {
   ListBox,
   MainButton
 } from './DialogParts'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface BrokenLink {
   fromPath: string
@@ -247,7 +248,7 @@ export function ExportDialog({
         <DialogBody>
           <div className="max-h-56 overflow-auto rounded-[10px] bg-bg shadow-[inset_0_0_0_1px_var(--color-border)]">
             {brokenLinks.map((link, i) => {
-              const fileName = link.fromPath.split(/[\\/]/).pop()
+              const fileName = fileNameOf(link.fromPath)
               const content = (
                 <>
                   <div className="min-w-0 flex-1 text-left">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion } from 'motion/react'
 import { FileTypeIcon } from './FileTypeIcon'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface TodoItem {
   path: string
@@ -25,7 +26,7 @@ interface Group {
 const SEGMENT_WIDTH = 56
 
 function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
+  return fileNameOf(path)
 }
 
 function fileTitle(path: string): string {

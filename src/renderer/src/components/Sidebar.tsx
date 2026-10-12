@@ -4,6 +4,8 @@ import type { TreeNode } from '../types/workspace'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
+import { FileExt, FileTypeIcon } from './FileTypeIcon'
+import { dirOf, fileNameOf, sepOf } from '@renderer/utils/path'
 import PlusIcon from '../icons/ctx-plus.svg?react'
 import RenameIcon from '../icons/ctx-rename.svg?react'
 import CopyPathIcon from '../icons/tb-copy.svg?react'
@@ -13,7 +15,6 @@ import DiffIcon from '../icons/ctx-diff.svg?react'
 import HistoryIcon from '../icons/ctx-history.svg?react'
 import TrashIcon from '../icons/ctx-trash.svg?react'
 import ChevronIcon from '../icons/chevron.svg?react'
-import { FileExt, FileTypeIcon } from './FileTypeIcon'
 import ExportIcon from '../icons/export.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
@@ -85,11 +86,6 @@ const ROW_BASE =
   'flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] text-text transition-colors hover:bg-bg-mute/60 focus:outline-none'
 
 const SYSTEM_FOLDERS = new Set(['img', 'files'])
-
-function dirOf(filePath: string): string {
-  const idx = Math.max(filePath.lastIndexOf('/'), filePath.lastIndexOf('\\'))
-  return idx >= 0 ? filePath.slice(0, idx) : filePath
-}
 
 function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
   for (const node of nodes) {
@@ -502,7 +498,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
 
   const commitNewFolder = (dirPath: string, name: string): void => {
     setNewFolderIn(null)
-    const separator = dirPath.includes('\\') ? '\\' : '/'
+    const separator = sepOf(dirPath)
     void window.api.workspace.createFolder(dirPath, name).then(() => {
       setFocusedPath(`${dirPath}${separator}${name}`)
     })
@@ -535,7 +531,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const confirmDelete = (): void => {
     if (!deleteTarget) return
     const { node } = deleteTarget
-    const sep = node.path.includes('\\') ? '\\' : '/'
+    const sep = sepOf(node.path)
     const idx = visibleNodes.findIndex((n) => n.path === node.path)
     const after = visibleNodes.slice(idx + 1).find((n) => !n.path.startsWith(node.path + sep))
     const neighbor = after ?? visibleNodes[idx - 1] ?? null
@@ -802,7 +798,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
                   ? `이 파일을 가리키는 위키링크가 ${deleteTarget.backlinks.reduce((sum, b) => sum + b.count, 0)}개 있어요. 삭제하면 링크가 끊겨요.`
                   : '휴지통으로 이동돼요. 언제든 복원할 수 있어요'
           }
-          items={deleteTarget.backlinks?.map((b) => b.path.split('/[\\/]/').pop() ?? b.path)}
+          items={deleteTarget.backlinks?.map((b) => fileNameOf(b.path))}
           confirmLabel="삭제"
           danger
           onConfirm={confirmDelete}

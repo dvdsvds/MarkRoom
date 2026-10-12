@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { DiffContent } from './DiffContent'
 import { useSettingsStore } from '../stores/settingsStore'
 import { matchesShortcut } from '../utils/shortcuts'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface RecoverableItem {
   tmpPath: string
@@ -95,7 +96,7 @@ export function RecoveryDialog({
         <div className="grid min-h-0 flex-1 grid-cols-[220px_1fr]">
           <div className="overflow-auto border-r border-border">
             {items.map((item) => {
-              const name = item.targetPath.split('/').pop() ?? item.targetPath
+              const name = fileNameOf(item.targetPath)
               return (
                 <div
                   key={item.tmpPath}

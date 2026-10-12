@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { DiffContent } from './DiffContent'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface HistoryEntry {
   id: number
@@ -19,7 +20,6 @@ function formatTime(id: number): string {
   return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 
-/** 저장 버전 기록. 왼쪽에서 버전을 고르면 지금 내용과의 차이를 보여주고, 그 버전으로 되돌릴 수 있다. */
 export function HistoryDialog({
   filePath,
   currentContent,
@@ -59,7 +59,7 @@ export function HistoryDialog({
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
 
-  const name = filePath.split(/[\\/]/).pop() ?? filePath
+  const name = fileNameOf(filePath)
 
   return (
     <div

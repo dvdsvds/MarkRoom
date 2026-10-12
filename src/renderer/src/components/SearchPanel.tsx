@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { FileTypeIcon } from './FileTypeIcon'
+import { fileNameOf } from '@renderer/utils/path'
 
 interface SearchResult {
   path: string
@@ -18,10 +19,9 @@ const MAX_LIST_HEIGHT = 360
 const MAX_RESULTS = 10
 
 function baseName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
+  return fileNameOf(path)
 }
 
-/** 루트 기준으로 파일이 들어 있는 폴더 경로만 돌려준다. 루트 바로 아래면 빈 문자열. */
 function folderLabel(path: string, rootDir: string | null): string {
   let rel = path.replace(/\\/g, '/')
   const root = rootDir ? rootDir.replace(/\\/g, '/') : ''
