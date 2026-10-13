@@ -36,7 +36,6 @@ import { search, searchKeymap } from '@codemirror/search'
 import { createFindPanel } from './findPanel'
 import { vim, Vim } from '@replit/codemirror-vim'
 import { wikilinkCompletionSource } from './wikilinkCompletion'
-import { insertAttachments } from './attachments'
 import { editingAssist } from './editingAssist'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
 import { blockIndent } from './blockIndent'
@@ -56,13 +55,10 @@ import { koreanPhrases } from './findPhrases'
 import { vimImeGuard } from './vimIme'
 import { vimPointer } from './vimPointer'
 import { vimModeTracker } from './vimMode'
+import { pasteDrop } from './pasteDrop'
+import { cursorReport, type CursorPosition } from './cursorReport'
 
 const externalSync = Annotation.define<boolean>()
-
-interface CursorPosition {
-  line: number
-  col: number
-}
 
 export interface MarkdownEditorHandle {
   focus: () => void
@@ -260,30 +256,10 @@ function buildExtensions(
     editingAssist(),
     listRenumber(),
     vimPointer(getVimMouse),
-    EditorView.domEventHandlers({
-      paste(event, view) {
-        const files = Array.from(event.clipboardData?.files ?? [])
-        if (files.length === 0) return false
-        event.preventDefault()
-        void insertAttachments(files, view, getAttachmentDir(), true)
-        return true
-      },
-      drop(event, view) {
-        const files = Array.from(event.dataTransfer?.files ?? [])
-        if (files.length === 0) return false
-        event.preventDefault()
-        void insertAttachments(files, view, getAttachmentDir(), false)
-        return true
-      }
-    }),
+    pasteDrop(getAttachmentDir),
     EditorView.lineWrapping,
     vimModeTracker(reportVimMode),
-    EditorView.updateListener.of((update) => {
-      if (!update.docChanged && !update.selectionSet) return
-      const pos = update.state.selection.main.head
-      const line = update.state.doc.lineAt(pos)
-      reportCursor({ line: line.number, col: pos - line.from + 1 })
-    }),
+    cursorReport(reportCursor),
     EditorView.theme({
       '&': { height: '100%', fontSize: 'var(--editor-font-size)' },
       '.cm-content': {
