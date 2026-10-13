@@ -34,7 +34,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
 import { search, searchKeymap } from '@codemirror/search'
 import { createFindPanel } from './findPanel'
-import { vim, getCM, Vim } from '@replit/codemirror-vim'
+import { vim, Vim } from '@replit/codemirror-vim'
 import { wikilinkCompletionSource } from './wikilinkCompletion'
 import { insertAttachments } from './attachments'
 import { editingAssist } from './editingAssist'
@@ -55,6 +55,7 @@ import { cursorMetrics } from './cursorMetrics'
 import { koreanPhrases } from './findPhrases'
 import { vimImeGuard } from './vimIme'
 import { vimPointer } from './vimPointer'
+import { vimModeTracker } from './vimMode'
 
 const externalSync = Annotation.define<boolean>()
 
@@ -210,7 +211,6 @@ function buildExtensions(
   onChangeClick: () => void
 ): Extension[] {
   const markdownLang = markdown({ base: markdownLanguage, codeLanguages: languages })
-  let lastVimMode = ''
   return [
     cursorMetrics(),
     koreanPhrases,
@@ -277,37 +277,7 @@ function buildExtensions(
       }
     }),
     EditorView.lineWrapping,
-    EditorView.updateListener.of((update) => {
-      const cm = getCM(update.view)
-      const vimState = cm?.state.vim
-      if (!vimState) return
-      const mode = vimState.insertMode
-        ? 'INSERT'
-        : vimState.visualMode
-          ? vimState.visualLine
-            ? 'VISUAL LINE'
-            : vimState.visualBlock
-              ? 'VISUAL BLOCK'
-              : 'VISUAL'
-          : 'NORMAL'
-      reportVimMode(mode)
-      if (mode === 'NORMAL') {
-        const sel = update.state.selection.main
-        const line = update.state.doc.lineAt(sel.head)
-        if (sel.empty && line.length > 0 && sel.head === line.to) {
-          const view = update.view
-          queueMicrotask(() => {
-            if (view.state.selection.main.head === sel.head) {
-              view.dispatch({ selection: { anchor: sel.head - 1 } })
-            }
-          })
-        }
-      }
-      if (mode !== lastVimMode) {
-        lastVimMode = mode
-        requestAnimationFrame(() => cm?.state.vimPlugin?.blockCursor?.scheduleRedraw())
-      }
-    }),
+    vimModeTracker(reportVimMode),
     EditorView.updateListener.of((update) => {
       if (!update.docChanged && !update.selectionSet) return
       const pos = update.state.selection.main.head
