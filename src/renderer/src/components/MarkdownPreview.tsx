@@ -56,6 +56,7 @@ import { useMermaid } from './preview/useMermaid'
 import { useCodeDecorations } from './preview/useCodeDecorations'
 import { useOutputBlocks } from './preview/useOutputBlocks'
 import { useTemplateRender } from './preview/useTemplateRender'
+import { createGridSelection, rcOf, whole, type Sel } from './preview/gridSelection'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -125,13 +126,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     useEffect(() => {
       const el = containerRef.current
       if (!el) return
-      type Sel = { r1: number; c1: number; r2: number; c2: number }
-      let anchor: { r: number; c: number } | null = null
-      let head: { r: number; c: number } | null = null
-      let sel: Sel | null = null
       let editing: HTMLElement | null = null
       let drag: { r: number; c: number; moved: boolean } | null = null
-      let f5Whole = false
       let toolbar: Toolbar | null = null
       const ZWRE = /\u200b/g
       const ZW = '\u200b'
@@ -170,103 +166,17 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
           ? null
-          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[
-              editIdxRef.current
-            ] ?? null)
-      let gridIdx: number | null = null
-      const gridEl = (): HTMLElement | null => {
-        const g = grid()
-        if (!g || gridIdx === null) return null
-        return Array.from(g.querySelectorAll<HTMLElement>('.tq-grid'))[gridIdx] ?? null
-      }
-      const cells = (): HTMLElement[] =>
-        Array.from(gridEl()?.querySelectorAll<HTMLElement>('.tq-cell') ?? [])
-      const pickGrid = (x: HTMLElement): void => {
-        const g = grid()
-        const tg = x.closest<HTMLElement>('.tq-grid')
-        if (!g || !tg) return
-        const before = gridIdx
-        gridIdx = Array.from(g.querySelectorAll('.tq-grid')).indexOf(tg)
-        if (gridIdx !== before) {
-          sel = null
-          anchor = null
-          head = null
-          paint()
+          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[ editIdxRef.current ] ?? null)
+
+      const gs = createGridSelection({
+        el,
+        grid,
+        onPaint: () => {
+          toolbar?.refresh()
+          refreshBorderPanel()
         }
-      }
-      const rcOf = (c: HTMLElement): { r: number; c: number; rs: number; cs: number } => ({
-        r: Number(c.dataset.r),
-        c: Number(c.dataset.c),
-        rs: Number(c.dataset.rs),
-        cs: Number(c.dataset.cs)
       })
-      const cellAt = (r: number, c: number): HTMLElement | null => {
-        for (const x of cells()) {
-          const p = rcOf(x)
-          if (r >= p.r && r < p.r + p.rs && c >= p.c && c < p.c + p.cs) return x
-        }
-        return null
-      }
-      const size = (): { rows: number; cols: number } => {
-        let rows = 0
-        let cols = 0
-        for (const x of cells()) {
-          const p = rcOf(x)
-          rows = Math.max(rows, p.r + p.rs)
-          cols = Math.max(cols, p.c + p.cs)
-        }
-        return { rows, cols }
-      }
-      const paint = (): void => {
-        for (const n of Array.from(el.querySelectorAll('.tq-selected')))
-          n.classList.remove('tq-selected')
-        toolbar?.refresh()
-        refreshBorderPanel()
-        el.dispatchEvent(new Event('snote-editmode'))
-        if (!sel) return
-        for (const x of cells()) {
-          const p = rcOf(x)
-          if (p.r + p.rs > sel.r1 && p.r <= sel.r2 && p.c + p.cs > sel.c1 && p.c <= sel.c2) {
-            x.classList.add('tq-selected')
-          }
-        }
-      }
-      const normalize = (s: Sel): Sel => {
-        let { r1, c1, r2, c2 } = s
-        for (let again = true; again;) {
-          again = false
-          for (const x of cells()) {
-            const p = rcOf(x)
-            if (p.r + p.rs > r1 && p.r <= r2 && p.c + p.cs > c1 && p.c <= c2) {
-              if (p.r < r1) ((r1 = p.r), (again = true))
-              if (p.c < c1) ((c1 = p.c), (again = true))
-              if (p.r + p.rs - 1 > r2) ((r2 = p.r + p.rs - 1), (again = true))
-              if (p.c + p.cs - 1 > c2) ((c2 = p.c + p.cs - 1), (again = true))
-            }
-          }
-        }
-        return { r1, c1, r2, c2 }
-      }
-      const select = (
-        s: Sel | null,
-        a?: { r: number; c: number },
-        h?: { r: number; c: number }
-      ): void => {
-        f5Whole = false
-        sel = s ? normalize(s) : null
-        if (!sel) {
-          anchor = null
-          head = null
-        } else {
-          anchor = a ?? { r: sel.r1, c: sel.c1 }
-          head = h ?? { r: sel.r2, c: sel.c2 }
-        }
-        paint()
-      }
-      const whole = (x: HTMLElement): Sel => {
-        const p = rcOf(x)
-        return { r1: p.r, c1: p.c, r2: p.r + p.rs - 1, c2: p.c + p.cs - 1 }
-      }
+      const { gridEl, cells, pickGrid, cellAt, size, paint, normalize, select } = gs
 
       const commit = (): void => {
         const box = editing
@@ -301,7 +211,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         pickGrid(cell)
         const box = cell.querySelector<HTMLElement>('.tq-text')
         if (!box) return
-        sel = null
+        gs.state.sel = null
         paint()
         cell.classList.add('tq-editing')
         fillBox(box, cell.dataset.raw ?? '')
@@ -402,7 +312,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           commit()
           window.setTimeout(() => {
             select(here)
-            if (viaF5) f5Whole = true
+            if (viaF5) gs.f5.whole = true
           }, 0)
         } else if (e.key === 'Tab') {
           e.preventDefault()
@@ -652,7 +562,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (e.shiftKey) {
           e.preventDefault()
           if (editing) commit()
-          const cur = sel ?? whole(x)
+          const cur = gs.state.sel ?? whole(x)
           select({
             r1: Math.min(cur.r1, p.r),
             c1: Math.min(cur.c1, p.c),
@@ -669,7 +579,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const p = rcOf(x)
         const ge = gridEl()
         if (ge && !ge.contains(x)) return
-        if (p.r === drag.r && p.c === drag.c && !drag.moved && !sel) return
+        if (p.r === drag.r && p.c === drag.c && !drag.moved && !gs.state.sel) return
         drag.moved = true
         e.preventDefault()
         if (editing) commit()
@@ -688,7 +598,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const onUp = (e: MouseEvent): void => {
         const d = drag
         drag = null
-        if (!editModeRef.current || !d || d.moved || sel) return
+        if (!editModeRef.current || !d || d.moved || gs.state.sel) return
         const x = cellOf(e.target)
         if (!x || x.classList.contains('tq-editing')) return
         startEdit(x, { x: e.clientX, y: e.clientY })
@@ -715,14 +625,17 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }
       const doMerge = (): void => {
         const info = gridInfo()
+        const sel = gs.state.sel
         if (!info || !sel) return
         const rect: Rect = normalize(sel)
         const err = applyGridEdit((getLine) => mergeGrid(info, rect, getLine))
         if (err) toast(err)
         else select(null)
       }
+
       const askSplit = (): void => {
         const info = gridInfo()
+        const sel = gs.state.sel
         if (!info || !sel) return
         const rect: Rect = normalize(sel)
         openSplitPanel({
@@ -742,13 +655,17 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
       ): void => {
         const info = gridInfo()
+        const sel = gs.state.sel
         if (!info || !sel) return
         const rect: Rect = normalize(sel)
         const err = applyGridEdit((getLine) => fn(info, rect, getLine))
         if (err) toast(err)
         else select(null)
       }
+
       const onKey = (e: KeyboardEvent): void => {
+        const { sel, head, anchor } = gs.state
+
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         if ((e.target as Element | null)?.closest?.('math-field')) return
         if ((e.ctrlKey || e.metaKey) && !e.altKey) {
@@ -773,12 +690,12 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           if (e.repeat) return
           if (!sel) return
           const { rows, cols } = size()
-          if (f5Whole) {
+          if (gs.f5.whole) {
             select({ r1: 0, c1: 0, r2: rows - 1, c2: cols - 1 })
           } else {
             const x = cellAt(sel.r1, sel.c1)
             if (x) select(whole(x))
-            f5Whole = true
+            gs.f5.whole = true
           }
           return
         }
@@ -844,7 +761,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             return
           }
           const a = anchor ?? { r: sel.r1, c: sel.c1 }
-          const h = { ...(head ?? { r: sel.r2, c: sel.c2 }) }
+          const h = { ...(gs.state.head ?? { r: sel.r2, c: sel.c2 }) }
           if (e.key === 'ArrowRight') h.c = Math.min(cols - 1, h.c + 1)
           else if (e.key === 'ArrowLeft') h.c = Math.max(0, h.c - 1)
           else if (e.key === 'ArrowDown') h.r = Math.min(rows - 1, h.r + 1)
@@ -988,21 +905,28 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           undoStyle()
         }
       }
+
       const bs: BorderState = { kind: 'solid', w: null, c: null }
+
       let borderPanel: ReturnType<typeof openBorderPanel> | null = null
+
       const closeBorderPanel = (): void => {
         borderPanel?.box.remove()
         borderPanel = null
       }
+
       const refreshBorderPanel = (): void => {
         if (!borderPanel) return
         const g = gridEl()
+        const sel = gs.state.sel
         borderPanel.setEdges(g && sel ? readEdges(g, normalize(sel)) : {})
       }
+
       const runBorder = (
         fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
       ): boolean => {
         const info = gridInfo()
+        const sel = gs.state.sel
         if (!info || !sel) {
           toast('칸을 먼저 선택해 주세요')
           return false
@@ -1012,6 +936,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (err) toast(err)
         return !err
       }
+
       const toggleBorderPanel = (): void => {
         if (borderPanel) {
           closeBorderPanel()
@@ -1025,13 +950,16 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         })
         refreshBorderPanel()
       }
+
       const restore = (): void => {
-        const keep = sel
+        const keep = gs.state.sel
         editing = null
-        sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
+        gs.state.sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
         paint()
       }
+
       const targetRect = (): Sel | null => {
+        const sel = gs.state.sel
         if (sel) return normalize(sel)
         const c = editing?.closest<HTMLElement>('.tq-cell')
         return c ? whole(c) : null
