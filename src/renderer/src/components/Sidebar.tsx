@@ -5,7 +5,7 @@ import { ContextMenu, type ContextMenuItem } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
 import { FileExt, FileTypeIcon } from './FileTypeIcon'
-import { dirOf, fileNameOf, sepOf, splitName, newFileNameFor } from '@renderer/utils/path'
+import { dirOf, fileNameOf, sepOf, splitName } from '@renderer/utils/path'
 import PlusIcon from '../icons/ctx-plus.svg?react'
 import RenameIcon from '../icons/ctx-rename.svg?react'
 import CopyPathIcon from '../icons/tb-copy.svg?react'
@@ -18,6 +18,7 @@ import ChevronIcon from '../icons/chevron.svg?react'
 import ExportIcon from '../icons/export.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
+import { InlineNameInput, NewFileRow } from './sidebar/InlineInputs'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -99,76 +100,6 @@ function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
 
 function nameWithoutExt(node: TreeNode): string {
   return node.type === 'file' ? splitName(node.name).base : node.name
-}
-
-function InlineNameInput({
-  initialValue,
-  onCommit,
-  onCancel,
-  onValueChange,
-  paddingLeft,
-  inline = false
-}: {
-  initialValue: string
-  onCommit: (value: string) => void
-  onCancel: () => void
-  onValueChange?: (value: string) => void
-  paddingLeft: number
-  inline?: boolean
-}): React.JSX.Element {
-  const [value, setValue] = useState(initialValue)
-  return (
-    <input
-      autoFocus
-      value={value}
-      onChange={(e) => {
-        setValue(e.target.value)
-        onValueChange?.(e.target.value)
-      }}
-      onBlur={onCancel}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          const trimmed = value.trim()
-          if (trimmed.length > 0) onCommit(trimmed)
-          else onCancel()
-        } else if (e.key === 'Escape') {
-          onCancel()
-        }
-      }}
-      onClick={(e) => e.stopPropagation()}
-      className={
-        inline
-          ? '-ml-px relative min-w-0 flex-1 rounded border border-accent bg-bg px-1 py-0 leading-none text-[13px] text-text outline-none'
-          : 'my-0.5 w-[calc(100%-8px)] rounded border border-accent bg-bg px-1.5 py-0.5 text-sm text-text outline-none'
-      }
-      style={inline ? { top: '0px' } : { marginLeft: paddingLeft }}
-    />
-  )
-}
-
-function NewFileRow({
-  paddingLeft,
-  onCommit,
-  onCancel
-}: {
-  paddingLeft: number
-  onCommit: (value: string) => void
-  onCancel: () => void
-}): React.JSX.Element {
-  const [typed, setTyped] = useState('')
-  return (
-    <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft }}>
-      <FileTypeIcon name={newFileNameFor(typed)} kind="file" />
-      <InlineNameInput
-        initialValue=""
-        onValueChange={setTyped}
-        onCommit={onCommit}
-        onCancel={onCancel}
-        paddingLeft={0}
-        inline
-      />
-    </div>
-  )
 }
 
 function TreeRow({
