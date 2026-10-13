@@ -53,9 +53,8 @@ import { foldChevronGutter } from './foldGutter'
 import { listRenumber } from './listRenumber'
 import { cursorMetrics } from './cursorMetrics'
 import { koreanPhrases } from './findPhrases'
+import { vimImeGuard } from './vimIme'
 
-let imeGuardUntil = 0
-const imeRestore = Annotation.define<boolean>()
 const externalSync = Annotation.define<boolean>()
 
 interface CursorPosition {
@@ -254,43 +253,7 @@ function buildExtensions(
     mdToolbarKeys,
     toolbarCompartment.of(useSettingsStore.getState().showToolbar ? mdToolbarPanel : []),
     slashMenu,
-    EditorView.domEventHandlers({
-      keydown: (e, view) => {
-        const vs = getCM(view)?.state.vim
-        if (vs && !vs.insertMode && (e.key === 'Process' || e.isComposing)) {
-          const saved = view.state.selection
-          imeGuardUntil = Date.now() + 200
-          setTimeout(() => {
-            if (view.state.selection.eq(saved)) {
-              view.dispatch({ selection: saved, annotations: imeRestore.of(true) })
-            }
-          }, 120)
-          e.preventDefault()
-          return true
-        }
-        return false
-      },
-      beforeinput: (e, view) => {
-        const vs = getCM(view)?.state.vim
-        if (
-          vs &&
-          !vs.insertMode &&
-          (e.inputType === 'deleteContentBackward' ||
-            e.inputType === 'deleteCompositionText' ||
-            e.inputType === 'insertText' ||
-            e.inputType === 'insertCompositionText')
-        ) {
-          e.preventDefault()
-          return true
-        }
-        return false
-      }
-    }),
-    EditorState.transactionFilter.of((tr) =>
-      (tr.docChanged || tr.selection) && Date.now() < imeGuardUntil && !tr.annotation(imeRestore)
-        ? []
-        : tr
-    ),
+    vimImeGuard(),
     markdownLang.language.data.of({ autocomplete: wikilinkCompletionSource(getNoteIndex) }),
     markdownLang.language.data.of({ autocomplete: templateCompletionSource }),
     editingAssist(),
