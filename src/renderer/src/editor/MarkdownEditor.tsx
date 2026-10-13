@@ -54,6 +54,7 @@ import { listRenumber } from './listRenumber'
 import { cursorMetrics } from './cursorMetrics'
 import { koreanPhrases } from './findPhrases'
 import { vimImeGuard } from './vimIme'
+import { vimPointer } from './vimPointer'
 
 const externalSync = Annotation.define<boolean>()
 
@@ -258,20 +259,7 @@ function buildExtensions(
     markdownLang.language.data.of({ autocomplete: templateCompletionSource }),
     editingAssist(),
     listRenumber(),
-    EditorState.transactionFilter.of((tr) => {
-      if (!tr.selection || !tr.isUserEvent('select.pointer')) return tr
-      ;(globalThis as { __vimPointerSelect?: boolean }).__vimPointerSelect = true
-      const cv = getCurrentView()
-      const vimState = cv ? getCM(cv)?.state.vim : null
-      if (!vimState || vimState.insertMode) return tr
-      const sel = tr.newSelection.main
-      if (!sel.empty) return tr
-      const line = tr.newDoc.lineAt(sel.head)
-      if (line.length > 0 && sel.head === line.to) {
-        return [tr, { selection: { anchor: sel.head - 1 } }]
-      }
-      return tr
-    }),
+    vimPointer(getVimMouse),
     EditorView.domEventHandlers({
       paste(event, view) {
         const files = Array.from(event.clipboardData?.files ?? [])
@@ -286,17 +274,6 @@ function buildExtensions(
         event.preventDefault()
         void insertAttachments(files, view, getAttachmentDir(), false)
         return true
-      },
-      mousedown(event, view) {
-        const vimState = getCM(view)?.state.vim
-        if (!vimState || getVimMouse()) return false
-        event.preventDefault()
-        view.focus()
-        return true
-      },
-      keydown() {
-        ;(globalThis as { __vimPointerSelect?: boolean }).__vimPointerSelect = false
-        return false
       }
     }),
     EditorView.lineWrapping,
