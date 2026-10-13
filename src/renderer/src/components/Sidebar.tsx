@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useState } from 'react'
 import type { TreeNode } from '../types/workspace'
 import { ContextMenu } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
@@ -10,8 +10,9 @@ import ExportIcon from '../icons/export.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
 import { InlineNameInput, NewFileRow } from './sidebar/InlineInputs'
-import { TreeRow, findNodeByPath, type RowContext } from './sidebar/TreeRow'
+import { TreeRow, type RowContext } from './sidebar/TreeRow'
 import { buildMenuItems } from './sidebar/sidebarMenu'
+import { useTreeFocus } from './sidebar/useTreeFocus'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -75,76 +76,6 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const [newFolderIn, setNewFolderIn] = useState<string | null>(null)
   const [newFileIn, setNewFileIn] = useState<string | null>(null)
   const [draggingPath, setDraggingPath] = useState<string | null>(null)
-  const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set())
-  const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
-
-  const isExpanded = (path: string): boolean => !collapsedPaths.has(path)
-  const toggleExpand = (path: string): void => {
-    setCollapsedPaths((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
-  }
-  const expandPath = (path: string): void => {
-    setCollapsedPaths((prev) => {
-      if (!prev.has(path)) return prev
-      const next = new Set(prev)
-      next.delete(path)
-      return next
-    })
-  }
-  const registerRowRef = (path: string, el: HTMLButtonElement | null): void => {
-    if (el) rowRefs.current.set(path, el)
-    else rowRefs.current.delete(path)
-  }
-  const [showRing, setShowRing] = useState(false)
-  const [highlightOff, setHighlightOff] = useState(false)
-  const [prevActiveFilePath, setPrevActiveFilePath] = useState(activeFilePath)
-  if (prevActiveFilePath !== activeFilePath) {
-    setPrevActiveFilePath(activeFilePath)
-    setHighlightOff(false)
-  }
-  const [focusedPath, setFocusedPath] = useState<string | null>(null)
-  useEffect(() => {
-    if (!focusedPath) return
-    const el = rowRefs.current.get(focusedPath)
-    const active = document.activeElement
-    const focusIsFree = !active || active === document.body || active.tagName === 'BUTTON'
-    if (el && focusIsFree && active !== el) {
-      el.focus()
-    }
-  }, [focusedPath, tree])
-  const handleRowOpenFile = (path: string): void => {
-    setShowRing(false)
-    setHighlightOff(false)
-    setFocusedPath(path)
-    rowRefs.current.get(path)?.focus()
-    onOpenFile(path)
-  }
-  const handleRowSelectFolder = (path: string): void => {
-    setFocusedPath(path)
-    setHighlightOff(false)
-    setFocusedPath(path)
-    rowRefs.current.get(path)?.focus()
-    onSelectFolder(path)
-  }
-
-  const visibleNodes = useMemo(() => {
-    const result: TreeNode[] = []
-    const walk = (nodes: TreeNode[]): void => {
-      for (const n of nodes) {
-        result.push(n)
-        if (n.type === 'folder' && !collapsedPaths.has(n.path) && n.children) {
-          walk(n.children)
-        }
-      }
-    }
-    walk(tree)
-    return result
-  }, [tree, collapsedPaths])
-
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
   const [exportTarget, setExportTarget] = useState<{
     folderPath: string
@@ -155,58 +86,31 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     startNewFile: (dirPath: string) => setNewFileIn(dirPath)
   }))
 
-  const handleTreeKeyDown = (e: React.KeyboardEvent): void => {
-    const target = e.target as HTMLElement
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
-    if (e.key === 'Escape') {
-      setFocusedPath(null)
-      setHighlightOff(true)
-      setShowRing(false)
-      if (rootDir) onSelectFolder(rootDir)
-      return
-    }
-    if (e.key === 'Delete') {
-      const selectedPath = focusedPath ?? selectedFolderPath ?? activeFilePath
-      if (!selectedPath) return
-      const node = findNodeByPath(tree, selectedPath)
-      if (!node) return
-      openDeleteConfirm(node)
-      return
-    }
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      setShowRing(true)
-      if (visibleNodes.length === 0) return
-      e.preventDefault()
-      const currentPath = focusedPath ?? selectedFolderPath ?? activeFilePath
-      const currentIndex = currentPath ? visibleNodes.findIndex((n) => n.path === currentPath) : -1
-      let nextIndex: number
-      if (currentIndex === -1) {
-        nextIndex = 0
-      } else if (e.key === 'ArrowDown') {
-        nextIndex = Math.min(currentIndex + 1, visibleNodes.length - 1)
-      } else {
-        nextIndex = Math.max(currentIndex - 1, 0)
-      }
-      const nextNode = visibleNodes[nextIndex]
-      setFocusedPath(nextNode.path)
-      rowRefs.current.get(nextNode.path)?.focus()
-      return
-    }
-
-    if (e.key === 'Enter') {
-      if (!focusedPath) return
-      const node = findNodeByPath(tree, focusedPath)
-      if (!node) return
-      e.preventDefault()
-      if (node.type === 'folder') {
-        toggleExpand(node.path)
-      } else {
-        onOpenFile(node.path)
-        onFocusEditor()
-      }
-    }
-  }
-
+  const {
+    rowRefs,
+    isExpanded,
+    toggleExpand,
+    expandPath,
+    registerRowRef,
+    showRing,
+    setShowRing,
+    highlightOff,
+    setHighlightOff,
+    focusedPath,
+    setFocusedPath,
+    handleRowOpenFile,
+    handleRowSelectFolder,
+    visibleNodes,
+    handleTreeKeyDown
+  } = useTreeFocus({
+    tree,
+    rootDir,
+    activeFilePath,
+    selectedFolderPath,
+    onOpenFile,
+    onSelectFolder,
+    onFocusEditor
+  })
   const commitRename = (node: TreeNode, rawValue: string): void => {
     const newName = node.type === 'file' ? `${rawValue}${splitName(node.name).ext}` : rawValue
     setEditingPath(null)
@@ -338,7 +242,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       style={style}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => rootDir && handleDrop(e, rootDir)}
-      onKeyDown={handleTreeKeyDown}
+      onKeyDown={(e) => handleTreeKeyDown(e, openDeleteConfirm)}
     >
       <div className="flex h-9 shrink-0 items-center justify-between pl-4 pr-2">
         <span className="text-[11px] font-medium tracking-wide text-text-tertiary">탐색</span>
