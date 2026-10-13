@@ -1,7 +1,7 @@
 import { mdToolbarKeys, mdToolbarPanel } from './editorToolbar'
 import { slashMenu } from './slashMenu'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import { Annotation, Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
+import { Annotation, Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, keymap, drawSelection, tooltips, } from '@codemirror/view'
 import { basicSetup } from 'codemirror'
 import {
@@ -40,6 +40,7 @@ import { pasteDrop } from './pasteDrop'
 import { cursorReport, type CursorPosition } from './cursorReport'
 import { markdownColors } from './markdownColors'
 import { editorTheme } from './editorTheme'
+import { listTabSpace } from './listTab'
 
 const externalSync = Annotation.define<boolean>()
 
@@ -118,24 +119,7 @@ function buildExtensions(
     templateCompletion,
     codeBlocks,
     selectionPerLine,
-    Prec.high(
-      keymap.of([
-        {
-          key: 'Tab',
-          run: (view) => {
-            const pos = view.state.selection.main.head
-            const line = view.state.doc.lineAt(pos)
-            const beforeCursor = line.text.slice(0, pos - line.from)
-            if (pos !== line.to || !/^\s*[-*+]$/.test(beforeCursor)) return false
-            view.dispatch({
-              changes: { from: pos, insert: ' ' },
-              selection: { anchor: pos + 1 }
-            })
-            return true
-          }
-        }
-      ])
-    ),
+    listTabSpace,
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     markdownLang,
     markdownColors,
