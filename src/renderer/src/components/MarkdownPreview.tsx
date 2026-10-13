@@ -9,8 +9,6 @@ import {
   insertRows,
   mergeGrid,
   splitGrid,
-  setBorders,
-  setDiagonals,
   readCellOpts,
   setCellOpts,
   type CellOptChange,
@@ -19,8 +17,6 @@ import {
   type Rect
 } from './gridEdit'
 import { toast } from './uiKit'
-import { openBorderPanel, openSplitPanel, type BorderState } from './templatePanels'
-import { readEdges } from './templateRead'
 import {
   applyCaret,
   applyInline,
@@ -43,6 +39,8 @@ import { createGridSelection, rcOf, whole, type Sel } from './preview/gridSelect
 import { createCellEditor, ZWRE } from './preview/cellEditor'
 import { createTextEditor } from './preview/textEditor'
 import { createGridMouse } from './preview/gridMouse'
+import { openSplitPanel } from './templatePanels'
+import { createBorderPanel } from './preview/borderPanel'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -95,7 +93,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
     useEffect(() => {
       onHasTemplateChangeRef.current = onHasTemplateChange
-    }, [onMinWidthChange, onHasTemplateChange])
+    }, [onHasTemplateChange])
 
     useEffect(() => {
       onHasTemplateChangeRef.current?.(html.includes('snote-template'))
@@ -114,18 +112,21 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
           ? null
-          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[ editIdxRef.current ] ?? null)
+          : (Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))[
+              editIdxRef.current
+            ] ?? null)
 
+      let bp: ReturnType<typeof createBorderPanel> | null = null
       const gs = createGridSelection({
         el,
         grid,
         onPaint: () => {
           toolbar?.refresh()
-          refreshBorderPanel()
+          bp?.refresh()
         }
       })
 
-      const { gridEl, cells, cellAt, size, paint, normalize, select, gridInfo } = gs
+      const { cells, cellAt, size, paint, normalize, select, gridInfo } = gs
       const ed = createCellEditor({ gs, toolbar: () => toolbar })
       const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab } = ed
       const tx = createTextEditor({
@@ -136,6 +137,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       })
       const onTextClick = tx.onTextClick
       const gm = createGridMouse({ el, grid, editMode: editModeRef, gs, ed })
+      bp = createBorderPanel({ gs })
       const { onDown, onMove, onUp, onHover, onResizeDown, onResizeMove, onResizeUp } = gm
 
       const doMerge = (): void => {
@@ -195,9 +197,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
         const t = e.target as HTMLElement | null
         if (t?.closest('.cm-editor')) return
-        if (e.key === 'Escape' && borderPanel) {
+        if (e.key === 'Escape' && bp?.isOpen()) {
           e.preventDefault()
-          closeBorderPanel()
+          bp.close()
           return
         }
         if (e.key === 'F5') {
@@ -231,7 +233,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           const alt = e.shiftKey
           if (e.code === 'KeyL' && !alt) {
             e.preventDefault()
-            toggleBorderPanel()
+            bp?.toggle()
             return
           }
           if (e.code === 'KeyR') {
@@ -292,47 +294,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             h
           )
         }
-      }
-      const bs: BorderState = { kind: 'solid', w: null, c: null }
-      let borderPanel: ReturnType<typeof openBorderPanel> | null = null
-      const closeBorderPanel = (): void => {
-        borderPanel?.box.remove()
-        borderPanel = null
-      }
-      const refreshBorderPanel = (): void => {
-        if (!borderPanel) return
-        const g = gridEl()
-        const sel = gs.state.sel
-        borderPanel.setEdges(g && sel ? readEdges(g, normalize(sel)) : {})
-      }
-
-      const runBorder = (
-        fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
-      ): boolean => {
-        const info = gridInfo()
-        const sel = gs.state.sel
-        if (!info || !sel) {
-          toast('칸을 먼저 선택해 주세요')
-          return false
-        }
-        const rect: Rect = normalize(sel)
-        const err = applyGridEdit((getLine) => fn(info, rect, getLine))
-        if (err) toast(err)
-        return !err
-      }
-
-      const toggleBorderPanel = (): void => {
-        if (borderPanel) {
-          closeBorderPanel()
-          return
-        }
-        borderPanel = openBorderPanel({
-          st: bs,
-          borders: (where) => runBorder((i, r, g) => setBorders(i, r, where, { ...bs }, g)),
-          diagonal: (dir) => runBorder((i, r, g) => setDiagonals(i, r, dir, { ...bs }, g)),
-          onClose: closeBorderPanel
-        })
-        refreshBorderPanel()
       }
 
       const restore = (): void => {
@@ -552,7 +513,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         window.removeEventListener('mouseup', onUp)
         window.removeEventListener('keydown', onKey, true)
         window.removeEventListener('scroll', resetPageScroll)
-        closeBorderPanel()
+        bp?.close()
         el.removeEventListener('mousedown', onResizeDown, true)
         el.removeEventListener('mousemove', onHover)
         window.removeEventListener('mousemove', onResizeMove)
