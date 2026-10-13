@@ -1,13 +1,11 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
 import {
-  addCellText,
   addTextLine,
   applyGridEdit,
   deleteEmptyTextLine,
   readGrid,
   redoEditor,
-  replaceCellText,
   replaceTextLine,
   splitTextLine,
   undoEditor
@@ -35,11 +33,9 @@ import {
 import { toast } from './uiKit'
 import { openBorderPanel, openSplitPanel, type BorderState } from './templatePanels'
 import { readEdges } from './templateRead'
-import { renderMath } from './mathText'
 import {
   applyCaret,
   applyInline,
-  fillCell,
   inlineAt,
   mkScript,
   serializeCell,
@@ -47,7 +43,6 @@ import {
   textChangeOf,
   type TextChange
 } from './cellInline'
-import { enterMath, isMath, mathBeside, texOf } from './cellMath'
 import { useCodeRun } from './preview/useCodeRun'
 import { useImageMinWidth } from './preview/useImageMinWidth'
 import { useScrollSync } from './preview/useScrollSync'
@@ -57,6 +52,7 @@ import { useCodeDecorations } from './preview/useCodeDecorations'
 import { useOutputBlocks } from './preview/useOutputBlocks'
 import { useTemplateRender } from './preview/useTemplateRender'
 import { createGridSelection, rcOf, whole, type Sel } from './preview/gridSelection'
+import { createCellEditor, ZWRE } from './preview/cellEditor'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -69,9 +65,7 @@ interface MarkdownPreviewProps {
   onWikilinkClick?: (title: string) => void
   onToggleTask?: (line: number) => void
   onReplaceSource?: (next: string) => void
-  /** 문서 안 가장 넓은 이미지가 줄어들지 않고 들어갈 프리뷰 최소 너비(px). 이미지가 없으면 0. */
   onMinWidthChange?: (px: number) => void
-  /** 문서에 서식(template)이 들어 있는지. 들어 있으면 App이 5:5로 고정한다. */
   onHasTemplateChange?: (has: boolean) => void
   className?: string
 }
@@ -126,43 +120,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     useEffect(() => {
       const el = containerRef.current
       if (!el) return
-      let editing: HTMLElement | null = null
       let drag: { r: number; c: number; moved: boolean } | null = null
       let toolbar: Toolbar | null = null
-      const ZWRE = /\u200b/g
-      const ZW = '\u200b'
-      const fillBox = fillCell
-      const serializeBox = serializeCell
-      const spanOf = (n: Node | null): HTMLElement | null => {
-        const box = editing
-        if (!box || !n || !box.contains(n)) return null
-        const el = n instanceof Element ? n : n.parentElement
-        const sp = el?.closest<HTMLElement>('[data-s]') ?? null
-        return sp && box.contains(sp) ? sp : null
-      }
-      const caretIn = (node: Node, offset: number): void => {
-        const s = window.getSelection()
-        if (!s) return
-        const r = document.createRange()
-        r.setStart(node, offset)
-        r.collapse(true)
-        s.removeAllRanges()
-        s.addRange(r)
-      }
-      const leaveScript = (sp: HTMLElement): void => {
-        const after = document.createTextNode(ZW)
-        if ((sp.textContent ?? '').replace(ZWRE, '') === '') sp.replaceWith(after)
-        else sp.after(after)
-        caretIn(after, 1)
-      }
-      const enterScript = (kind: 'sup' | 'sub'): void => {
-        const s = window.getSelection()
-        if (!s || s.rangeCount === 0) return
-        const sp = mkScript(kind, ZW)
-        s.getRangeAt(0).insertNode(sp)
-        if (sp.firstChild) caretIn(sp.firstChild, 1)
-      }
-
       const grid = (): HTMLElement | null =>
         editIdxRef.current === null
           ? null
@@ -176,188 +135,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           refreshBorderPanel()
         }
       })
+
       const { gridEl, cells, pickGrid, cellAt, size, paint, normalize, select } = gs
-
-      const commit = (): void => {
-        const box = editing
-        if (!box) return
-        editing = null
-        toolbar?.refresh()
-        const cell = box.closest<HTMLElement>('.tq-cell')
-        box.removeEventListener('keydown', onEditKey)
-        box.removeEventListener('focusout', onFocusOut)
-        const value = serializeBox(box)
-        for (const mf of Array.from(box.querySelectorAll('math-field'))) {
-          const t = isMath(mf) ? texOf(mf) : ''
-          if (t) {
-            const sp = document.createElement('span')
-            sp.className = 'tq-math'
-            renderMath(sp, t)
-            mf.replaceWith(sp)
-          } else mf.remove()
-        }
-        box.contentEditable = 'false'
-        cell?.classList.remove('tq-editing')
-        if (!cell || value === (cell.dataset.raw ?? '')) return
-        if (cell.dataset.def !== undefined) {
-          replaceCellText(Number(cell.dataset.def), Number(cell.dataset.end), value)
-        } else if (cell.dataset.gridEnd !== undefined && value.trim() !== '') {
-          const p = rcOf(cell)
-          addCellText(Number(cell.dataset.gridEnd), p.r, p.c, p.rs, p.cs, value)
-        }
-      }
-      const startEdit = (cell: HTMLElement, at?: { x: number; y: number }): void => {
-        if (editing) commit()
-        pickGrid(cell)
-        const box = cell.querySelector<HTMLElement>('.tq-text')
-        if (!box) return
-        gs.state.sel = null
-        paint()
-        cell.classList.add('tq-editing')
-        fillBox(box, cell.dataset.raw ?? '')
-        box.contentEditable = 'plaintext-only'
-        box.spellcheck = false
-        editing = box
-        toolbar?.refresh()
-        box.addEventListener('keydown', onEditKey)
-        box.addEventListener('focusout', onFocusOut)
-        box.focus()
-        const s = window.getSelection()
-        if (!s) return
-        let placed = false
-        if (at) {
-          const d = document as Document & {
-            caretPositionFromPoint?: (
-              x: number,
-              y: number
-            ) => { offsetNode: Node; offset: number } | null
-            caretRangeFromPoint?: (x: number, y: number) => Range | null
-          }
-          const cp = d.caretPositionFromPoint?.(at.x, at.y)
-          const range = cp ? document.createRange() : (d.caretRangeFromPoint?.(at.x, at.y) ?? null)
-          if (cp && range) {
-            range.setStart(cp.offsetNode, cp.offset)
-            range.collapse(true)
-          }
-          if (range && box.contains(range.startContainer)) {
-            s.removeAllRanges()
-            s.addRange(range)
-            placed = true
-          }
-        }
-        if (!placed) {
-          const range = document.createRange()
-          range.selectNodeContents(box)
-          range.collapse(false)
-          s.removeAllRanges()
-          s.addRange(range)
-        }
-        if (at) {
-          const hit = document.elementFromPoint(at.x, at.y)?.closest('math-field')
-          if (isMath(hit)) enterMath(hit, 'end')
-        }
-      }
-      const moveTab = (
-        from: { r: number; c: number; rs: number; cs: number },
-        dir: number
-      ): void => {
-        const { rows, cols } = size()
-        let r = from.r
-        let c = dir > 0 ? from.c + from.cs : from.c - 1
-        for (let guard = 0; guard < rows * cols + 2; guard++) {
-          if (c >= cols) ((c = 0), r++)
-          if (c < 0) ((c = cols - 1), r--)
-          if (r < 0 || r >= rows) return
-          const x = cellAt(r, c)
-          if (x) {
-            startEdit(x)
-            return
-          }
-          c += dir
-        }
-      }
-      function onFocusOut(e: FocusEvent): void {
-        const to = e.relatedTarget as Node | null
-        if (to && editing && (editing.contains(to) || toolbar?.el.contains(to))) return
-        commit()
-      }
-      function onEditKey(e: KeyboardEvent): void {
-        e.stopPropagation()
-        if (e.isComposing) return
-        if (
-          (e.target as Element | null)?.closest?.('math-field') &&
-          e.key !== 'Escape' &&
-          e.key !== 'F5'
-        )
-          return
-        if ((e.key === ' ' || e.key === 'Enter') && !e.ctrlKey && !e.altKey && !e.metaKey) {
-          const s0 = window.getSelection()
-          const sp = s0 && s0.isCollapsed ? spanOf(s0.anchorNode) : null
-          if (s0 && sp && s0.anchorNode) {
-            const rr = document.createRange()
-            rr.selectNodeContents(sp)
-            rr.setStart(s0.anchorNode, s0.anchorOffset)
-            if (rr.toString().replace(ZWRE, '') === '') leaveScript(sp)
-          }
-        }
-        const box = e.currentTarget as HTMLElement
-        const cell = box.closest<HTMLElement>('.tq-cell')
-        if (!cell) return
-        const p = rcOf(cell)
-        if (e.key === 'Escape' || e.key === 'F5') {
-          e.preventDefault()
-          if (e.repeat) return
-          const here = whole(cell)
-          const viaF5 = e.key === 'F5'
-          commit()
-          window.setTimeout(() => {
-            select(here)
-            if (viaF5) gs.f5.whole = true
-          }, 0)
-        } else if (e.key === 'Tab') {
-          e.preventDefault()
-          commit()
-          window.setTimeout(() => moveTab(p, e.shiftKey ? -1 : 1), 0)
-        } else if (e.key.startsWith('Arrow') && !e.shiftKey && !e.ctrlKey && !e.altKey) {
-          const near =
-            e.key === 'ArrowRight'
-              ? mathBeside(box, 1)
-              : e.key === 'ArrowLeft'
-                ? mathBeside(box, -1)
-                : null
-          if (near) {
-            e.preventDefault()
-            enterMath(near, e.key === 'ArrowRight' ? 'start' : 'end')
-            return
-          }
-          const s = window.getSelection()
-          if (!s || !s.isCollapsed || !s.anchorNode) return
-          const full = box.innerText.replace(/\n$/, '').replace(ZWRE, '')
-          const range = document.createRange()
-          range.selectNodeContents(box)
-          range.setEnd(s.anchorNode, s.anchorOffset)
-          const off = range.toString().replace(ZWRE, '').length
-          const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-          const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
-          const edge =
-            (dx > 0 && off >= full.length) ||
-            (dx < 0 && off <= 0) ||
-            (dy > 0 && !full.slice(off).includes('\n')) ||
-            (dy < 0 && !full.slice(0, off).includes('\n'))
-          if (!edge) return
-          e.preventDefault()
-          const nr = dy > 0 ? p.r + p.rs : dy < 0 ? p.r - 1 : p.r
-          const nc = dx > 0 ? p.c + p.cs : dx < 0 ? p.c - 1 : p.c
-          commit()
-          const { rows, cols } = size()
-          window.setTimeout(() => {
-            if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) return
-            const t = cellAt(nr, nc)
-            if (t) startEdit(t)
-          }, 0)
-        }
-      }
-
+      const ed = createCellEditor({ gs, toolbar: () => toolbar })
+      const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab } = ed
       const cellOf = (t: EventTarget | null): HTMLElement | null => {
         const x = t instanceof Element ? t.closest<HTMLElement>('.tq-cell') : null
         return x && grid()?.contains(x) ? x : null
@@ -561,7 +342,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const p = rcOf(x)
         if (e.shiftKey) {
           e.preventDefault()
-          if (editing) commit()
+          if (ed.state.editing) commit()
           const cur = gs.state.sel ?? whole(x)
           select({
             r1: Math.min(cur.r1, p.r),
@@ -572,6 +353,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
         drag = { r: p.r, c: p.c, moved: false }
       }
+
       const onMove = (e: MouseEvent): void => {
         if (!drag || !(e.buttons & 1)) return
         const x = cellOf(e.target)
@@ -582,7 +364,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (p.r === drag.r && p.c === drag.c && !drag.moved && !gs.state.sel) return
         drag.moved = true
         e.preventDefault()
-        if (editing) commit()
+        if (ed.state.editing) commit()
         window.getSelection()?.removeAllRanges()
         select(
           {
@@ -595,6 +377,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           { r: p.r, c: p.c }
         )
       }
+
       const onUp = (e: MouseEvent): void => {
         const d = drag
         drag = null
@@ -603,6 +386,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!x || x.classList.contains('tq-editing')) return
         startEdit(x, { x: e.clientX, y: e.clientY })
       }
+
       const gridInfo = (): GridInfo | null => {
         const g = gridEl()
         if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
@@ -623,6 +407,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           return null
         }
       }
+
       const doMerge = (): void => {
         const info = gridInfo()
         const sel = gs.state.sel
@@ -651,6 +436,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           }
         })
       }
+
       const doEdit = (
         fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
       ): void => {
@@ -836,7 +622,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!hit) return
         e.preventDefault()
         e.stopPropagation()
-        if (editing) commit()
+        if (ed.state.editing) commit()
         pickGrid(hit.g)
         const info = gridInfo()
         if (!info) return
@@ -953,7 +739,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
       const restore = (): void => {
         const keep = gs.state.sel
-        editing = null
+        ed.state.editing = null
         gs.state.sel = keep && cellAt(keep.r1, keep.c1) ? normalize(keep) : null
         paint()
       }
@@ -961,9 +747,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       const targetRect = (): Sel | null => {
         const sel = gs.state.sel
         if (sel) return normalize(sel)
-        const c = editing?.closest<HTMLElement>('.tq-cell')
+        const c = ed.state.editing?.closest<HTMLElement>('.tq-cell')
         return c ? whole(c) : null
       }
+
       const onceRendered = (fn: () => void): void => {
         const h = (): void => {
           el.removeEventListener('snote-rendered', h)
@@ -980,7 +767,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       }
       let lastRange: Range | null = null
       const curRange = (): Range | null => {
-        const box = editing
+        const box = ed.state.editing
         if (!box) return null
         const s = window.getSelection()
         if (s && s.rangeCount > 0 && box.contains(s.anchorNode)) return s.getRangeAt(0)
@@ -1014,7 +801,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             toast('칸을 먼저 선택해 주세요')
             return
           }
-          const box = editing
+          const box = ed.state.editing
           if (!box) {
             runCell(t, ch)
             return
@@ -1025,7 +812,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
             return
           }
           const cell = box.closest<HTMLElement>('.tq-cell')
-          const changed = serializeBox(box) !== (cell?.dataset.raw ?? '')
+          const changed = serializeCell(box) !== (cell?.dataset.raw ?? '')
           const reopen = (): void => {
             const x = cellAt(t.r1, t.c1)
             if (x) startEdit(x)
@@ -1038,7 +825,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           else if (runCell(t, ch)) onceRendered(reopen)
         },
         script: (kind) => {
-          const box = editing ?? tEdit
+          const box = ed.state.editing ?? tEdit
           const s = window.getSelection()
           if (!box || !s || s.rangeCount === 0 || !box.contains(s.anchorNode)) {
             toast('칸을 편집하는 중에 눌러 주세요')
@@ -1077,13 +864,13 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           toolbar?.syncScript()
         },
         selStyle: () => {
-          const box = editing
+          const box = ed.state.editing
           const r = curRange()
           return box && r ? inlineAt(box, r) : null
         },
         scriptState: () => {
           const s = window.getSelection()
-          const sp = editing && s ? spanOf(s.anchorNode) : null
+          const sp = ed.state.editing && s ? spanOf(s.anchorNode) : null
           const k = sp?.dataset.s
           return k === 'sup' || k === 'sub' ? k : null
         },
@@ -1129,14 +916,17 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       mountBar()
       toolbar.el.addEventListener('focusout', (e) => {
         const to = e.relatedTarget as Node | null
-        if (editing && !(to && (editing.contains(to) || toolbar?.el.contains(to)))) commit()
+        const box = ed.state.editing
+        if (box && !(to && (box.contains(to) || toolbar?.el.contains(to)))) commit()
       })
       el.addEventListener('snote-rendered', mountBar)
       el.addEventListener('snote-editmode', mountBar)
+
       const onSel = (): void => {
-        if (!editing) return
+        const box = ed.state.editing
+        if (!box) return
         const s = window.getSelection()
-        if (s && s.rangeCount > 0 && editing.contains(s.anchorNode))
+        if (s && s.rangeCount > 0 && box.contains(s.anchorNode))
           lastRange = s.getRangeAt(0).cloneRange()
         toolbar?.syncScript()
         toolbar?.refresh()

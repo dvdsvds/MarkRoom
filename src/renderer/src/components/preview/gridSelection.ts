@@ -129,3 +129,5 @@ export function createGridSelection(opts: {
 
   return { state, gridEl, cells, pickGrid, cellAt, size, paint, normalize, select, f5 }
 }
+
+export type GridSelection = ReturnType<typeof createGridSelection>
