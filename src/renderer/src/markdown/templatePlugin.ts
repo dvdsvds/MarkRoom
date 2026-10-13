@@ -11,9 +11,7 @@ export type EdgeKind = 'none' | LineKind
 export type FrameKind = 'none' | LineKind
 export type Sides = { l: boolean; t: boolean; r: boolean; b: boolean }
 export type Edges = { l: EdgeKind; t: EdgeKind; r: EdgeKind; b: EdgeKind }
-/** 변마다 따로 정한 굵기(mm)와 색. null이면 종류의 기본값/칸의 border-color를 쓴다. */
 export type EdgeExtra = { w: number | null; c: string | null }
-/** 대각선 한 줄. */
 export type Diag = { kind: LineKind; w: number | null; c: string | null }
 export type Style = {
   ff: string | null
@@ -69,7 +67,9 @@ export type TNode =
       head: number
       close: number | null
     }
-export type ParsedTemplate = { page: Style; nodes: TNode[]; warnings: string[] } | { error: string }
+export type ParsedTemplate = 
+  | { page: Style; nodes: TNode[]; warnings: string[]; close: number } 
+  | { error: string }
 
 type Opt = Partial<Omit<Style, 'edges'>> & {
   h?: number
@@ -897,7 +897,7 @@ export function parseTemplate(
     const pageLine = findPage(lines)
     const page = pageLine === null ? baseStyle : parsePage(pageLine, ctx, baseStyle, index)
     const nodes = parseNodes(lines, { i: 0 }, vars, ctx, page, true, 0)
-    return { page, nodes, warnings: ctx.warnings }
+    return { page, nodes, warnings: ctx.warnings, close: lineBase + lines.length }
   } catch {
     return { error: 'template: 읽을 수 없어요.' }
   }

@@ -1,9 +1,8 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
-import { renderTemplate } from './templateRender'
-import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
 import {
   addCellText,
+  addTextLine,
   applyGridEdit,
   deleteEmptyTextLine,
   readGrid,
@@ -56,6 +55,7 @@ import { useClickHandlers } from './preview/useClickHandlers'
 import { useMermaid } from './preview/useMermaid'
 import { useCodeDecorations } from './preview/useCodeDecorations'
 import { useOutputBlocks } from './preview/useOutputBlocks'
+import { useTemplateRender } from './preview/useTemplateRender'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -93,6 +93,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     const containerRef = useRef<HTMLDivElement>(null)
     const onReplaceSourceRef = useRef(onReplaceSource)
     const sourceRef = useRef(source)
+    const editIdxRef = useRef<number | null>(null)
+    const editModeRef = useRef(false)
+
     useEffect(() => {
       onReplaceSourceRef.current = onReplaceSource
       sourceRef.current = source
@@ -116,97 +119,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     useMermaid(containerRef, html)
     useCodeDecorations(containerRef, html)
     useOutputBlocks(containerRef, html)
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      for (const [ti, node] of Array.from(
-        el.querySelectorAll<HTMLElement>('div.snote-template')
-      ).entries()) {
-        let parsed: ParsedTemplate
-        try {
-          parsed = JSON.parse(node.dataset.spec ?? '') as ParsedTemplate
-        } catch {
-          parsed = { error: '양식을 읽을 수 없어요.' }
-        }
-        if ('error' in parsed) {
-          const e = document.createElement('div')
-          e.className = 'code-run-out error'
-          e.textContent = parsed.error
-          node.replaceChildren(e)
-        } else {
-          const wrap = renderTemplate(parsed)
-          const btn = document.createElement('button')
-          btn.type = 'button'
-          btn.className = 'tp-edit-btn'
-          const on = editIdxRef.current === ti
-          btn.textContent = on ? '편집 끝' : '편집'
-          if (on) wrap.classList.add('tq-editmode')
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation()
-            const next = editIdxRef.current === ti ? null : ti
-            editIdxRef.current = next
-            editModeRef.current = next !== null
-            el.dispatchEvent(new Event('snote-editmode'))
-            for (const w of Array.from(el.querySelectorAll<HTMLElement>('.snote-template-wrap'))) {
-              w.classList.remove('tq-editmode')
-              const b = w.querySelector<HTMLButtonElement>('.tp-edit-btn')
-              if (b) b.textContent = '편집'
-            }
-            if (next !== null) {
-              wrap.classList.add('tq-editmode')
-              btn.textContent = '편집 끝'
-            }
-            for (const n of Array.from(el.querySelectorAll('.tq-selected')))
-              n.classList.remove('tq-selected')
-          })
-          wrap.appendChild(btn)
-          node.replaceChildren(wrap)
-        }
-      }
-
-      const pages = Array.from(el.querySelectorAll<HTMLElement>('.snote-page'))
-      el.style.maxWidth = pages.length > 0 ? 'none' : ''
-      el.style.padding = pages.length > 0 ? '0' : ''
-      if (pages.length === 0) return
-
-      const PAGE_W = (210 / 25.4) * 96
-      const MAX_SCALE = 2
-      const MIN_SCALE = 0.1
-      let raf = 0
-
-      const fit = (): void => {
-        const cs = getComputedStyle(el)
-        const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-        for (const page of pages) {
-          page.style.setProperty('zoom', '1')
-          const scale = Math.min(MAX_SCALE, availW / PAGE_W)
-          page.style.setProperty('zoom', String(Math.max(MIN_SCALE, scale)))
-        }
-      }
-      const schedule = (): void => {
-        cancelAnimationFrame(raf)
-        raf = requestAnimationFrame(fit)
-      }
-
-      fit()
-      const ro = new ResizeObserver(schedule)
-      el.addEventListener('snote-editmode', schedule)
-      ro.observe(el)
-      void document.fonts.ready.then(schedule)
-      el.dispatchEvent(new Event('snote-rendered'))
-      return () => {
-        el.style.padding = ''
-        cancelAnimationFrame(raf)
-        ro.disconnect()
-        el.removeEventListener('snote-editmode', schedule)
-      }
-    }, [html])
-
+    useTemplateRender(containerRef, html, editIdxRef, editModeRef)
     useCodeRun(containerRef, html, baseDir, sourceRef, onReplaceSourceRef)
-
-    const editIdxRef = useRef<number | null>(null)
-    const editModeRef = useRef(false)
 
     useEffect(() => {
       const el = containerRef.current
@@ -676,6 +590,20 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         })
         splitTextLine(line, before, after)
       }
+      
+      const addTextLineAtEnd = (page: HTMLElement): void => {
+        const close = Number(page.closest<HTMLElement>('.snote-template-wrap')?.dataset.close)
+        if (!Number.isInteger(close)) return
+        if (tEdit) tCommit()
+        let added = true
+        onceRendered(() => {
+          if (!added) return
+          const next = el.querySelector<HTMLElement>(`.tp-text[data-tline="${close}"]`)
+          if (next) openText(next, null, 'start')
+        })
+        added = addTextLine(close)
+      }
+
       const onTextClick = (e: MouseEvent): void => {
         if (!editModeRef.current || e.button !== 0) return
         const tg = e.target instanceof Element ? e.target : null
@@ -685,18 +613,29 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         if (!t) {
           const page = tg.closest<HTMLElement>('.snote-page')
           if (!page) return
-          let bestD = Infinity
-          for (const x of Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))) {
-            const r = x.getBoundingClientRect()
-            const d =
-              e.clientY < r.top
-                ? r.top - e.clientY
-                : e.clientY > r.bottom
-                  ? e.clientY - r.bottom
-                  : 0
-            if (d < bestD) {
-              bestD = d
-              t = x
+          const all = Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
+          const last = all[all.length - 1]
+          if (!last || e.clientY > last.getBoundingClientRect().bottom + 8) {
+            if (last && (last.dataset.raw ?? '').trim() === '') {
+              t = last
+            } else {
+              addTextLineAtEnd(page)
+              return
+            }
+          } else {
+            let bestD = Infinity
+            for (const x of all) {
+              const r = x.getBoundingClientRect()
+              const d =
+                e.clientY < r.top
+                  ? r.top - e.clientY
+                  : e.clientY > r.bottom
+                    ? e.clientY - r.bottom
+                    : 0
+              if (d < bestD) {
+                bestD = d
+                t = x
+              }
             }
           }
         }

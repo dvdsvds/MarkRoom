@@ -196,7 +196,6 @@ export function applyGridEdit(
   return null
 }
 
-/** text 노드 줄(line)에서 첫 ':' 뒤를 새 글자로 바꾼다. */
 export function replaceTextLine(line: number, text: string): void {
   const view = currentView
   if (!view) return
@@ -212,7 +211,6 @@ export function replaceTextLine(line: number, text: string): void {
   })
 }
 
-/** text 노드 줄을 커서 기준으로 둘로 나눈다. 앞 글자는 그 줄에, 뒤 글자는 같은 머리말의 새 줄에 넣는다. */
 export function splitTextLine(line: number, before: string, after: string): void {
   const view = currentView
   if (!view) return
@@ -235,7 +233,6 @@ export function splitTextLine(line: number, before: string, after: string): void
   })
 }
 
-/** 내용이 빈 text 줄을 통째로 지운다. 지웠으면 true. */
 export function deleteEmptyTextLine(line: number): boolean {
   const view = currentView
   if (!view) return false
@@ -249,7 +246,18 @@ export function deleteEmptyTextLine(line: number): boolean {
   return true
 }
 
-/** 빈 칸에 글자를 쓴다. afterLine(격자 마지막 칸의 글자 줄) 뒤에 col= 줄을 새로 끼운다. */
+export function addTextLine(close: number): boolean {
+  const view = currentView
+  if (!view) return false
+  const doc = view.state.doc
+  if (close < 1 || close > doc.lines) return false
+  const l = doc.line(close)
+  if (l.text.trim() !== ']') return false
+  const indent = /^\s*/.exec(l.text)?.[0] ?? ''
+  view.dispatch({ changes: { from: l.from, insert: `${indent}  text :\n` }, userEvent: 'input.cell' })
+  return true
+}
+
 export function addCellText(
   afterLine: number,
   r: number,
