@@ -71,6 +71,7 @@ import { codeBlocks } from './codeBlocks'
 import { findTemplateBlocks } from '@renderer/markdown/templateExtract'
 import { templateCompletion, templateCompletionSource } from './templateCompletion'
 import { selectionPerLine } from './selectionPerLine'
+import { getCurrentView, setCurrentView } from './currentView'
 
 let imeGuardUntil = 0
 const imeRestore = Annotation.define<boolean>()
@@ -106,18 +107,19 @@ interface MarkdownEditorProps {
 
 const vimCompartment = new Compartment()
 const toolbarCompartment = new Compartment()
-let currentView: EditorView | null = null
 
 export function undoEditor(): void {
-  if (currentView) undo(currentView)
+  const view = getCurrentView()
+  if (view) undo(view)
 }
 
 export function redoEditor(): void {
-  if (currentView) redo(currentView)
+  const view = getCurrentView()
+  if (view) redo(view)
 }
 
 export function openTableEditor(which: number | 'cursor'): boolean {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return false
   const doc = view.state.doc
   const source = doc.toString()
@@ -135,7 +137,7 @@ export function openTableEditor(which: number | 'cursor'): boolean {
 }
 
 export function selectEditorLines(fromLine: number, toLine: number): void {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return
   const doc = view.state.doc
   const a = Math.min(Math.max(1, fromLine), doc.lines)
@@ -155,9 +157,8 @@ const cellBody = (def: string, text: string): string[] =>
     .filter((l) => l !== '')
     .map((l) => cellIndent(def) + l)
 
-/** col= 칸 정의 줄(defLine) 아래의 글자 줄(endLine까지)을 새 글자로 바꾼다. */
 export function replaceCellText(defLine: number, endLine: number, text: string): void {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return
   const doc = view.state.doc
   if (defLine < 1 || defLine > doc.lines) return
@@ -171,19 +172,18 @@ export function replaceCellText(defLine: number, endLine: number, text: string):
 }
 
 export function readGrid<T>(compute: (getLine: (n: number) => string) => T): T | null {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return null
   const doc = view.state.doc
   return compute((n) => doc.line(n).text)
 }
 
-/** 격자 편집(합치기/나누기) 결과를 문서에 적용한다. 실패하면 오류 글자를, 성공하면 null을 돌려준다. */
 export function applyGridEdit(
   compute: (
     getLine: (n: number) => string
   ) => { ok: true; from: number; to: number; lines: string[] } | { ok: false; error: string }
 ): string | null {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return '편집기를 찾을 수 없어요'
   const doc = view.state.doc
   const r = compute((n) => (n >= 1 && n <= doc.lines ? doc.line(n).text : ''))
@@ -197,7 +197,7 @@ export function applyGridEdit(
 }
 
 export function replaceTextLine(line: number, text: string): void {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return
   const doc = view.state.doc
   if (line < 1 || line > doc.lines) return
@@ -212,7 +212,7 @@ export function replaceTextLine(line: number, text: string): void {
 }
 
 export function splitTextLine(line: number, before: string, after: string): void {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return
   const doc = view.state.doc
   if (line < 1 || line > doc.lines) return
@@ -234,7 +234,7 @@ export function splitTextLine(line: number, before: string, after: string): void
 }
 
 export function deleteEmptyTextLine(line: number): boolean {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return false
   const doc = view.state.doc
   if (line < 1 || line > doc.lines) return false
@@ -247,7 +247,7 @@ export function deleteEmptyTextLine(line: number): boolean {
 }
 
 export function addTextLine(close: number): boolean {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return false
   const doc = view.state.doc
   if (close < 1 || close > doc.lines) return false
@@ -266,7 +266,7 @@ export function addCellText(
   cs: number,
   text: string
 ): void {
-  const view = currentView
+  const view = getCurrentView()
   if (!view) return
   const doc = view.state.doc
   if (afterLine < 1 || afterLine > doc.lines) return
@@ -805,7 +805,8 @@ function buildExtensions(
     EditorState.transactionFilter.of((tr) => {
       if (!tr.selection || !tr.isUserEvent('select.pointer')) return tr
       ;(globalThis as { __vimPointerSelect?: boolean }).__vimPointerSelect = true
-      const vimState = currentView ? getCM(currentView)?.state.vim : null
+      const cv = getCurrentView()
+      const vimState = cv ? getCM(cv)?.state.vim : null
       if (!vimState || vimState.insertMode) return tr
       const sel = tr.newSelection.main
       if (!sel.empty) return tr
@@ -1077,7 +1078,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
 
       const view = new EditorView({ state: initialState, parent: containerRef.current })
       viewRef.current = view
-      currentView = view
+      setCurrentView(view)
       Vim.defineEx('write', 'w', () => onSaveRef.current?.())
 
       const handleScroll = (): void => {
@@ -1089,7 +1090,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
 
       return (): void => {
         view.scrollDOM.removeEventListener('scroll', handleScroll)
-        currentView = null
+        setCurrentView(null)
         view.destroy()
       }
     }, [])
