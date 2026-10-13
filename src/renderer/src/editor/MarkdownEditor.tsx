@@ -5,7 +5,6 @@ import { tags } from '@lezer/highlight'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import {
   Annotation,
-  ChangeSet,
   Compartment,
   EditorState,
   Prec,
@@ -51,6 +50,9 @@ import { getCurrentView, setCurrentView } from './currentView'
 import { selectionToolbar } from './selectionToolbar'
 import { changeGutter } from './changeGutter'
 import { foldChevronGutter } from './foldGutter'
+import { listRenumber } from './listRenumber'
+import { cursorMetrics } from './cursorMetrics'
+import { koreanPhrases } from './findPhrases'
 
 let imeGuardUntil = 0
 const imeRestore = Annotation.define<boolean>()
@@ -197,49 +199,6 @@ const markdownSymbolColors = ViewPlugin.fromClass(
   { decorations: (v) => v.decorations }
 )
 
-function computeRenumberChanges(
-  state: EditorState
-): { from: number; to: number; insert: string }[] | null {
-  const pos = state.selection.main.head
-  const doc = state.doc
-  const line = doc.lineAt(pos)
-  const match = line.text.match(/^(\s*)(\d+)([.)])\s/)
-  if (!match) return null
-  const indent = match[1]
-
-  let startLine = line.number
-  while (startLine > 1) {
-    const prev = doc.line(startLine - 1)
-    const m = prev.text.match(/^(\s*)(\d+)([.)])\s/)
-    if (!m || m[1] !== indent) break
-    startLine--
-  }
-  let endLine = line.number
-  while (endLine < doc.lines) {
-    const next = doc.line(endLine + 1)
-    const m = next.text.match(/^(\s*)(\d+)([.)])\s/)
-    if (!m || m[1] !== indent) break
-    endLine++
-  }
-
-  const first = doc.line(startLine).text.match(/^(\s*)(\d+)([.)])\s/)
-  if (!first) return null
-  let expected = parseInt(first[2], 10)
-  const changes: { from: number; to: number; insert: string }[] = []
-  for (let n = startLine; n <= endLine; n++) {
-    const l = doc.line(n)
-    const m = l.text.match(/^(\s*)(\d+)([.)])\s/)
-    if (!m) continue
-    const numStr = String(expected)
-    if (m[2] !== numStr) {
-      const from = l.from + m[1].length
-      changes.push({ from, to: from + m[2].length, insert: numStr })
-    }
-    expected++
-  }
-  return changes.length > 0 ? changes : null
-}
-
 function buildExtensions(
   getNoteIndex: () => NoteRef[],
   getAttachmentDir: () => string,
@@ -253,60 +212,8 @@ function buildExtensions(
   const markdownLang = markdown({ base: markdownLanguage, codeLanguages: languages })
   let lastVimMode = ''
   return [
-    ViewPlugin.fromClass(
-      class {
-        constructor(view: EditorView) {
-          this.sync(view)
-        }
-        update(u: ViewUpdate): void {
-          this.sync(u.view)
-        }
-        sync(view: EditorView): void {
-          view.requestMeasure({
-            read: () => {
-              const sy = parseFloat(getComputedStyle(document.body).zoom) || 1
-              const lineHs = view.defaultLineHeight
-              const lineH = lineHs / sy
-              const head = view.state.selection.main.head
-              const c = view.coordsAtPos(head)
-              const node = view.domAtPos(head).node
-              const el = (node.nodeType === 1 ? (node as Element) : node.parentElement)?.closest(
-                '.cm-line'
-              )
-              let topS = 0
-              let chS = lineHs
-              if (c && el) {
-                const lr = el.getBoundingClientRect()
-                topS = Math.max(0, (((c.top - lr.top) % lineHs) + lineHs) % lineHs)
-                chS = c.bottom - c.top
-              }
-              return { lineHs, lineH, topS, chS, sy }
-            },
-            write: ({ lineHs, lineH, topS, chS, sy }) => {
-              const s = view.dom.style
-              s.setProperty('--cm-line-hs', `${lineHs}px`)
-              s.setProperty('--cm-cur-tops', `${topS}px`)
-              s.setProperty('--cm-line-h', `${lineH}px`)
-              s.setProperty('--cm-cur-top', `${topS / sy}px`)
-              s.setProperty('--cm-cur-h', `${chS / sy}px`)
-            }
-          })
-        }
-      }
-    ),
-    EditorState.phrases.of({
-      Find: '찾기',
-      Replace: '바꾸기',
-      next: '다음',
-      previous: '이전',
-      all: '모두 선택',
-      'match case': '대소문자',
-      regexp: '정규식',
-      'by word': '단어 단위',
-      replace: '바꾸기',
-      'replace all': '모두 바꾸기',
-      close: '닫기'
-    }),
+    cursorMetrics(),
+    koreanPhrases,
     vimCompartment.of(vimModeInitial ? [vim()] : []),
     changeGutter(baseContent, onChangeClick),
     search({ top: true, createPanel: createFindPanel }),
@@ -387,13 +294,7 @@ function buildExtensions(
     markdownLang.language.data.of({ autocomplete: wikilinkCompletionSource(getNoteIndex) }),
     markdownLang.language.data.of({ autocomplete: templateCompletionSource }),
     editingAssist(),
-    EditorState.transactionFilter.of((tr) => {
-      if (!tr.docChanged || !tr.isUserEvent('delete')) return tr
-      const renumber = computeRenumberChanges(tr.state)
-      if (!renumber) return tr
-      const combined = tr.changes.compose(ChangeSet.of(renumber, tr.changes.newLength))
-      return { changes: combined }
-    }),
+    listRenumber(),
     EditorState.transactionFilter.of((tr) => {
       if (!tr.selection || !tr.isUserEvent('select.pointer')) return tr
       ;(globalThis as { __vimPointerSelect?: boolean }).__vimPointerSelect = true
