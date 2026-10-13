@@ -1,9 +1,5 @@
-import copyIcon from '../icons/tb-copy.svg?raw'
-import checkIcon from '../icons/tb-check.svg?raw'
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
-import { renderBlocks } from './outputBlocks'
-import { ParsedBlock } from '@renderer/markdown/blockPlugin'
 import { renderTemplate } from './templateRender'
 import type { ParsedTemplate } from '@renderer/markdown/templatePlugin'
 import {
@@ -57,6 +53,9 @@ import { useCodeRun } from './preview/useCodeRun'
 import { useImageMinWidth } from './preview/useImageMinWidth'
 import { useScrollSync } from './preview/useScrollSync'
 import { useClickHandlers } from './preview/useClickHandlers'
+import { useMermaid } from './preview/useMermaid'
+import { useCodeDecorations } from './preview/useCodeDecorations'
+import { useOutputBlocks } from './preview/useOutputBlocks'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -114,125 +113,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       onHasTemplateChangeRef.current?.(html.includes('snote-template'))
     }, [html])
 
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      const blocks = Array.from(el.querySelectorAll<HTMLElement>('pre > code.language-mermaid'))
-      if (blocks.length === 0) return
-      let cancelled = false
-      void (async () => {
-        const { default: mermaid } = await import('mermaid')
-        if (cancelled) return
-        const css = getComputedStyle(document.documentElement)
-        const v = (name: string): string => css.getPropertyValue(name).trim()
-        mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: 'strict',
-          look: 'classic',
-          theme: 'base',
-          fontFamily: 'Pretendard, sans-serif',
-          themeVariables: {
-            fontSize: '13px',
-            background: v('--color-bg'),
-            textColor: v('--color-text'),
-            primaryColor: v('--color-bg-soft'),
-            primaryTextColor: v('--color-text'),
-            primaryBorderColor: v('--color-text-tertiary'),
-            secondaryColor: v('--color-bg-soft'),
-            tertiaryColor: v('--color-bg'),
-            lineColor: v('--color-text-tertiary'),
-            edgeLabelBackground: v('--color-bg')
-          }
-        })
-        for (const [i, code] of blocks.entries()) {
-          const pre = code.parentElement
-          if (!pre) continue
-          const id = `mermaid-${Date.now()}-${i}`
-          try {
-            const { svg } = await mermaid.render(id, code.textContent ?? '')
-            if (cancelled) return
-            const wrap = document.createElement('div')
-            wrap.className = 'mermaid-diagram'
-            wrap.innerHTML = svg
-            pre.replaceWith(wrap)
-          } catch {
-            document.getElementById(`d${id}`)?.remove()
-          }
-        }
-      })()
-      return () => {
-        cancelled = true
-      }
-    }, [html])
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      for (const node of Array.from(
-        el.querySelectorAll<HTMLElement>(
-          'span.snote-color[data-fg^="#"], span.snote-color[data-bg^="#"]'
-        )
-      )) {
-        const fg = node.dataset.fg
-        const bg = node.dataset.bg
-        if (fg?.startsWith('#')) node.style.setProperty('--snote-fg', fg)
-        if (bg?.startsWith('#')) node.style.setProperty('--snote-bg', bg)
-      }
-    }, [html])
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      const timers: number[] = []
-      for (const code of Array.from(el.querySelectorAll<HTMLElement>('pre > code'))) {
-        const pre = code.parentElement
-        if (!pre || pre.querySelector(':scope > .pre-copy')) continue
-        const lang = /\blanguage-([\w+#-]+)/.exec(code.className)?.[1]
-        if (lang && lang !== 'mermaid') pre.dataset.lang = lang
-        const btn = document.createElement('button')
-        btn.type = 'button'
-        btn.className = 'pre-copy'
-        btn.title = '복사'
-        btn.innerHTML = copyIcon.trim()
-        btn.addEventListener('click', () => {
-          void navigator.clipboard.writeText(code.textContent ?? '').then(() => {
-            btn.classList.add('done')
-            btn.innerHTML = checkIcon.trim()
-            timers.push(
-              window.setTimeout(() => {
-                btn.classList.remove('done')
-                btn.innerHTML = copyIcon.trim()
-              }, 1200)
-            )
-          })
-        })
-        pre.prepend(btn)
-      }
-      return () => {
-        for (const t of timers) window.clearTimeout(t)
-      }
-    }, [html])
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      for (const node of Array.from(el.querySelectorAll<HTMLElement>('div.snote-block'))) {
-        let parsed: ParsedBlock
-        try {
-          parsed = JSON.parse(node.dataset.spec ?? '') as ParsedBlock
-        } catch {
-          parsed = { error: '블록을 읽을 수 없어요.' }
-        }
-        if ('error' in parsed) {
-          const e = document.createElement('div')
-          e.className = 'code-run-out error'
-          e.textContent = parsed.error
-          node.replaceChildren(e)
-        } else {
-          node.replaceChildren(...renderBlocks([parsed.block]))
-        }
-      }
-    }, [html])
+    useMermaid(containerRef, html)
+    useCodeDecorations(containerRef, html)
+    useOutputBlocks(containerRef, html)
 
     useEffect(() => {
       const el = containerRef.current
