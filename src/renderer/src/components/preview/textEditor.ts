@@ -201,3 +201,5 @@ export function createTextEditor(opts: {
 
   return { state, commit, openText, onTextClick }
 }
+
+export type TextEditor = ReturnType<typeof createTextEditor>
