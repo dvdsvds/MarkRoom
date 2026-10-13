@@ -1,6 +1,6 @@
 import copyIcon from '../icons/tb-copy.svg?raw'
 import checkIcon from '../icons/tb-check.svg?raw'
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react'
+import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
 import { renderBlocks } from './outputBlocks'
 import { ParsedBlock } from '@renderer/markdown/blockPlugin'
@@ -54,6 +54,9 @@ import {
 } from './cellInline'
 import { enterMath, isMath, mathBeside, texOf } from './cellMath'
 import { useCodeRun } from './preview/useCodeRun'
+import { useImageMinWidth } from './preview/useImageMinWidth'
+import { useScrollSync } from './preview/useScrollSync'
+import { useClickHandlers } from './preview/useClickHandlers'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -89,97 +92,27 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     ref
   ) {
     const containerRef = useRef<HTMLDivElement>(null)
-    const onScrollRatioRef = useRef(onScrollRatio)
-    const onWikilinkClickRef = useRef(onWikilinkClick)
-    const onToggleTaskRef = useRef(onToggleTask)
     const onReplaceSourceRef = useRef(onReplaceSource)
     const sourceRef = useRef(source)
     useEffect(() => {
-      onScrollRatioRef.current = onScrollRatio
-      onWikilinkClickRef.current = onWikilinkClick
-      onToggleTaskRef.current = onToggleTask
       onReplaceSourceRef.current = onReplaceSource
       sourceRef.current = source
     })
 
     const html = useMemo(() => markdownRenderer.render(source, baseDir), [source, baseDir])
+    useImageMinWidth(containerRef, html, onMinWidthChange)
+    useScrollSync(containerRef, ref, onScrollRatio)
+    useClickHandlers(containerRef, onWikilinkClick, onToggleTask)
 
-    // 이미지는 크기 고정이라, 가장 넓은 이미지가 들어가는 너비를 App에 알려준다.
-    const onMinWidthChangeRef = useRef(onMinWidthChange)
     const onHasTemplateChangeRef = useRef(onHasTemplateChange)
+
     useEffect(() => {
-      onMinWidthChangeRef.current = onMinWidthChange
       onHasTemplateChangeRef.current = onHasTemplateChange
     }, [onMinWidthChange, onHasTemplateChange])
+
     useEffect(() => {
       onHasTemplateChangeRef.current?.(html.includes('snote-template'))
     }, [html])
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      // 좌우 패딩(px-6 = 48) + 스크롤바(6)
-      const EXTRA = 54
-      const imgs = Array.from(el.querySelectorAll<HTMLImageElement>('img')).filter(
-        (img) => !img.closest('.snote-page')
-      )
-      const measure = (): void => {
-        const w = imgs.reduce((m, img) => Math.max(m, img.naturalWidth), 0)
-        onMinWidthChangeRef.current?.(w > 0 ? Math.ceil(w) + EXTRA : 0)
-      }
-      measure()
-      for (const img of imgs) if (!img.complete) img.addEventListener('load', measure)
-      return () => {
-        for (const img of imgs) img.removeEventListener('load', measure)
-      }
-    }, [html])
-
-    useImperativeHandle(ref, () => ({
-      scrollToRatio: (ratio: number) => {
-        const el = containerRef.current
-        if (!el) return
-        const max = el.scrollHeight - el.clientHeight
-        el.scrollTop = max > 0 ? ratio * max : 0
-      }
-    }))
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      const handleScroll = (): void => {
-        const max = el.scrollHeight - el.clientHeight
-        onScrollRatioRef.current?.(max > 0 ? el.scrollTop / max : 0)
-      }
-      el.addEventListener('scroll', handleScroll, { passive: true })
-      return () => el.removeEventListener('scroll', handleScroll)
-    }, [])
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      const handleClick = (e: MouseEvent): void => {
-        const target = (e.target as HTMLElement | null)?.closest('[data-wikilink]')
-        if (!target) return
-        const title = target.getAttribute('data-wikilink')
-        if (title) onWikilinkClickRef.current?.(title)
-      }
-      el.addEventListener('click', handleClick)
-      return () => el.removeEventListener('click', handleClick)
-    }, [])
-
-    useEffect(() => {
-      const el = containerRef.current
-      if (!el) return
-      const handleClick = (e: MouseEvent): void => {
-        const input = (e.target as HTMLElement | null)?.closest('input.task-list-item-checkbox')
-        if (!input) return
-        const li = input.closest('li[data-line]')
-        const line = li ? Number(li.getAttribute('data-line')) : NaN
-        if (Number.isNaN(line)) return
-        onToggleTaskRef.current?.(line)
-      }
-      el.addEventListener('click', handleClick)
-      return () => el.removeEventListener('click', handleClick)
-    }, [])
 
     useEffect(() => {
       const el = containerRef.current
