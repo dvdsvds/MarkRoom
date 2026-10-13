@@ -6,7 +6,7 @@ import {
   type Extension,
   type Text
 } from '@codemirror/state'
-import { GutterMarker, ViewPlugin, gutter, type EditorView, type ViewUpdate } from '@codemirror/view'
+import { EditorView, GutterMarker, ViewPlugin, gutter, type ViewUpdate } from '@codemirror/view'
 import { diffToRows } from '../utils/diff'
 
 type ChangeKind = 'add' | 'mod' | 'del'
@@ -62,6 +62,22 @@ function computeChangeMarkers(base: string, doc: Text): RangeSet<GutterMarker> {
   return builder.finish()
 }
 
+const changeTheme = EditorView.theme({
+  '.cm-change-gutter': { minWidth: '6px' },
+  '.cm-change-gutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
+  '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '0', borderRadius: '2px' },
+  '.cm-change-add': { backgroundColor: 'var(--color-diff-add-text)' },
+  '.cm-change-mod': {
+    backgroundColor: 'color-mix(in srgb, var(--color-diff-add-text) 55%, transparent)'
+  },
+  '.cm-change-del': {
+    height: '2px',
+    width: '6px',
+    marginTop: '-1px',
+    backgroundColor: 'var(--color-diff-remove-text)'
+  }
+})
+
 export function changeGutter(base: string, onClick: () => void): Extension {
   const plugin = ViewPlugin.fromClass(
     class {
@@ -86,6 +102,7 @@ export function changeGutter(base: string, onClick: () => void): Extension {
     }
   )
   return [
+    changeTheme,
     changeMarkersField,
     plugin,
     gutter({

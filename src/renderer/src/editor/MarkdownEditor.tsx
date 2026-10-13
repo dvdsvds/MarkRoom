@@ -1,15 +1,6 @@
 import { mdToolbarKeys, mdToolbarPanel } from './editorToolbar'
 import { slashMenu } from './slashMenu'
-import {
-  HighlightStyle,
-  syntaxHighlighting,
-  syntaxTree,
-  foldable,
-  foldedRanges,
-  foldEffect,
-  unfoldEffect
-} from '@codemirror/language'
-import chevronSvg from '../icons/chevron.svg?raw'
+import { HighlightStyle, syntaxHighlighting, syntaxTree, } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import {
@@ -27,8 +18,6 @@ import {
   drawSelection,
   Decoration,
   ViewPlugin,
-  gutter,
-  GutterMarker,
   tooltips,
   type DecorationSet,
   type ViewUpdate,
@@ -61,6 +50,7 @@ import { selectionPerLine } from './selectionPerLine'
 import { getCurrentView, setCurrentView } from './currentView'
 import { selectionToolbar } from './selectionToolbar'
 import { changeGutter } from './changeGutter'
+import { foldChevronGutter } from './foldGutter'
 
 let imeGuardUntil = 0
 const imeRestore = Annotation.define<boolean>()
@@ -206,65 +196,6 @@ const markdownSymbolColors = ViewPlugin.fromClass(
   },
   { decorations: (v) => v.decorations }
 )
-
-class FoldChevron extends GutterMarker {
-  constructor(readonly folded: boolean) {
-    super()
-  }
-  eq(other: GutterMarker): boolean {
-    return other instanceof FoldChevron && other.folded === this.folded
-  }
-  toDOM(): HTMLElement {
-    const el = document.createElement('span')
-    el.className = `cm-snote-chevron${this.folded ? ' folded' : ''}`
-    el.innerHTML = chevronSvg
-    return el
-  }
-}
-
-const chevronOpen = new FoldChevron(false)
-const chevronFolded = new FoldChevron(true)
-
-function foldedAt(
-  state: EditorState,
-  from: number,
-  to: number
-): { from: number; to: number } | null {
-  let found = null as { from: number; to: number } | null
-  foldedRanges(state).between(from, to, (a, b) => {
-    if (a >= from && a <= to) {
-      found = { from: a, to: b }
-      return false
-    }
-    return undefined
-  })
-  return found
-}
-
-function foldChevronGutter(): Extension {
-  return gutter({
-    class: 'cm-snote-fold',
-    lineMarker(view, line) {
-      if (foldedAt(view.state, line.from, line.to)) return chevronFolded
-      return foldable(view.state, line.from, line.to) ? chevronOpen : null
-    },
-    lineMarkerChange: (u) =>
-      u.transactions.some((tr) => tr.effects.some((e) => e.is(foldEffect) || e.is(unfoldEffect))),
-    initialSpacer: () => chevronOpen,
-    domEventHandlers: {
-      mousedown(view, line) {
-        const folded = foldedAt(view.state, line.from, line.to)
-        if (folded) {
-          view.dispatch({ effects: unfoldEffect.of(folded) })
-          return true
-        }
-        const range = foldable(view.state, line.from, line.to)
-        if (range) view.dispatch({ effects: foldEffect.of(range) })
-        return true
-      }
-    }
-  })
-}
 
 function computeRenumberChanges(
   state: EditorState
@@ -569,40 +500,6 @@ function buildExtensions(
         display: 'flex',
         alignItems: 'flex-start',
         justifyContent: 'flex-end'
-      },
-      '.cm-gutters > .cm-gutter.cm-foldGutter': { display: 'none !important' },
-      '.cm-snote-fold': { minWidth: '16px' },
-      '.cm-snote-fold .cm-gutterElement': {
-        padding: '0',
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        cursor: 'pointer'
-      },
-      '.cm-snote-chevron': {
-        display: 'flex',
-        alignItems: 'center',
-        height: 'calc(1em * var(--editor-line-height))',
-        color: 'var(--color-text-tertiary)',
-        opacity: '0',
-        transition: 'opacity 0.12s'
-      },
-      '.cm-gutters:hover .cm-snote-chevron, .cm-snote-chevron.folded': { opacity: '1' },
-      '.cm-snote-chevron:hover': { color: 'var(--color-text)' },
-      '.cm-snote-chevron svg': { width: '12px', height: '12px', transform: 'rotate(90deg)' },
-      '.cm-snote-chevron.folded svg': { transform: 'none' },
-      '.cm-change-gutter': { minWidth: '6px' },
-      '.cm-change-gutter .cm-gutterElement': { padding: '0', cursor: 'pointer' },
-      '.cm-change-marker': { width: '3px', height: '100%', marginLeft: '0', borderRadius: '2px' },
-      '.cm-change-add': { backgroundColor: 'var(--color-diff-add-text)' },
-      '.cm-change-mod': {
-        backgroundColor: 'color-mix(in srgb, var(--color-diff-add-text) 55%, transparent)'
-      },
-      '.cm-change-del': {
-        height: '2px',
-        width: '6px',
-        marginTop: '-1px',
-        backgroundColor: 'var(--color-diff-remove-text)'
       },
       '&.cm-focused': { outline: 'none' }
     })
