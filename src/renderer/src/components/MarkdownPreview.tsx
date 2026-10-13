@@ -128,7 +128,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
       })
 
-      const { gridEl, cells, pickGrid, cellAt, size, paint, normalize, select } = gs
+      const { gridEl, cells, pickGrid, cellAt, size, paint, normalize, select, gridInfo } = gs
       const ed = createCellEditor({ gs, toolbar: () => toolbar })
       const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab } = ed
       const cellOf = (t: EventTarget | null): HTMLElement | null => {
@@ -196,27 +196,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         const x = cellOf(e.target)
         if (!x || x.classList.contains('tq-editing')) return
         startEdit(x, { x: e.clientX, y: e.clientY })
-      }
-
-      const gridInfo = (): GridInfo | null => {
-        const g = gridEl()
-        if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
-        try {
-          return {
-            head: Number(g.dataset.head),
-            close: Number(g.dataset.close),
-            cols: Number(g.dataset.cols),
-            widths: JSON.parse(g.dataset.widths ?? '[]') as (number | null)[],
-            heights: JSON.parse(g.dataset.heights ?? '[]') as number[],
-            cells: cells().map((x) => ({
-              ...rcOf(x),
-              def: x.dataset.def !== undefined ? Number(x.dataset.def) : null,
-              end: x.dataset.end !== undefined ? Number(x.dataset.end) : null
-            }))
-          }
-        } catch {
-          return null
-        }
       }
 
       const doMerge = (): void => {

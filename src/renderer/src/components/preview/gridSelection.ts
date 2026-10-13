@@ -1,8 +1,9 @@
+import type { GridInfo } from '../gridEdit'
+
 export type Sel = { r1: number; c1: number; r2: number; c2: number }
 export type Pt = { r: number; c: number }
 export type CellPos = { r: number; c: number; rs: number; cs: number }
 
-/** 서식 격자 편집 중의 선택 상태. 선택된 칸 범위와 선택을 시작한 칸(anchor), 움직이는 끝 칸(head)을 가진다. */
 export type GridSelectionState = {
   sel: Sel | null
   anchor: Pt | null
@@ -26,9 +27,7 @@ export function whole(x: HTMLElement): Sel {
 
 export function createGridSelection(opts: {
   el: HTMLElement
-  /** 지금 편집 중인 서식(.snote-template-wrap)을 돌려준다. 편집 중이 아니면 null. */
   grid: () => HTMLElement | null
-  /** 선택이 바뀌어 다시 칠한 뒤 불린다. 도구 막대, 테두리 패널 갱신 등. */
   onPaint: () => void
 }): {
   state: GridSelectionState
@@ -40,6 +39,7 @@ export function createGridSelection(opts: {
   paint: () => void
   normalize: (s: Sel) => Sel
   select: (s: Sel | null, a?: Pt, h?: Pt) => void
+  gridInfo: () => GridInfo | null
   f5: { whole: boolean }
 } {
   const { el, grid, onPaint } = opts
@@ -127,7 +127,28 @@ export function createGridSelection(opts: {
     }
   }
 
-  return { state, gridEl, cells, pickGrid, cellAt, size, paint, normalize, select, f5 }
+  const gridInfo = (): GridInfo | null => {
+    const g = gridEl()
+    if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
+    try {
+      return {
+        head: Number(g.dataset.head),
+        close: Number(g.dataset.close),
+        cols: Number(g.dataset.cols),
+        widths: JSON.parse(g.dataset.widths ?? '[]') as (number | null)[],
+        heights: JSON.parse(g.dataset.heights ?? '[]') as number[],
+        cells: cells().map((x) => ({
+          ...rcOf(x),
+          def: x.dataset.def !== undefined ? Number(x.dataset.def) : null,
+          end: x.dataset.end !== undefined ? Number(x.dataset.end) : null
+        }))
+      }
+    } catch {
+      return null
+    }
+  }
+
+  return { state, gridEl, cells, pickGrid, cellAt, size, paint, normalize, select, f5, gridInfo }
 }
 
 export type GridSelection = ReturnType<typeof createGridSelection>
