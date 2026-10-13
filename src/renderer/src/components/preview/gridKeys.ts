@@ -1,4 +1,5 @@
-import { applyGridEdit, redoEditor, undoEditor } from '../../editor/MarkdownEditor'
+import { applyGridEdit } from '@renderer/editor/templateEdit'
+import { redoEditor, undoEditor } from '../../editor/MarkdownEditor'
 import {
   deleteCols,
   deleteRows,

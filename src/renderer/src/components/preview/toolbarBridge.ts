@@ -1,4 +1,4 @@
-import { applyGridEdit, readGrid } from '../../editor/MarkdownEditor'
+import { applyGridEdit, readGrid } from '../../editor/templateEdit'
 import {
   applyCaret,
   applyInline,

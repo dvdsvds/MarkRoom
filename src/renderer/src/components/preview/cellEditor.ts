@@ -1,4 +1,4 @@
-import { addCellText, replaceCellText } from '../../editor/MarkdownEditor'
+import { addCellText, replaceCellText } from '../../editor/templateEdit'
 import { fillCell, mkScript, serializeCell } from '../cellInline'
 import { enterMath, isMath, mathBeside, texOf } from '../cellMath'
 import { renderMath } from '../mathText'

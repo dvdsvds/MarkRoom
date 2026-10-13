@@ -1,4 +1,4 @@
-import { applyGridEdit } from '../../editor/MarkdownEditor'
+import { applyGridEdit } from '../../editor/templateEdit'
 import { dragColWidths, setColWidths, setRowHeight, type GridInfo } from '../gridEdit'
 import { toast } from '../uiKit'
 import type { CellEditor } from './cellEditor'

@@ -1,4 +1,4 @@
-import { applyGridEdit } from '../../editor/MarkdownEditor'
+import { applyGridEdit } from '../../editor/templateEdit'
 import {
   setBorders,
   setDiagonals,
