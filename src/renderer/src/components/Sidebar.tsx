@@ -1,24 +1,17 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import type { TreeNode } from '../types/workspace'
-import { ContextMenu, type ContextMenuItem } from './ContextMenu'
+import { ContextMenu } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
 import { FileTypeIcon } from './FileTypeIcon'
 import { dirOf, fileNameOf, sepOf, splitName } from '@renderer/utils/path'
-import PlusIcon from '../icons/ctx-plus.svg?react'
-import RenameIcon from '../icons/ctx-rename.svg?react'
-import CopyPathIcon from '../icons/tb-copy.svg?react'
-import RevealIcon from '../icons/ctx-reveal.svg?react'
-import ExportFolderIcon from '../icons/ctx-export.svg?react'
-import DiffIcon from '../icons/ctx-diff.svg?react'
-import HistoryIcon from '../icons/ctx-history.svg?react'
-import TrashIcon from '../icons/ctx-trash.svg?react'
 import ChevronIcon from '../icons/chevron.svg?react'
 import ExportIcon from '../icons/export.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
 import NewFolderIcon from '../icons/new-folder.svg?react'
 import { InlineNameInput, NewFileRow } from './sidebar/InlineInputs'
 import { TreeRow, findNodeByPath, type RowContext } from './sidebar/TreeRow'
+import { buildMenuItems } from './sidebar/sidebarMenu'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -323,85 +316,20 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onDrop: handleDrop
   }
 
-  const menuItems: ContextMenuItem[] = contextMenu
-    ? (() => {
-        const node = contextMenu.node
-        const items: ContextMenuItem[] = []
-        if (node.type === 'folder') {
-          items.push({
-            label: '파일',
-            icon: <PlusIcon width={16} height={16} />,
-            onClick: () => {
-              expandPath(node.path)
-              setNewFileIn(node.path)
-            }
-          })
-          items.push({
-            label: '폴더',
-            icon: <PlusIcon width={16} height={16} />,
-            onClick: () => {
-              expandPath(node.path)
-              setNewFolderIn(node.path)
-            }
-          })
-        }
-        items.push({
-          label: '이름 바꾸기',
-          icon: <RenameIcon width={16} height={16} />,
-          sepBefore: node.type === 'folder',
-          onClick: () => setEditingPath(node.path)
-        })
-        items.push({
-          label: '경로 복사',
-          icon: <CopyPathIcon width={16} height={16} />,
-          onClick: () => void window.api.workspace.copyPath(node.path, false)
-        })
-        items.push({
-          label: '폴더에서 보기',
-          icon: <RevealIcon width={16} height={16} />,
-          sepBefore: true,
-          onClick: () => void window.api.workspace.reveal(node.path)
-        })
-        if (node.type === 'folder') {
-          items.push({
-            label: '폴더 내보내기',
-            icon: <ExportFolderIcon width={16} height={16} />,
-            onClick: () =>
-              setExportTarget({
-                folderPath: node.path,
-                isRoot: rootDir !== null && node.path === rootDir,
-                label: node.name
-              })
-          })
-        }
-        if (
-          node.type === 'file' &&
-          node.name.toLowerCase().endsWith('.md') &&
-          dirtyFilePaths.includes(node.path)
-        ) {
-          items.push({
-            label: '변경 내용 비교',
-            icon: <DiffIcon width={16} height={16} />,
-            onClick: () => onCompareChanges(node.path)
-          })
-        }
-        if (node.type === 'file' && node.name.toLowerCase().endsWith('.md')) {
-          items.push({
-            label: '버전 기록',
-            icon: <HistoryIcon width={16} height={16} />,
-            onClick: () => onOpenHistory(node.path)
-          })
-        }
-        items.push({
-          label: '삭제',
-          danger: true,
-          icon: <TrashIcon width={16} height={16} />,
-          sepBefore: true,
-          onClick: () => openDeleteConfirm(node)
-        })
-        return items
-      })()
-    : []
+  const menuItems = contextMenu
+  ? buildMenuItems(contextMenu.node, {
+      rootDir,
+      dirtyFilePaths,
+      expandPath,
+      startNewFile: setNewFileIn,
+      startNewFolder: setNewFolderIn,
+      startRename: setEditingPath,
+      openExport: setExportTarget,
+      openDelete: openDeleteConfirm,
+      onCompareChanges,
+      onOpenHistory
+    })
+  : []
 
   return (
     <div
