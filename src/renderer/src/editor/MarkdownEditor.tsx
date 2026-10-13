@@ -24,7 +24,6 @@ import { blockIndent } from './blockIndent'
 import { colorSwatch } from './colorSwatch'
 import type { NoteRef } from '../utils/noteIndex'
 import { codeBlocks } from './codeBlocks'
-import { findTemplateBlocks } from '@renderer/markdown/templateExtract'
 import { templateCompletion, templateCompletionSource } from './templateCompletion'
 import { selectionPerLine } from './selectionPerLine'
 import { getCurrentView, setCurrentView } from './currentView'
@@ -80,24 +79,6 @@ export function redoEditor(): void {
   if (view) redo(view)
 }
 
-export function openTableEditor(which: number | 'cursor'): boolean {
-  const view = getCurrentView()
-  if (!view) return false
-  const doc = view.state.doc
-  const source = doc.toString()
-  const blocks = findTemplateBlocks(source)
-  const idx =
-    which === 'cursor'
-      ? blocks.findIndex((b) => {
-          const n = doc.lineAt(view.state.selection.main.head).number
-          return n >= b.start && n <= b.end
-        })
-      : which - 1
-  const b = blocks[idx]
-  if (!b) return false
-  return true
-}
-
 export function selectEditorLines(fromLine: number, toLine: number): void {
   const view = getCurrentView()
   if (!view) return
@@ -132,7 +113,6 @@ function buildExtensions(
     drawSelection({ cursorBlinkRate: 0 }),
     history(),
     blockIndent,
-    Prec.high(keymap.of([{ key: 'Mod-Shift-e', run: () => openTableEditor('cursor') }])),
     colorSwatch,
     tooltips({ position: 'fixed', parent: document.body }),
     templateCompletion,
