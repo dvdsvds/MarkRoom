@@ -1,15 +1,6 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
-import {
-  addTextLine,
-  applyGridEdit,
-  deleteEmptyTextLine,
-  readGrid,
-  redoEditor,
-  replaceTextLine,
-  splitTextLine,
-  undoEditor
-} from '../editor/MarkdownEditor'
+import { applyGridEdit, readGrid, redoEditor, undoEditor } from '../editor/MarkdownEditor'
 import { createToolbar, type Toolbar } from './templateToolbar'
 import {
   deleteCols,
@@ -53,6 +44,7 @@ import { useOutputBlocks } from './preview/useOutputBlocks'
 import { useTemplateRender } from './preview/useTemplateRender'
 import { createGridSelection, rcOf, whole, type Sel } from './preview/gridSelection'
 import { createCellEditor, ZWRE } from './preview/cellEditor'
+import { createTextEditor } from './preview/textEditor'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -144,195 +136,14 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         return x && grid()?.contains(x) ? x : null
       }
 
-      let tEdit: HTMLElement | null = null
-      let tStart = ''
-      let tHtml = ''
+      const tx = createTextEditor({
+        el,
+        toolbar: () => toolbar,
+        onceRendered: (fn) => onceRendered(fn),
+        editMode: editModeRef
+      })
+      const onTextClick = tx.onTextClick
 
-      const tNorm = (s: string): string => s.replace(/\s*[\r\n]+\s*/g, ' ').trim()
-
-      const tCommit = (): void => {
-        const box = tEdit
-        if (!box) return
-        tEdit = null
-        box.removeEventListener('focusout', tOut)
-        box.removeEventListener('keydown', tKey)
-        box.contentEditable = 'false'
-        const value = tNorm(box.innerText ?? '')
-        if (value === tStart) {
-          box.innerHTML = tHtml
-          return
-        }
-        replaceTextLine(Number(box.dataset.tline), value)
-      }
-
-      const openText = (
-        t: HTMLElement,
-        at: { x: number; y: number } | null,
-        where: 'start' | 'end'
-      ): void => {
-        if (tEdit) tCommit()
-        tEdit = t
-        tHtml = t.innerHTML
-        t.innerText = (t.dataset.raw ?? '').replace(/\\n/g, '\n')
-        tStart = tNorm(t.innerText)
-        t.contentEditable = 'plaintext-only'
-        t.spellcheck = false
-        t.addEventListener('focusout', tOut)
-        t.addEventListener('keydown', tKey)
-        t.focus()
-        const d = document as Document & {
-          caretRangeFromPoint?: (x: number, y: number) => Range | null
-        }
-        let rg = at ? (d.caretRangeFromPoint?.(at.x, at.y) ?? null) : null
-        if (!rg || !t.contains(rg.startContainer)) {
-          rg = document.createRange()
-          rg.selectNodeContents(t)
-          rg.collapse(where === 'start')
-        }
-        const s = window.getSelection()
-        s?.removeAllRanges()
-        s?.addRange(rg)
-      }
-
-      const root0 = (): HTMLElement => el as HTMLElement
-      function tOut(e: FocusEvent): void {
-        const to = e.relatedTarget as Node | null
-        if (to && tEdit && (tEdit.contains(to) || toolbar?.el.contains(to))) return
-        tCommit()
-      }
-
-      function tKey(e: KeyboardEvent): void {
-        e.stopPropagation()
-        if (e.isComposing) return
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          tCommit()
-          return
-        }
-        if (e.key === 'Backspace') {
-          const bx = e.currentTarget as HTMLElement
-          const sl = window.getSelection()
-          if (!sl || !sl.isCollapsed) return
-          if (bx.innerText.replace(/[\s\u200b]/g, '') !== '') return
-          e.preventDefault()
-          const ln = Number(bx.dataset.tline)
-          let removed = true
-          const root = el
-          onceRendered(() => {
-            if (!removed) return
-            const prev = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${ln - 1}"]`)
-            if (prev) openText(prev, null, 'end')
-          })
-          removed = deleteEmptyTextLine(ln)
-          if (!removed) return
-          tEdit = null
-          bx.removeEventListener('focusout', tOut)
-          bx.removeEventListener('keydown', tKey)
-          bx.contentEditable = 'false'
-          return
-        }
-        if (
-          (e.key === 'ArrowUp' || e.key === 'ArrowDown') &&
-          !e.shiftKey &&
-          !e.ctrlKey &&
-          !e.altKey &&
-          !e.metaKey
-        ) {
-          const ax = e.currentTarget as HTMLElement
-          const sa = window.getSelection()
-          if (!sa || !sa.isCollapsed || !sa.anchorNode || !ax.contains(sa.anchorNode)) return
-          const all = ax.innerText.replace(/\n$/, '')
-          const rr = document.createRange()
-          rr.selectNodeContents(ax)
-          rr.setEnd(sa.anchorNode, sa.anchorOffset)
-          const off = rr.toString().length
-          const up = e.key === 'ArrowUp'
-          if (up ? all.slice(0, off).includes('\n') : all.slice(off).includes('\n')) return
-          const list = Array.from(root0().querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
-          const nx = list[list.indexOf(ax) + (up ? -1 : 1)]
-          if (!nx) return
-          e.preventDefault()
-          openText(nx, null, up ? 'end' : 'end')
-        }
-        if (e.key !== 'Enter') return
-        e.preventDefault()
-        const box = e.currentTarget as HTMLElement
-        const s = window.getSelection()
-        if (!s || s.rangeCount === 0 || !box.contains(s.anchorNode)) return
-        const r = s.getRangeAt(0)
-        const full = box.innerText.replace(/\n$/, '')
-        const pre = document.createRange()
-        pre.selectNodeContents(box)
-        pre.setEnd(r.startContainer, r.startOffset)
-        const upTo = document.createRange()
-        upTo.selectNodeContents(box)
-        upTo.setEnd(r.endContainer, r.endOffset)
-        const before = full.slice(0, pre.toString().length)
-        const after = full.slice(upTo.toString().length)
-        const line = Number(box.dataset.tline)
-        tEdit = null
-        box.removeEventListener('focusout', tOut)
-        box.removeEventListener('keydown', tKey)
-        box.contentEditable = 'false'
-        const root = el
-        onceRendered(() => {
-          const next = root?.querySelector<HTMLElement>(`.tp-text[data-tline="${line + 1}"]`)
-          if (next) openText(next, null, 'start')
-        })
-        splitTextLine(line, before, after)
-      }
-      
-      const addTextLineAtEnd = (page: HTMLElement): void => {
-        const close = Number(page.closest<HTMLElement>('.snote-template-wrap')?.dataset.close)
-        if (!Number.isInteger(close)) return
-        if (tEdit) tCommit()
-        let added = true
-        onceRendered(() => {
-          if (!added) return
-          const next = el.querySelector<HTMLElement>(`.tp-text[data-tline="${close}"]`)
-          if (next) openText(next, null, 'start')
-        })
-        added = addTextLine(close)
-      }
-
-      const onTextClick = (e: MouseEvent): void => {
-        if (!editModeRef.current || e.button !== 0) return
-        const tg = e.target instanceof Element ? e.target : null
-        if (!tg || tg.closest('.tq-cell, .tp-edit-btn')) return
-        let t = tg.closest<HTMLElement>('.tp-text[data-tline]')
-        const direct = t !== null
-        if (!t) {
-          const page = tg.closest<HTMLElement>('.snote-page')
-          if (!page) return
-          const all = Array.from(page.querySelectorAll<HTMLElement>('.tp-text[data-tline]'))
-          const last = all[all.length - 1]
-          if (!last || e.clientY > last.getBoundingClientRect().bottom + 8) {
-            if (last && (last.dataset.raw ?? '').trim() === '') {
-              t = last
-            } else {
-              addTextLineAtEnd(page)
-              return
-            }
-          } else {
-            let bestD = Infinity
-            for (const x of all) {
-              const r = x.getBoundingClientRect()
-              const d =
-                e.clientY < r.top
-                  ? r.top - e.clientY
-                  : e.clientY > r.bottom
-                    ? e.clientY - r.bottom
-                    : 0
-              if (d < bestD) {
-                bestD = d
-                t = x
-              }
-            }
-          }
-        }
-        if (!t || t === tEdit) return
-        openText(t, direct ? { x: e.clientX, y: e.clientY } : null, 'end')
-      }
       const onDown = (e: MouseEvent): void => {
         if (!editModeRef.current || e.button !== 0) return
         const x = cellOf(e.target)
@@ -825,7 +636,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
           else if (runCell(t, ch)) onceRendered(reopen)
         },
         script: (kind) => {
-          const box = ed.state.editing ?? tEdit
+          const box = ed.state.editing ?? tx.state.editing
           const s = window.getSelection()
           if (!box || !s || s.rangeCount === 0 || !box.contains(s.anchorNode)) {
             toast('칸을 편집하는 중에 눌러 주세요')
