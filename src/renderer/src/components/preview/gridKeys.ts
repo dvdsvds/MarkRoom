@@ -10,7 +10,7 @@ import {
   type GridInfo,
   type GridResult,
   type Rect
-} from '../gridEdit'
+} from '../../editor/gridEdit'
 import { openSplitPanel } from '../templatePanels'
 import { toast } from '../uiKit'
 import type { BorderPanel } from './borderPanel'

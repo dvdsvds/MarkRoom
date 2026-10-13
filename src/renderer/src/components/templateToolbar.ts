@@ -12,7 +12,7 @@ import {
 } from './uiKit'
 import minusIcon from '../icons/minus.svg?raw'
 import plusIcon from '../icons/plus.svg?raw'
-import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from './gridEdit'
+import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from '../editor/gridEdit'
 
 export interface ToolbarApi {
   apply: (ch: CellOptChange) => void

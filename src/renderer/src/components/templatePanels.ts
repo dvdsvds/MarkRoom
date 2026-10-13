@@ -1,4 +1,4 @@
-import type { BorderKind, BorderWhere } from './gridEdit'
+import type { BorderKind, BorderWhere } from '../editor/gridEdit'
 import type { EdgeRead, EdgeVal } from './templateRead'
 import {
   button,
