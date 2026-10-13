@@ -240,3 +240,5 @@ export function createCellEditor(opts: {
 
   return { state, spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab }
 }
+
+export type CellEditor = ReturnType<typeof createCellEditor>
