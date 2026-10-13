@@ -1,21 +1,8 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../markdown/renderMarkdown'
-import { applyGridEdit, readGrid, redoEditor, undoEditor } from '../editor/MarkdownEditor'
+import { applyGridEdit, readGrid } from '../editor/MarkdownEditor'
 import { createToolbar, type Toolbar } from './templateToolbar'
-import {
-  deleteCols,
-  deleteRows,
-  insertCols,
-  insertRows,
-  mergeGrid,
-  splitGrid,
-  readCellOpts,
-  setCellOpts,
-  type CellOptChange,
-  type GridInfo,
-  type GridResult,
-  type Rect
-} from './gridEdit'
+import { readCellOpts, setCellOpts, type CellOptChange } from './gridEdit'
 import { toast } from './uiKit'
 import {
   applyCaret,
@@ -39,8 +26,8 @@ import { createGridSelection, rcOf, whole, type Sel } from './preview/gridSelect
 import { createCellEditor, ZWRE } from './preview/cellEditor'
 import { createTextEditor } from './preview/textEditor'
 import { createGridMouse } from './preview/gridMouse'
-import { openSplitPanel } from './templatePanels'
 import { createBorderPanel } from './preview/borderPanel'
+import { createGridKeys } from './preview/gridKeys'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -126,9 +113,9 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
         }
       })
 
-      const { cells, cellAt, size, paint, normalize, select, gridInfo } = gs
+      const { cells, cellAt, paint, normalize, gridInfo } = gs
       const ed = createCellEditor({ gs, toolbar: () => toolbar })
-      const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab } = ed
+      const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit } = ed
       const tx = createTextEditor({
         el,
         toolbar: () => toolbar,
@@ -137,164 +124,10 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       })
       const onTextClick = tx.onTextClick
       const gm = createGridMouse({ el, grid, editMode: editModeRef, gs, ed })
-      bp = createBorderPanel({ gs })
+      const border = createBorderPanel({ gs })
+      bp = border
+      const { onKey } = createGridKeys({ gs, ed, border, editMode: editModeRef })
       const { onDown, onMove, onUp, onHover, onResizeDown, onResizeMove, onResizeUp } = gm
-
-      const doMerge = (): void => {
-        const info = gridInfo()
-        const sel = gs.state.sel
-        if (!info || !sel) return
-        const rect: Rect = normalize(sel)
-        const err = applyGridEdit((getLine) => mergeGrid(info, rect, getLine))
-        if (err) toast(err)
-        else select(null)
-      }
-
-      const askSplit = (): void => {
-        const info = gridInfo()
-        const sel = gs.state.sel
-        if (!info || !sel) return
-        const rect: Rect = normalize(sel)
-        openSplitPanel({
-          onOk: (n, m) => {
-            if (!(n >= 1) || !(m >= 1) || n * m < 2) {
-              toast('나눌 칸 수와 줄 수를 확인해 주세요')
-              return false
-            }
-            const err = applyGridEdit((getLine) => splitGrid(info, rect, n, m, getLine))
-            if (err) toast(err)
-            else select(null)
-            return true
-          }
-        })
-      }
-
-      const doEdit = (
-        fn: (info: GridInfo, rect: Rect, getLine: (n: number) => string) => GridResult
-      ): void => {
-        const info = gridInfo()
-        const sel = gs.state.sel
-        if (!info || !sel) return
-        const rect: Rect = normalize(sel)
-        const err = applyGridEdit((getLine) => fn(info, rect, getLine))
-        if (err) toast(err)
-        else select(null)
-      }
-
-      const onKey = (e: KeyboardEvent): void => {
-        const { sel, head, anchor } = gs.state
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-        if ((e.target as Element | null)?.closest?.('math-field')) return
-        if ((e.ctrlKey || e.metaKey) && !e.altKey) {
-          const k = e.key.toLowerCase()
-          if (k === 'z' || k === 'y') {
-            e.preventDefault()
-            if (k === 'y' || e.shiftKey) redoEditor()
-            else undoEditor()
-            return
-          }
-        }
-        if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-        const t = e.target as HTMLElement | null
-        if (t?.closest('.cm-editor')) return
-        if (e.key === 'Escape' && bp?.isOpen()) {
-          e.preventDefault()
-          bp.close()
-          return
-        }
-        if (e.key === 'F5') {
-          e.preventDefault()
-          if (e.repeat) return
-          if (!sel) return
-          const { rows, cols } = size()
-          if (gs.f5.whole) {
-            select({ r1: 0, c1: 0, r2: rows - 1, c2: cols - 1 })
-          } else {
-            const x = cellAt(sel.r1, sel.c1)
-            if (x) select(whole(x))
-            gs.f5.whole = true
-          }
-          return
-        }
-        if (!sel) return
-        if (editModeRef.current && !e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey) {
-          if (e.code === 'KeyM') {
-            e.preventDefault()
-            doMerge()
-            return
-          }
-          if (e.code === 'KeyS') {
-            e.preventDefault()
-            askSplit()
-            return
-          }
-        }
-        if (editModeRef.current && !e.ctrlKey && !e.altKey && !e.metaKey) {
-          const alt = e.shiftKey
-          if (e.code === 'KeyL' && !alt) {
-            e.preventDefault()
-            bp?.toggle()
-            return
-          }
-          if (e.code === 'KeyR') {
-            e.preventDefault()
-            doEdit((i, r, g) => insertRows(i, r, !alt, g))
-            return
-          }
-          if (e.code === 'KeyC') {
-            e.preventDefault()
-            doEdit((i, r, g) => insertCols(i, r, !alt, g))
-            return
-          }
-          if (e.code === 'KeyX') {
-            e.preventDefault()
-            doEdit((i, r, g) => (alt ? deleteCols(i, r, g) : deleteRows(i, r, g)))
-            return
-          }
-        }
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          select(null)
-        } else if (e.key === 'Tab') {
-          e.preventDefault()
-          const x = cellAt(sel.r1, sel.c1)
-          if (x) moveTab(rcOf(x), e.shiftKey ? -1 : 1)
-        } else if (e.key.startsWith('Arrow') && !e.ctrlKey && !e.altKey) {
-          e.preventDefault()
-          const { rows, cols } = size()
-          if (!e.shiftKey) {
-            const all = sel.r1 === 0 && sel.c1 === 0 && sel.r2 === rows - 1 && sel.c2 === cols - 1
-            if (all) return
-            const base = head ?? { r: sel.r1, c: sel.c1 }
-            const from = cellAt(base.r, base.c)
-            if (!from) return
-            const p = rcOf(from)
-            const dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
-            const dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0
-            const nr = dy > 0 ? p.r + p.rs : dy < 0 ? p.r - 1 : p.r
-            const nc = dx > 0 ? p.c + p.cs : dx < 0 ? p.c - 1 : p.c
-            const t = nr >= 0 && nc >= 0 && nr < rows && nc < cols ? cellAt(nr, nc) : null
-            if (t) select(whole(t))
-            return
-          }
-          const a = anchor ?? { r: sel.r1, c: sel.c1 }
-          const h = { ...(gs.state.head ?? { r: sel.r2, c: sel.c2 }) }
-          if (e.key === 'ArrowRight') h.c = Math.min(cols - 1, h.c + 1)
-          else if (e.key === 'ArrowLeft') h.c = Math.max(0, h.c - 1)
-          else if (e.key === 'ArrowDown') h.r = Math.min(rows - 1, h.r + 1)
-          else h.r = Math.max(0, h.r - 1)
-          select(
-            {
-              r1: Math.min(a.r, h.r),
-              c1: Math.min(a.c, h.c),
-              r2: Math.max(a.r, h.r),
-              c2: Math.max(a.c, h.c)
-            },
-            a,
-            h
-          )
-        }
-      }
 
       const restore = (): void => {
         const keep = gs.state.sel
