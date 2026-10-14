@@ -4,6 +4,8 @@
   "description": "마크다운(.md) 파일 기반의 파일 기반의 에디터",
   "main": "./out/main/index.js",
   "author": "dvd",
+  "license": "MIT",
+  "private": true,
   "homepage": "https://github.com/dvdsvds/markroom",
   "scripts": {
     "format": "prettier --write .",

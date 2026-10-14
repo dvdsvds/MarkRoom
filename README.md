@@ -67,3 +67,7 @@ npm run build:linux  # Linux
 ## 기술 스택
 
 Electron, TypeScript, React, CodeMirror 6, markdown-it, Zustand, Tailwind CSS, electron-vite, electron-builder
+
+## 라이선스
+
+[MIT](LICENSE)
