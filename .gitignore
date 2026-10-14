@@ -1,7 +1,23 @@
+# 의존성
 node_modules
-dist
+
+# 빌드 결과물
 out
-.DS_Store
-.eslintcache
-*.log*
+dist
 .vite
+
+# npm install 때 복사되는 파일 (scripts/copy-pyodide.mjs)
+src/renderer/public/pyodide/
+
+# 비밀값 (릴리스 업로드용 GH_TOKEN 등)
+.env
+.env.*
+
+# 임시 파일
+*.log*
+.eslintcache
+*.tsbuildinfo
+
+# OS
+.DS_Store
+Thumbs.db
