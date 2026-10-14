@@ -7,8 +7,8 @@ import { useClickHandlers } from './preview/useClickHandlers'
 import { useMermaid } from './preview/useMermaid'
 import { useCodeDecorations } from './preview/useCodeDecorations'
 import { useOutputBlocks } from './preview/useOutputBlocks'
-import { useTemplateRender } from './preview/useTemplateRender'
-import { useTemplateEdit } from './preview/useTemplateEdit'
+import { useTemplateRender } from '../features/template/preview/useTemplateRender'
+import { useTemplateEdit } from '../features/template/preview/useTemplateEdit'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void

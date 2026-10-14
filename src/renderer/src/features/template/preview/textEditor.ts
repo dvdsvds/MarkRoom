@@ -1,6 +1,6 @@
 import type { MutableRefObject } from 'react'
-import { addTextLine, deleteEmptyTextLine, replaceTextLine, splitTextLine } from '../../editor/templateEdit'
-import type { Toolbar } from '../templateToolbar'
+import { addTextLine, deleteEmptyTextLine, replaceTextLine, splitTextLine } from '../../../editor/templateEdit'
+import type { Toolbar } from '../../../components/templateToolbar'
 
 export type TextEditorState = { editing: HTMLElement | null }
 

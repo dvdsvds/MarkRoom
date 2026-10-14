@@ -1,14 +1,14 @@
-import { applyGridEdit } from '../../editor/templateEdit'
+import { applyGridEdit } from '../../../editor/templateEdit'
 import {
   setBorders,
   setDiagonals,
   type GridInfo,
   type GridResult,
   type Rect
-} from '../../features/template/grid/gridEdit'
-import { openBorderPanel, type BorderState } from '../templatePanels'
-import { readEdges } from '../templateRead'
-import { toast } from '../uiKit'
+} from '../grid/gridEdit'
+import { openBorderPanel, type BorderState } from '../../../components/templatePanels'
+import { readEdges } from '../../../components/templateRead'
+import { toast } from '../../../components/uiKit'
 import type { GridSelection } from './gridSelection'
 
 export function createBorderPanel(opts: { gs: GridSelection }): {

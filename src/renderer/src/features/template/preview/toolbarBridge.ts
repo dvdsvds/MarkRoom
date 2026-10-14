@@ -1,4 +1,4 @@
-import { applyGridEdit, readGrid } from '../../editor/templateEdit'
+import { applyGridEdit, readGrid } from '../../../editor/templateEdit'
 import {
   applyCaret,
   applyInline,
@@ -8,10 +8,10 @@ import {
   styleScript,
   textChangeOf,
   type TextChange
-} from '../cellInline'
-import { readCellOpts, setCellOpts, type CellOptChange } from '../../features/template/grid/gridEdit'
-import { createToolbar, type Toolbar } from '../templateToolbar'
-import { toast } from '../uiKit'
+} from '../../../components/cellInline'
+import { readCellOpts, setCellOpts, type CellOptChange } from '../grid/gridEdit'
+import { createToolbar, type Toolbar } from '../../../components/templateToolbar'
+import { toast } from '../../../components/uiKit'
 import { ZWRE, type CellEditor } from './cellEditor'
 import { rcOf, whole, type GridSelection, type Sel } from './gridSelection'
 import type { TextEditor } from './textEditor'

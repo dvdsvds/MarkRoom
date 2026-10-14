@@ -1,6 +1,6 @@
-import { applyGridEdit } from '../../editor/templateEdit'
-import { dragColWidths, setColWidths, setRowHeight, type GridInfo } from '../../features/template/grid/gridEdit'
-import { toast } from '../uiKit'
+import { applyGridEdit } from '../../../editor/templateEdit'
+import { dragColWidths, setColWidths, setRowHeight, type GridInfo } from '../grid/gridEdit'
+import { toast } from '../../../components/uiKit'
 import type { CellEditor } from './cellEditor'
 import { rcOf, whole, type GridSelection } from './gridSelection'
 

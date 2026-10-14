@@ -1,5 +1,5 @@
 import { applyGridEdit } from '@renderer/editor/templateEdit'
-import { redoEditor, undoEditor } from '../../editor/MarkdownEditor'
+import { redoEditor, undoEditor } from '../../../editor/MarkdownEditor'
 import {
   deleteCols,
   deleteRows,
@@ -10,9 +10,9 @@ import {
   type GridInfo,
   type GridResult,
   type Rect
-} from '../../features/template/grid/gridEdit'
-import { openSplitPanel } from '../templatePanels'
-import { toast } from '../uiKit'
+} from '../grid/gridEdit'
+import { openSplitPanel } from '../../../components/templatePanels'
+import { toast } from '../../../components/uiKit'
 import type { BorderPanel } from './borderPanel'
 import type { CellEditor } from './cellEditor'
 import { rcOf, whole, type GridSelection } from './gridSelection'

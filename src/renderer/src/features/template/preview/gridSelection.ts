@@ -1,4 +1,4 @@
-import type { GridInfo } from '../../features/template/grid/gridEdit'
+import type { GridInfo } from '../grid/gridEdit'
 
 export type Sel = { r1: number; c1: number; r2: number; c2: number }
 export type Pt = { r: number; c: number }
