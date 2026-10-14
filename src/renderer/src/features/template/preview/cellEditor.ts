@@ -1,4 +1,5 @@
-import { addCellParas, replaceCellParas } from '../editor/templateEdit'
+import { addCellParas, docLineReader, replaceCellParas } from '../editor/templateEdit'
+import { splitColon, tokenize } from '../parse/templateUtil'
 import { fillCell, mkScript, serializeCell } from '../view/cellInline'
 import { enterMath, isMath, mathBeside, texOf } from '../view/cellMath'
 import { renderMath } from '../view/mathText'
@@ -9,6 +10,7 @@ import { setLiveEdit } from './liveEdit'
 export const ZW = '\u200b'
 export const ZWRE = /\u200b/g
 export type CellEditorState = { editing: HTMLElement | null }
+const ALIGN_WORDS = ['left', 'center', 'right', 'justify', 'distribute']
 
 export function createCellEditor(opts: {
   gs: GridSelection
@@ -23,6 +25,7 @@ export function createCellEditor(opts: {
   startEdit: (cell: HTMLElement, at?: { x: number; y: number }) => void
   moveTab: (from: { r: number; c: number; rs: number; cs: number }, dir: number) => void
   sync: () => void
+  reload: () => void
 } {
   const { gs, toolbar } = opts
   const { pickGrid, paint, size, cellAt, select } = gs
@@ -124,6 +127,68 @@ export function createCellEditor(opts: {
     }
     box.dataset.orig = sig
   }
+  const reload = (): void => {
+    const box = state.editing
+    const cell = box?.closest<HTMLElement>('.tq-cell')
+    if (!box || !cell || cell.dataset.def === undefined) return
+    const get = docLineReader()
+    if (!get) return
+    const def = Number(cell.dataset.def)
+    const defText = get(def)
+    if (!/^\s*(?:col|row)=/.test(defText)) {
+      commit()
+      return
+    }
+    const defInd = defText.length - defText.trimStart().length
+    const items: { raw: string; head: string }[] = []
+    let end = def
+    if (/\[\s*$/.test(defText)) {
+      for (let n = def + 1; n <= def + 500; n++) {
+        const t = get(n).trim()
+        if (t === ']') {
+          end = n
+          break
+        }
+        if (/^text(?:\s|:|$)/.test(t)) {
+          const [h, v] = splitColon(t)
+          if (v === null) continue
+          items.push({ raw: v.trim(), head: tokenize(h).slice(1).join(' ') })
+        } else if (t !== '') {
+          items.push({ raw: t, head: '' })
+        }
+      }
+    } else {
+      for (let n = def + 1; n <= def + 500; n++) {
+        const l = get(n)
+        if (l.trim() === '' || l.length - l.trimStart().length <= defInd) break
+        items.push({ raw: l.trim(), head: '' })
+        end = n
+      }
+    }
+    if (items.length === 0) items.push({ raw: '', head: '' })
+    const prev = Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))
+    const paras = items.map((it, i) => {
+      const css = prev[Math.min(i, prev.length - 1)]?.style.cssText ?? ''
+      const pd = makePara(it.raw, it.head, css)
+      const a = it.head.split(/\s+/).find((x) => ALIGN_WORDS.includes(x))
+      pd.style.textAlign = a ? (a === 'distribute' ? 'left' : a) : (box.dataset.calign ?? '')
+      return pd
+    })
+    box.replaceChildren(...paras)
+    cell.dataset.end = String(end)
+    box.dataset.orig = JSON.stringify(collectParas(box))
+    const last = paras[paras.length - 1]
+    const r = document.createRange()
+    if (last.firstChild instanceof HTMLBRElement) r.setStart(last, 0)
+    else {
+      r.selectNodeContents(last)
+      r.collapse(false)
+    }
+    const s = window.getSelection()
+    s?.removeAllRanges()
+    s?.addRange(r)
+    toolbar()?.refresh()
+  }
   const commit = (): void => {
     const box = state.editing
     if (!box) return
@@ -173,6 +238,10 @@ export function createCellEditor(opts: {
             css: pd.style.cssText
           }))
         : (cell.dataset.raw ?? '').split('\n').map((raw) => ({ raw, head: '', css: '' }))
+    const plain = shown.find(
+      (pd) => !(pd.dataset.head ?? '').split(/\s+/).some((x) => ALIGN_WORDS.includes(x))
+    )
+    box.dataset.calign = plain?.style.textAlign || box.style.textAlign || ''
     box.replaceChildren(...items.map((it) => makePara(it.raw, it.head, it.css)))
     box.dataset.orig = JSON.stringify(items.map((it) => ({ head: it.head, text: it.raw })))
     box.contentEditable = 'plaintext-only'
@@ -335,7 +404,7 @@ export function createCellEditor(opts: {
     }
   }
 
-  return { state, spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab, sync: liveSync }
+  return { state, spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab, sync: liveSync, reload }
 }
 
 export type CellEditor = ReturnType<typeof createCellEditor>

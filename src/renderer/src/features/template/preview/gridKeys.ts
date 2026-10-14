@@ -93,6 +93,7 @@ export function createGridKeys(opts: {
         e.preventDefault()
         if (k === 'y' || e.shiftKey) redoEditor()
         else undoEditor()
+        if (ed.state.editing) ed.reload()
         return
       }
     }
