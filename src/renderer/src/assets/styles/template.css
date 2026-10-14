@@ -92,10 +92,9 @@
   letter-spacing: 0.3em;
 }
 
-/* 종이 바깥 포장과 경고 */
 .snote-template-wrap {
   position: relative;
-  margin: 0;
+  margin: 0 calc(-1 * var(--preview-pad, 0px));
 }
 .snote-template-wrap .snote-page {
   margin: 0 auto;

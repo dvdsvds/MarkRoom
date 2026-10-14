@@ -12,6 +12,7 @@
 }
 .prose-preview {
   /* 글, 표, 코드, 이미지 모두 칸 너비를 따라간다. 스크롤바도 칸 맨 오른쪽에 붙는다 */
+  --preview-pad: calc(var(--spacing) * 6);
   font-family: var(--font-preview);
 }
 .prose-preview h1,

@@ -59,7 +59,6 @@ export function useTemplateRender(
 
     const pages = Array.from(el.querySelectorAll<HTMLElement>('.snote-page'))
     el.style.maxWidth = pages.length > 0 ? 'none' : ''
-    el.style.padding = pages.length > 0 ? '0' : ''
     if (pages.length === 0) return
 
     const PAGE_W = (210 / 25.4) * 96
@@ -68,8 +67,7 @@ export function useTemplateRender(
     let raf = 0
 
     const fit = (): void => {
-      const cs = getComputedStyle(el)
-      const availW = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      const availW = el.clientWidth
       for (const page of pages) {
         page.style.setProperty('zoom', '1')
         const scale = Math.min(MAX_SCALE, availW / PAGE_W)
@@ -88,7 +86,6 @@ export function useTemplateRender(
     void document.fonts.ready.then(schedule)
     el.dispatchEvent(new Event('snote-rendered'))
     return () => {
-      el.style.padding = ''
       cancelAnimationFrame(raf)
       ro.disconnect()
       el.removeEventListener('snote-editmode', schedule)

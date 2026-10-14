@@ -63,5 +63,11 @@
   color: var(--color-diff-remove-text);
   background: color-mix(in srgb, var(--color-diff-remove-text) 10%, transparent);
 }
-
+.prose-preview > pre,
+.prose-preview > .code-run {
+  width: auto;
+  max-width: none;
+  margin-left: calc(1% - 0.98 * var(--preview-pad, 0px));
+  margin-right: calc(1% - 0.98 * var(--preview-pad, 0px));
+}
 /* ───────── 색 문법 ───────── */

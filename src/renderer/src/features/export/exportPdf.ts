@@ -52,6 +52,7 @@ export function extractHtml(root: HTMLElement): string {
   clean(c)
   c.style.maxWidth = 'none'
   c.style.padding = '0'
+  c.style.setProperty('--preview-pad', '0px')
   return `<div class="snote-plain">${c.outerHTML}</div>`
 }
 

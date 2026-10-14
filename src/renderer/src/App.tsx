@@ -565,7 +565,7 @@ function App(): React.JSX.Element {
                   onReplaceSource={handleReplaceSource}
                   onMinWidthChange={setPreviewMinWidth}
                   onHasTemplateChange={setHasTemplate}
-                  className="min-w-0 flex-1 overflow-auto px-6 pb-6 pt-3"
+                  className="min-w-0 flex-1 overflow-auto px-[var(--preview-pad)] pb-6 pt-3"
                 />
               </div>
             </div>
