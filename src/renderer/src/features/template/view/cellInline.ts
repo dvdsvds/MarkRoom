@@ -1,7 +1,7 @@
-import { splitMath, ZW } from './mathText'
+import { splitMath, ZW } from '../../../components/mathText'
 import { isMath, makeMath, texOf } from './cellMath'
 import { applyInlineCss } from './templateRender'
-import { fmtAttr, parseAttr, splitInline, wrapInline, type InlineOpts } from './inlineText'
+import { fmtAttr, parseAttr, splitInline, wrapInline, type InlineOpts } from '../../../components/inlineText'
 
 const ZWRE = /​/g
 

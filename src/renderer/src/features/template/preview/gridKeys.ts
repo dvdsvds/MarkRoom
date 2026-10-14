@@ -1,4 +1,4 @@
-import { applyGridEdit } from '@renderer/editor/templateEdit'
+import { applyGridEdit } from '../editor/templateEdit'
 import { redoEditor, undoEditor } from '../../../editor/MarkdownEditor'
 import {
   deleteCols,
@@ -11,7 +11,7 @@ import {
   type GridResult,
   type Rect
 } from '../grid/gridEdit'
-import { openSplitPanel } from '../../../components/templatePanels'
+import { openSplitPanel } from '../view/templatePanels'
 import { toast } from '../../../components/uiKit'
 import type { BorderPanel } from './borderPanel'
 import type { CellEditor } from './cellEditor'

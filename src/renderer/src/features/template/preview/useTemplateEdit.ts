@@ -1,5 +1,5 @@
 import { useEffect, type MutableRefObject, type RefObject } from 'react'
-import type { Toolbar } from '../../../components/templateToolbar'
+import type { Toolbar } from '../view/templateToolbar'
 import { createBorderPanel } from './borderPanel'
 import { createCellEditor } from './cellEditor'
 import { createGridKeys } from './gridKeys'

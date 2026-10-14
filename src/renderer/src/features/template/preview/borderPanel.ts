@@ -1,4 +1,4 @@
-import { applyGridEdit } from '../../../editor/templateEdit'
+import { applyGridEdit } from '../editor/templateEdit'
 import {
   setBorders,
   setDiagonals,
@@ -6,8 +6,8 @@ import {
   type GridResult,
   type Rect
 } from '../grid/gridEdit'
-import { openBorderPanel, type BorderState } from '../../../components/templatePanels'
-import { readEdges } from '../../../components/templateRead'
+import { openBorderPanel, type BorderState } from '../view/templatePanels'
+import { readEdges } from '../view/templateRead'
 import { toast } from '../../../components/uiKit'
 import type { GridSelection } from './gridSelection'
 

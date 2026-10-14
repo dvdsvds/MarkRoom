@@ -1,4 +1,4 @@
-import type { BorderKind, BorderWhere } from '../features/template/grid/gridEdit'
+import type { BorderKind, BorderWhere } from '../grid/gridEdit'
 import type { EdgeRead, EdgeVal } from './templateRead'
 import {
   button,
@@ -12,7 +12,7 @@ import {
   INPUT_CSS,
   panel,
   type DropItem
-} from './uiKit'
+} from '../../../components/uiKit'
 
 export interface BorderState {
   kind: BorderKind

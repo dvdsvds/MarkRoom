@@ -1,5 +1,5 @@
 import { useEffect, type MutableRefObject, type RefObject } from 'react'
-import { renderTemplate } from '../../../components/templateRender'
+import { renderTemplate } from '../view/templateRender'
 import type { ParsedTemplate } from '../parse/templatePlugin'
 
 export function useTemplateRender(

@@ -1,4 +1,4 @@
-import { getCurrentView } from './currentView'
+import { getCurrentView } from '../../../editor/currentView'
 
 const cellIndent = (def: string): string => (/^\s*/.exec(def)?.[0] ?? '') + '  '
 const cellBody = (def: string, text: string): string[] =>

@@ -1,8 +1,8 @@
-import { addCellText, replaceCellText } from '../../../editor/templateEdit'
-import { fillCell, mkScript, serializeCell } from '../../../components/cellInline'
-import { enterMath, isMath, mathBeside, texOf } from '../../../components/cellMath'
+import { addCellText, replaceCellText } from '../editor/templateEdit'
+import { fillCell, mkScript, serializeCell } from '../view/cellInline'
+import { enterMath, isMath, mathBeside, texOf } from '../view/cellMath'
 import { renderMath } from '../../../components/mathText'
-import type { Toolbar } from '../../../components/templateToolbar'
+import type { Toolbar } from '../view/templateToolbar'
 import { rcOf, whole, type GridSelection } from './gridSelection'
 
 export const ZW = '\u200b'

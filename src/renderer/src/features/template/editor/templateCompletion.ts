@@ -13,7 +13,7 @@ import {
 } from '@codemirror/autocomplete'
 import { Prec, type Extension, type Text } from '@codemirror/state'
 import { keymap, type EditorView } from '@codemirror/view'
-import { fontCandidates, loadSystemFonts } from '../utils/systemFonts'
+import { fontCandidates, loadSystemFonts } from '../../../utils/systemFonts'
 
 const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
 const OPENER = /^(template|box|table|grid=\d{1,2}(?:\s+(?:frame|widths)=\S+)*)\s*\[$/

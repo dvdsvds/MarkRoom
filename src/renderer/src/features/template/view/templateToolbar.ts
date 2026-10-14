@@ -9,10 +9,10 @@ import {
   registerMenu,
   setOn,
   type DropItem
-} from './uiKit'
-import minusIcon from '../icons/minus.svg?raw'
-import plusIcon from '../icons/plus.svg?raw'
-import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from '../features/template/grid/gridEdit'
+} from '../../../components/uiKit'
+import minusIcon from '../../../icons/minus.svg?raw'
+import plusIcon from '../../../icons/plus.svg?raw'
+import type { CellOptChange, CellOptState, FlagName, HAlign, VAlign } from '../grid/gridEdit'
 
 export interface ToolbarApi {
   apply: (ch: CellOptChange) => void
