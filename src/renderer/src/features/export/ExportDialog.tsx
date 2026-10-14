@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { exportPdfBatch } from './exportPdfBatch'
-import ExportFolderIcon from '../icons/ctx-export.svg?react'
-import ChevronRightIcon from '../icons/tb-chevron-right.svg?react'
+import ExportFolderIcon from '../../icons/ctx-export.svg?react'
+import ChevronRightIcon from '../../icons/tb-chevron-right.svg?react'
 import {
   CancelButton,
   Dialog,
@@ -10,7 +10,7 @@ import {
   DialogHeader,
   ListBox,
   MainButton
-} from './DialogParts'
+} from '../../components/DialogParts'
 import { fileNameOf } from '@renderer/utils/path'
 
 interface BrokenLink {
