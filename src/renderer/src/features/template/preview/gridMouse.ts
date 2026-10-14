@@ -44,7 +44,11 @@ export function createGridMouse(opts: {
   const onDown = (e: MouseEvent): void => {
     if (!editMode.current || e.button !== 0) return
     const x = cellOf(e.target)
-    if (!x) return
+    if (!x) {
+      const t = e.target as Element | null
+      if (gs.state.sel && !t?.closest('.tq-toolbar, .tp-edit-btn')) gs.select(null)
+        return
+    }
     gs.pickGrid(x)
     if (x.classList.contains('tq-editing') && !e.shiftKey) return
     const p = rcOf(x)
