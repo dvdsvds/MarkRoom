@@ -1,31 +1,43 @@
-name: release
-
+name: Release
+ 
 on:
   push:
     tags:
       - 'v*'
-
+ 
+permissions:
+  contents: write
+ 
 jobs:
   build:
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         include:
           - os: windows-latest
-            script: build:win
+            target: --win
           - os: macos-latest
-            script: build:mac
+            target: --mac
           - os: ubuntu-latest
-            script: build:linux
+            target: --linux
     runs-on: ${{ matrix.os }}
+ 
     steps:
       - uses: actions/checkout@v4
+ 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npm run ${{ matrix.script }} -- --publish always
+ 
+      - name: Install
+        run: npm ci
+ 
+      - name: Build
+        run: npm run build
+ 
+      - name: Package and upload
+        run: npx electron-builder ${{ matrix.target }} --publish always
         env:
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false

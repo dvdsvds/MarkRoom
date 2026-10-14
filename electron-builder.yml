@@ -49,5 +49,5 @@ npmRebuild: false
 publish:
   provider: github
   owner: dvdsvds
-  repo: markroom-releases
+  repo: MarkRoom
   releaseType: draft

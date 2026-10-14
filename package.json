@@ -1,6 +1,6 @@
 {
   "name": "markroom",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "마크다운(.md) 파일 기반의 파일 기반의 에디터",
   "main": "./out/main/index.js",
   "author": "dvd",
