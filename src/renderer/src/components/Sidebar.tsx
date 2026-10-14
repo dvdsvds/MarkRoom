@@ -4,7 +4,7 @@ import { ContextMenu } from './ContextMenu'
 import { ConfirmDialog } from './ConfirmDialog'
 import { ExportDialog } from './ExportDialog'
 import { FileTypeIcon } from './FileTypeIcon'
-import { dirOf, fileNameOf, sepOf, splitName } from '@renderer/utils/path'
+import { dirOf, fileNameOf } from '@renderer/utils/path'
 import ChevronIcon from '../icons/chevron.svg?react'
 import ExportIcon from '../icons/export.svg?react'
 import NewFileIcon from '../icons/new-file.svg?react'
@@ -13,6 +13,7 @@ import { InlineNameInput, NewFileRow } from './sidebar/InlineInputs'
 import { TreeRow, type RowContext } from './sidebar/TreeRow'
 import { buildMenuItems } from './sidebar/sidebarMenu'
 import { useTreeFocus } from './sidebar/useTreeFocus'
+import { useTreeActions } from './sidebar/useTreeActions'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -36,12 +37,6 @@ interface SidebarProps {
 
 export interface SidebarHandle {
   startNewFile: (dirPath: string) => void
-}
-
-interface DeleteTarget {
-  node: TreeNode
-  backlinks: { path: string; count: number }[] | null
-  loading: boolean
 }
 
 const ICON_BTN =
@@ -69,14 +64,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }: SidebarProps,
   ref
 ) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(
-    null
-  )
-  const [editingPath, setEditingPath] = useState<string | null>(null)
-  const [newFolderIn, setNewFolderIn] = useState<string | null>(null)
-  const [newFileIn, setNewFileIn] = useState<string | null>(null)
-  const [draggingPath, setDraggingPath] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null)
   const [exportTarget, setExportTarget] = useState<{
     folderPath: string
     isRoot: boolean
@@ -111,30 +99,33 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onSelectFolder,
     onFocusEditor
   })
-  const commitRename = (node: TreeNode, rawValue: string): void => {
-    const newName = node.type === 'file' ? `${rawValue}${splitName(node.name).ext}` : rawValue
-    setEditingPath(null)
-    if (newName === node.name) return
-    void window.api.workspace.renameEntry(node.path, newName).then((newPath) => {
-      onEntryRenamed(node.path, newPath)
-    })
-  }
 
-  const commitNewFolder = (dirPath: string, name: string): void => {
-    setNewFolderIn(null)
-    const separator = sepOf(dirPath)
-    void window.api.workspace.createFolder(dirPath, name).then(() => {
-      setFocusedPath(`${dirPath}${separator}${name}`)
-    })
-  }
-
-  const commitNewFile = (dirPath: string, rawTitle: string): void => {
-    setNewFileIn(null)
-    void window.api.workspace.createNote(dirPath, rawTitle).then((filePath) => {
-      onFileCreated(filePath)
-      setFocusedPath(filePath)
-    })
-  }
+  const {
+    editingPath,
+    setEditingPath,
+    newFolderIn,
+    setNewFolderIn,
+    newFileIn,
+    setNewFileIn,
+    draggingPath,
+    setDraggingPath,
+    deleteTarget,
+    setDeleteTarget,
+    commitRename,
+    commitNewFolder,
+    commitNewFile,
+    openDeleteConfirm,
+    confirmDelete,
+    handleDrop
+  } = useTreeActions({
+    visibleNodes,
+    rowRefs,
+    setFocusedPath,
+    onEntryRenamed,
+    onEntryMoved,
+    onEntryDeleted,
+    onFileCreated
+  })
 
   const resolveToolbarDir = (): string | null => {
     if (selectedFolderPath) return selectedFolderPath
@@ -142,49 +133,9 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     return rootDir
   }
 
-  const openDeleteConfirm = (node: TreeNode): void => {
-    const isMd = node.type === 'file' && node.name.toLowerCase().endsWith('.md')
-    setDeleteTarget({ node, backlinks: null, loading: isMd })
-    if (isMd) {
-      void window.api.workspace.findBacklinks(node.path).then((backlinks) => {
-        setDeleteTarget({ node, backlinks, loading: false })
-      })
-    }
-  }
-
-  const confirmDelete = (): void => {
-    if (!deleteTarget) return
-    const { node } = deleteTarget
-    const sep = sepOf(node.path)
-    const idx = visibleNodes.findIndex((n) => n.path === node.path)
-    const after = visibleNodes.slice(idx + 1).find((n) => !n.path.startsWith(node.path + sep))
-    const neighbor = after ?? visibleNodes[idx - 1] ?? null
-    void window.api.workspace.trash(node.path).then(() => {
-      onEntryDeleted(node.path)
-      const next = neighbor ? neighbor.path : null
-      setFocusedPath(next)
-      setTimeout(() => {
-        if (next) rowRefs.current.get(next)?.focus()
-      }, 50)
-    })
-    setDeleteTarget(null)
-  }
-
   const handleContextMenu = (e: React.MouseEvent, node: TreeNode): void => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, node })
-  }
-
-  const handleDrop = (e: React.DragEvent, targetDirPath: string): void => {
-    e.preventDefault()
-    e.stopPropagation()
-    const sourcePath = e.dataTransfer.getData('text/plain')
-    setDraggingPath(null)
-    if (!sourcePath) return
-    if (dirOf(sourcePath) === targetDirPath) return
-    void window.api.workspace.moveEntry(sourcePath, targetDirPath).then((newPath) => {
-      onEntryMoved(sourcePath, newPath)
-    })
   }
 
   const ctx: RowContext = {
