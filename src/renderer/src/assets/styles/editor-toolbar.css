@@ -137,7 +137,6 @@
   height: 2px !important;
   border-radius: 1px !important;
 }
-/* 에디터 안쪽 z-index(툴바 패널 300)가 바깥 팝업·설정 패널 위로 올라오지 않게 가둔다 */
 .cm-editor {
   isolation: isolate;
 }
@@ -155,7 +154,14 @@
 }
 .cm-selectionBackground,
 .cm-focused .cm-selectionBackground {
-  background: color-mix(in srgb, var(--color-accent) 28%, transparent) !important;
+  background: transparent !important;
+}
+.cm-fullSel {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+.cm-editor.cm-vim-v .cm-fullSel,
+.cm-editor:has(.cm-sel-line) .cm-fullSel {
+  background: transparent;
 }
 .cm-line ::selection,
 .cm-line::selection {

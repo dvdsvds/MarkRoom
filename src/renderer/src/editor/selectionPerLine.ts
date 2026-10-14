@@ -112,7 +112,7 @@ export const selectionPerLine = ViewPlugin.fromClass(
       this.dom.classList.toggle('cm-vim-v', charMode)
       if (charMode) return buildChar(view, vim!.sel!)
       if (inVisual && !vim?.visualLine) return Decoration.none
-      return buildLines(view, inVisual)
+      return inVisual ? buildLines(view, true) : Decoration.none
     }
     destroy(): void {
       this.dom.classList.remove('cm-vim-v')

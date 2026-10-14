@@ -40,6 +40,7 @@ import { cursorReport, type CursorPosition } from './cursorReport'
 import { markdownColors } from './markdownColors'
 import { editorTheme } from './editorTheme'
 import { listTabSpace } from './listTab'
+import { fullLineSelection } from './fullLineSelection'
 
 const externalSync = Annotation.define<boolean>()
 
@@ -111,6 +112,7 @@ function buildExtensions(
     basicSetup,
     foldChevronGutter(),
     drawSelection({ cursorBlinkRate: 0 }),
+    fullLineSelection,
     history(),
     blockIndent,
     colorSwatch,
