@@ -16,16 +16,15 @@ import { keymap, type EditorView } from '@codemirror/view'
 import { fontCandidates, loadSystemFonts } from '../../../utils/systemFonts'
 
 const COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'gray']
-const OPENER = /^(template|box|table|grid=\d{1,2}(?:\s+(?:frame|widths)=\S+)*)\s*\[$/
-const COL_DEF = /^\s*(?:col|row)=\d/
-const indentOf = (s: string): number => s.length - s.trimStart().length
+const OPENER = /^(template|box|chart|table(?:\s+\S+)*|(?:col|row)=\S+(?:\s+\S+)*)\s*\[$/
 
-type LineKind = 'page' | 'text' | 'col' | 'grid' | null
+type LineKind = 'page' | 'text' | 'col' | 'table' | null
 
-/** 이 줄을 감싼 가장 안쪽 블록. template 안이 아니면 null. */
-function enclosing(doc: Text, lineNo: number): 'template' | 'box' | 'table' | 'grid' | null {
+type Block = 'template' | 'box' | 'chart' | 'table' | 'cell'
+
+function enclosing(doc: Text, lineNo: number): Block | null {
   let depth = 0
-  let innermost: 'template' | 'box' | 'table' | 'grid' | null = null
+  let innermost: Block | null = null
   for (let n = lineNo - 1, steps = 0; n >= 1 && steps < 600; n--, steps++) {
     const t = doc.line(n).text.trim()
     if (t === ']') {
@@ -38,24 +37,17 @@ function enclosing(doc: Text, lineNo: number): 'template' | 'box' | 'table' | 'g
       depth--
       continue
     }
-    const kind = m[1].startsWith('grid') ? 'grid' : (m[1] as 'template' | 'box' | 'table')
+    const kind: Block = m[1].startsWith('table')
+      ? 'table'
+      : /^(?:col|row)=/.test(m[1])
+        ? 'cell'
+        : (m[1] as 'template' | 'box' | 'chart')
     if (innermost === null) innermost = kind
     if (kind === 'template') return innermost
   }
   return null
 }
 
-function inCellText(doc: Text, lineNo: number, ci: number): boolean {
-  if (ci === 0) return false
-  for (let n = lineNo - 1, steps = 0; n >= 1 && steps < 80; n--, steps++) {
-    const t = doc.line(n).text
-    if (t.trim() === '') continue
-    if (indentOf(t) < ci) return COL_DEF.test(t)
-  }
-  return false
-}
-
-/** Tab으로 고르면 insert가 들어가고, space면 뒤에 공백이 붙고, restart면 값 목록이 바로 이어서 뜬다. */
 function make(
   label: string,
   insert: string,
@@ -166,14 +158,15 @@ const PAGE_ITEMS = [
 const TEXT_ITEMS = [...flagItems(TEXT_FLAGS), ...valueItems(['ff', 'fs', 'fc', 'bg', 'ls', 'lh'])]
 const NODE_ITEMS = [
   make('page', 'page A4', 'snote-kw', { space: true }),
-  make('grid=', 'grid=', 'snote-kw'),
+  make('title', 'title', 'snote-kw', { space: true }),
   make('text', 'text', 'snote-kw', { space: true }),
+  make('table', 'table col=', 'snote-kw'),
   make('line', 'line', 'snote-kw', { space: true }),
   make('space', 'space', 'snote-kw', { space: true }),
-  make('box', 'box [', 'snote-kw'),
-  make('table', 'table [', 'snote-kw')
+  make('box', 'box [', 'snote-kw')
 ]
 const GRID_ITEMS = [make('col=', 'col=', 'snote-kw'), make('row=', 'row=', 'snote-kw')]
+const CELL_ITEMS = [make('text', 'text', 'snote-kw', { space: true })]
 const COLOR_ITEMS = COLORS.map((c) => make(c, c, 'snote-color', { space: true }))
 const LINE_ITEMS = ['solid', 'thick', 'double', 'dashed'].map((v) =>
   make(v, v, 'snote-opt', { space: true })
@@ -210,15 +203,14 @@ export async function templateCompletionSource(
   const line = doc.lineAt(pos)
   const before = line.text.slice(0, pos - line.from)
   const kind = enclosing(doc, line.number)
-  if (kind === null || kind === 'table') return null
-  if (kind === 'grid' && inCellText(doc, line.number, indentOf(line.text))) return null
+  if (kind === null || kind === 'chart') return null
 
   const first = before.trimStart().split(/\s+/)[0] ?? ''
   let lineKind: LineKind = null
   if (/^page(=\d{1,3})?$/.test(first)) lineKind = 'page'
-  else if (first === 'text') lineKind = 'text'
+  else if (first === 'text' || first === 'title') lineKind = 'text'
   else if (/^(col|row)=/.test(first)) lineKind = 'col'
-  else if (/^grid=/.test(first)) lineKind = 'grid'
+  else if (first === 'table') lineKind = 'table'
 
   const vm =
     /(?:^|\s)(ff|fc|bg|border-top|border-right|border-bottom|border-left|border-color|border|line|frame)=("[^"]*|[^\s"]*)$/.exec(
@@ -228,7 +220,7 @@ export async function templateCompletionSource(
     const key = vm[1]
     const typed = vm[2]
     if (lineKind === null) return null
-    if (key === 'frame' ? lineKind !== 'grid' : lineKind === 'grid') return null
+    if (key === 'frame' ? lineKind !== 'table' : lineKind === 'table') return null
     if (lineKind === 'text' && (key.startsWith('border') || key === 'line' || before.includes(':')))
       return null
     const valueStart = pos - typed.length
@@ -269,15 +261,15 @@ export async function templateCompletionSource(
   const atStart = before.slice(0, idx).trim() === ''
   const hasColon = before.includes(':')
   let options: Completion[] | null = null
-  if (atStart) options = kind === 'grid' ? GRID_ITEMS : NODE_ITEMS
+  if (atStart) options = kind === 'table' ? GRID_ITEMS : kind === 'cell' ? CELL_ITEMS : NODE_ITEMS
   else if (lineKind === 'page') options = PAGE_ITEMS
   else if (lineKind === 'text') options = hasColon ? null : TEXT_ITEMS
   else if (lineKind === 'col') {
     options = hasColon
       ? COL_ITEMS
       : ['row=', 'col='].filter((x) => !before.includes(x)).map((x) => make(x, x, 'snote-kw'))
-  } else if (lineKind === 'grid') {
-    options = ['frame=', 'widths=']
+  } else if (lineKind === 'table') {
+    options = ['col=', 'row=', 'frame=', 'widths=']
       .filter((x) => !before.includes(x))
       .map((x) => make(x, x, 'snote-opt', { restart: x === 'frame=' }))
   }
