@@ -5,7 +5,7 @@ import {
   type GridInfo,
   type GridResult,
   type Rect
-} from '../../editor/gridEdit'
+} from '../../features/template/grid/gridEdit'
 import { openBorderPanel, type BorderState } from '../templatePanels'
 import { readEdges } from '../templateRead'
 import { toast } from '../uiKit'

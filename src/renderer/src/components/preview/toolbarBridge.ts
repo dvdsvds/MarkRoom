@@ -9,7 +9,7 @@ import {
   textChangeOf,
   type TextChange
 } from '../cellInline'
-import { readCellOpts, setCellOpts, type CellOptChange } from '../../editor/gridEdit'
+import { readCellOpts, setCellOpts, type CellOptChange } from '../../features/template/grid/gridEdit'
 import { createToolbar, type Toolbar } from '../templateToolbar'
 import { toast } from '../uiKit'
 import { ZWRE, type CellEditor } from './cellEditor'
