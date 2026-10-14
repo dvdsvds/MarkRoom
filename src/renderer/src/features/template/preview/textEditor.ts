@@ -168,7 +168,7 @@ export function createTextEditor(opts: {
   const onTextClick = (e: MouseEvent): void => {
     if (!editMode.current || e.button !== 0) return
     const tg = e.target instanceof Element ? e.target : null
-    if (!tg || tg.closest('.tq-cell, .tp-edit-btn')) return
+    if (!tg || tg.closest('.tq-cell, .tp-edit-btn, .tp-edit-btn')) return
     let t = tg.closest<HTMLElement>('.tp-text[data-tline]')
     const direct = t !== null
     if (!t) {

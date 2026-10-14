@@ -23,7 +23,15 @@ export function createGridMouse(opts: {
   onResizeUp: () => void
 } {
   const { el, grid, editMode, gs, ed } = opts
-  let drag: { r: number; c: number; moved: boolean } | null = null
+  let drag: {
+    r: number
+    c: number
+    moved: boolean
+    mode: 'native' | 'manual' | 'cells'
+    sx: number
+    sy: number
+    started: boolean
+  } | null = null
   let rz: {
     hit: Hit
     info: GridInfo
@@ -47,11 +55,13 @@ export function createGridMouse(opts: {
     if (!x) {
       const t = e.target as Element | null
       if (gs.state.sel && !t?.closest('.tq-toolbar, .tp-edit-btn')) gs.select(null)
-        return
+      return
     }
     gs.pickGrid(x)
-    if (x.classList.contains('tq-editing') && !e.shiftKey) return
     const p = rcOf(x)
+    const base = { r: p.r, c: p.c, moved: false, sx: e.clientX, sy: e.clientY }
+    const editing =
+      x.classList.contains('tq-editing') || (!!ed.state.editing && x.contains(ed.state.editing))
     if (e.shiftKey) {
       e.preventDefault()
       if (ed.state.editing) ed.commit()
@@ -62,8 +72,25 @@ export function createGridMouse(opts: {
         r2: Math.max(cur.r2, p.r + p.rs - 1),
         c2: Math.max(cur.c2, p.c + p.cs - 1)
       })
+      drag = { ...base, mode: 'cells', started: false }
+      return
     }
-    drag = { r: p.r, c: p.c, moved: false }
+    drag = editing ? { ...base, mode: 'native', started: true } : { ...base, mode: 'manual', started: false }
+  }
+
+  const extendText = (x: HTMLElement, e: MouseEvent): void => {
+    if (!drag) return
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 3) return
+      ed.startEdit(x, { x: drag.sx, y: drag.sy })
+      drag.started = true
+    }
+    const box = ed.state.editing
+    const r = document.caretRangeFromPoint(e.clientX, e.clientY)
+    const s = window.getSelection()
+    if (!box || !r || !s || s.rangeCount === 0 || !box.contains(r.startContainer)) return
+    e.preventDefault()
+    s.extend(r.startContainer, r.startOffset)
   }
 
   const onMove = (e: MouseEvent): void => {
@@ -73,7 +100,11 @@ export function createGridMouse(opts: {
     const p = rcOf(x)
     const ge = gs.gridEl()
     if (ge && !ge.contains(x)) return
-    if (p.r === drag.r && p.c === drag.c && !drag.moved && !gs.state.sel) return
+    const same = p.r === drag.r && p.c === drag.c
+    if (same && !drag.moved) {
+      if (drag.mode === 'manual') extendText(x, e)
+      if (drag.mode !== 'cells' || !gs.state.sel) return
+    }
     drag.moved = true
     e.preventDefault()
     if (ed.state.editing) ed.commit()
@@ -93,7 +124,7 @@ export function createGridMouse(opts: {
   const onUp = (e: MouseEvent): void => {
     const d = drag
     drag = null
-    if (!editMode.current || !d || d.moved || gs.state.sel) return
+    if (!editMode.current || !d || d.moved || d.started || gs.state.sel) return
     const x = cellOf(e.target)
     if (!x || x.classList.contains('tq-editing')) return
     ed.startEdit(x, { x: e.clientX, y: e.clientY })
