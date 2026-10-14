@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { MarkdownPreview } from '@renderer/components/MarkdownPreview'
+import { MarkdownPreview } from '../preview/MarkdownPreview'
 import { collectCss, extractHtml } from './exportPdf'
 
 type PdfNote = Awaited<ReturnType<typeof window.api.workspace.listPdfNotes>>[number]

@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, type ForwardedRef, type RefObject } from 'react'
-import type { MarkdownPreviewHandle } from '../MarkdownPreview'
+import type { MarkdownPreviewHandle } from './MarkdownPreview'
 
 export function useScrollSync(
   containerRef: RefObject<HTMLDivElement | null>,

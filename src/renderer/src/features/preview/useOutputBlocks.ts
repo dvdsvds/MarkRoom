@@ -1,6 +1,6 @@
 import { useEffect, type RefObject } from 'react'
 import type { ParsedBlock } from '../../markdown/blockPlugin'
-import { renderBlocks } from '../outputBlocks'
+import { renderBlocks } from '../../components/outputBlocks'
 
 export function useOutputBlocks(
   containerRef: RefObject<HTMLDivElement | null>,

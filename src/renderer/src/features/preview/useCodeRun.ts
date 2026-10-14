@@ -3,7 +3,7 @@ import playIcon from '../../icons/tb-play.svg?raw'
 import { runPython } from '@renderer/python/pyRunner'
 import { applyResult, blockToText, outputToText } from '../../markdown/resultText'
 import { applyValues } from '../../markdown/valueBlock'
-import { renderBlocks } from '../outputBlocks'
+import { renderBlocks } from '../../components/outputBlocks'
 
 export function useCodeRun(
   containerRef: RefObject<HTMLDivElement | null>,

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'motion/react'
 import { MarkdownEditor, type MarkdownEditorHandle } from './editor/MarkdownEditor'
-import { MarkdownPreview, type MarkdownPreviewHandle } from './components/MarkdownPreview'
+import { MarkdownPreview, type MarkdownPreviewHandle } from './features/preview/MarkdownPreview'
 import { Sidebar, type SidebarHandle } from './features/sidebar/Sidebar'
 import { TabBar } from './components/TabBar'
 import { SaveChangesDialog } from './components/SaveChangesDialog'
