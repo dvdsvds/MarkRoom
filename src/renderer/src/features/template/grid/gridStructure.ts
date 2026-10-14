@@ -147,7 +147,7 @@ export function splitGrid(
       rowN[cell.r + i] = Math.max(rowN[cell.r + i], v)
     })
   }
-  const eff = effectiveWidths(info.widths, info.cols)
+  const eff = effectiveWidths(info.widths, info.cols, info.frameMm)
   const eq = equalColumns(info, inside, nCols)
   const colStart: number[] = []
   const colEnd: number[] = []
@@ -334,6 +334,135 @@ export function insertRows(
   return assemble(info, getLine, items, null)
 }
 
+export function colSegment(
+  info: GridInfo,
+  k: number,
+  row: number
+): { s1: number; s2: number; all: boolean } {
+  const rows = info.heights.length
+  const has = (r: number): boolean =>
+    !info.cells.some((c) => c.r <= r && r < c.r + c.rs && c.c <= k && c.c + c.cs - 1 >= k + 1)
+  let s1 = row
+  let s2 = row
+  while (s1 > 0 && has(s1 - 1)) s1--
+  while (s2 < rows - 1 && has(s2 + 1)) s2++
+  let all = true
+  for (let r = 0; r < rows; r++) if ((r < s1 || r > s2) && has(r)) all = false
+  return { s1, s2, all }
+}
+
+export interface ColPlan {
+  widths: number[]
+  cells: { r: number; c: number; rs: number; cs: number }[]
+}
+
+export function planColSegment(
+  info: GridInfo,
+  k: number,
+  s1: number,
+  s2: number,
+  deltaMm: number,
+): ColPlan | string | null {
+  const MIN = 5
+  const widths = effectiveWidths(info.widths, info.cols, info.frameMm).map(r2)
+  const pos = [0]
+  for (const w of widths) pos.push(r2(pos[pos.length - 1] + w))
+
+  const cells = info.cells.map((src) => ({ src, r: src.r, c: src.c, rs: src.rs, cs: src.cs }))
+  const inSeg = (x: { r: number; rs: number }): boolean => x.r >= s1 && x.r + x.rs - 1 <= s2
+  const L = cells.filter((x) => inSeg(x) && x.c + x.cs - 1 === k)
+  const R = cells.filter((x) => inSeg(x) && x.c === k + 1)
+  if (L.length === 0 || R.length === 0) return '경계를 찾을 수 없어요.'
+
+  const lo = Math.max(...L.map((x) => pos[x.c])) + MIN
+  const hi = Math.min(...R.map((x) => pos[x.c + x.cs])) - MIN
+  if (lo > hi) return '칸이 너무 좁아서 옮길 수 없어요.'
+  let x = Math.min(hi, Math.max(lo, Math.round((pos[k + 1] + deltaMm) * 2) / 2))
+
+  let j = pos.findIndex((p, i) => i < pos.length - 1 && p < x && x < pos[i + 1])
+  if (j >= 0 && (x - pos[j] < MIN || pos[j + 1] - x < MIN)) {
+    x = x - pos[j] < pos[j + 1] - x ? pos[j] : pos[j + 1]
+    j = -1
+  }
+  if (x === pos[k + 1]) return null
+
+  let B: number
+  let kk = k
+  if (j < 0) {
+    B = pos.indexOf(x) - 1
+  } else {
+    if (widths.length + 1 > MAX_COLS) return `열은 ${MAX_COLS}개까지예요.`
+    widths.splice(j, 1, r2(x - pos[j]), r2(pos[j + 1] - x))
+    for (const cl of cells) {
+      if (cl.c > j) cl.c++
+      else if (cl.c + cl.cs - 1 >= j) cl.cs++
+    }
+    B = j
+    if (k >= j) kk = k + 1
+  }
+
+  const d = B - kk
+  for (const cl of L) cl.cs += d
+  for (const cl of R) {
+    cl.c = B + 1
+    cl.cs -= d
+  }
+
+  if (!cells.some((cl) => cl.c + cl.cs - 1 === kk)) {
+    widths[kk] = r2(widths[kk] + widths[kk + 1])
+    widths.splice(kk + 1, 1)
+    for (const cl of cells) {
+      if (cl.c > kk) cl.c--
+      else if (cl.c + cl.cs - 1 >= kk + 1) cl.cs--
+    }
+  }
+
+  return { widths, cells: cells.map(({ r, c, rs, cs }) => ({ r, c, rs, cs })) }
+}
+
+export function moveColSegment(
+  info: GridInfo,
+  k: number,
+  s1: number,
+  s2: number,
+  deltaMm: number,
+  getLine: GetLine
+): GridResult {
+  const plan = planColSegment(info, k, s1, s2, deltaMm)
+  if (plan === null) return fail('')
+  if (typeof plan === 'string') return fail(plan)
+  const items: Out[] = []
+  let seq = 0
+  info.cells.forEach((src, i) => {
+    const cl = plan.cells[i]
+    if (src.def !== null) {
+      items.push({
+        key: src.def,
+        seq: 0,
+        r: cl.r,
+        c: cl.c,
+        rs: cl.rs,
+        cs: cl.cs,
+        parts: parseDef(getLine(src.def)),
+        body: bodyOf(src, getLine)
+      })
+    } else if (cl.cs !== 1 || cl.rs !== 1) {
+      items.push({
+        key: NEW_KEY,
+        seq: seq++,
+        r: cl.r,
+        c: cl.c,
+        rs: cl.rs,
+        cs: cl.cs,
+        parts: emptyDef(info, getLine),
+        body: []
+      })
+    }
+  })
+  ensureLastRow(info, getLine, items, info.heights.length, info.heights[info.heights.length - 1])
+  return assemble(info, getLine, items, { n: plan.widths.length, widths: plan.widths })
+}
+
 export function insertCols(
   info: GridInfo,
   rect: Rect,
@@ -363,7 +492,7 @@ export function insertCols(
   }
   let widths: number[] | null = null
   if (info.widths.some((w) => w !== null)) {
-    const eff = effectiveWidths(info.widths, info.cols)
+    const eff = effectiveWidths(info.widths, info.cols, info.frameMm)
     const total = eff.reduce((a, b) => a + b, 0)
     const list = [...eff]
     list.splice(p, 0, ...Array.from({ length: n }, (_, i) => eff[rect.c1 + i]))
@@ -430,7 +559,7 @@ export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
   }
   let widths: number[] | null = null
   if (info.widths.some((w) => w !== null)) {
-    const eff = effectiveWidths(info.widths, info.cols)
+    const eff = effectiveWidths(info.widths, info.cols, info.frameMm)
     const total = eff.reduce((a, b) => a + b, 0)
     widths = fitWidths(
       eff.filter((_, i) => i < rect.c1 || i > rect.c2),

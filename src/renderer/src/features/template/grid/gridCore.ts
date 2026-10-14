@@ -13,6 +13,7 @@ export interface GridInfo {
   cols: number
   widths: (number | null)[]
   heights: number[]
+  frameMm: number
   cells: CellInfo[]
 }
 
@@ -124,12 +125,13 @@ export function bodyOf(c: CellInfo, getLine: GetLine): string[] {
   return out
 }
 
-export function effectiveWidths(widths: (number | null)[], cols: number): number[] {
-  const free = widths.filter((w) => w === null).length
-  if (free === widths.length) return Array<number>(cols).fill(PAPER_MM / cols)
-  const fixed = widths.reduce<number>((a, w) => a + (w ?? 0), 0)
-  const share = free > 0 ? Math.max(0, PAPER_MM - fixed) / free : 0
-  return widths.map((w) => w ?? share)
+export function effectiveWidths(widths: (number | null)[], cols: number, frameMm = 0): number[] {
+  const list = Array.from({ length: cols }, (_, i) => widths[i] ?? null)
+  const fixed = list.reduce<number>((a, w) => a + (w ?? 0), 0)
+  const free = list.filter((w) => w === null).length
+  const share =
+    free > 0 ? Math.floor((Math.max(0, PAPER_MM - fixed - frameMm * 2) / free) * 100) / 100 : 0
+  return list.map((w) => w ?? share)
 }
 
 export function demand(span: number, k: number): number[] {

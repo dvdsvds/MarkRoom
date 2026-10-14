@@ -131,12 +131,23 @@ export function createGridSelection(opts: {
     const g = gridEl()
     if (!g || g.dataset.head === undefined || g.dataset.close === undefined) return null
     try {
+      const fk = g.dataset.frame ?? 'none'
+      const fw = g.dataset.frameW ? Number(g.dataset.frameW) : null
+      const frameMm =
+        fk === 'none'
+          ? 0
+          : fw !== null
+            ? fk === 'double'
+              ? Math.max(fw, 0.8)
+              : fw
+            : ((fk === 'thick' || fk === 'double' ? 3 : 1) * 25.4) / 96
       return {
         head: Number(g.dataset.head),
         close: Number(g.dataset.close),
         cols: Number(g.dataset.cols),
         widths: JSON.parse(g.dataset.widths ?? '[]') as (number | null)[],
         heights: JSON.parse(g.dataset.heights ?? '[]') as number[],
+        frameMm,
         cells: cells().map((x) => ({
           ...rcOf(x),
           def: x.dataset.def !== undefined ? Number(x.dataset.def) : null,

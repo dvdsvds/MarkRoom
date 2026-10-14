@@ -218,6 +218,9 @@ function tag(
   d.dataset.c = e.color ?? ''
 }
 
+export type GridNode = Extract<TNode, { widths: unknown; cells: unknown }>
+export const gridNodes = new WeakMap<HTMLElement, GridNode>()
+
 function build(n: TNode): HTMLElement {
   switch (n.k) {
     case 'block': {
@@ -267,6 +270,7 @@ function build(n: TNode): HTMLElement {
     }
     case 'grid': {
       const g = el('div', 'tq-grid')
+      gridNodes.set(g, n)
       g.dataset.widths = JSON.stringify(n.widths)
       g.dataset.heights = JSON.stringify(n.heights)
       g.dataset.head = String(n.head)
@@ -520,6 +524,10 @@ function build(n: TNode): HTMLElement {
       return g
     }
   }
+}
+
+export function rebuildGrid(n: GridNode): HTMLElement {
+  return build(n)
 }
 
 export function renderTemplate(spec: Ok): HTMLElement {

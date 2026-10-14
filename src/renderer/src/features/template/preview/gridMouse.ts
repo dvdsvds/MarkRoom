@@ -3,6 +3,9 @@ import { dragColWidths, setColWidths, setRowHeight, type GridInfo } from '../gri
 import { toast } from '../../../components/uiKit'
 import type { CellEditor } from './cellEditor'
 import { rcOf, whole, type GridSelection } from './gridSelection'
+import { colSegment, moveColSegment, planColSegment } from '../grid/gridStructure'
+import { gridNodes, rebuildGrid } from '../view/templateRender'
+import { effectiveWidths } from '../grid/gridCore'
 
 type Hit = { g: HTMLElement; kind: 'col' | 'row'; idx: number }
 const PX_MM = 96 / 25.4
@@ -32,6 +35,7 @@ export function createGridMouse(opts: {
     sy: number
     started: boolean
   } | null = null
+
   let rz: {
     hit: Hit
     info: GridInfo
@@ -42,7 +46,41 @@ export function createGridMouse(opts: {
     saveRows: string
     list: number[] | null
     h: number | null
+    seg: { s1: number; s2: number; all: boolean } | null
+    orig: { nodes: Node[]; css: string } | null
+    raf: number
+    dmm: number
   } | null = null
+
+  type Seg = { s1: number; s2: number; all: boolean }
+  const restoreSeg = (g: HTMLElement, orig: { nodes: Node[]; css: string } | null): void => {
+    if (!orig) return
+    g.replaceChildren(...orig.nodes)
+    g.style.cssText = orig.css
+  }
+  const previewSeg = (s: {
+    hit: Hit
+    info: GridInfo
+    seg: Seg | null
+    dmm: number
+    orig: { nodes: Node[]; css: string } | null
+  }): void => {
+    if (!s.seg) return
+    const node = gridNodes.get(s.hit.g)
+    const plan = planColSegment(s.info, s.hit.idx, s.seg.s1, s.seg.s2, s.dmm)
+    if (!node || plan === null || typeof plan === 'string') {
+      restoreSeg(s.hit.g, s.orig)
+      return
+    }
+    const tmp = rebuildGrid({
+      ...node,
+      cols: plan.widths.length,
+      widths: plan.widths,
+      cells: node.cells.map((cell, i) => ({ ...cell, c: plan.cells[i].c, cs: plan.cells[i].cs }))
+    })
+    s.hit.g.replaceChildren(...Array.from(tmp.childNodes))
+    s.hit.g.style.cssText = tmp.style.cssText
+  }
 
   const cellOf = (t: EventTarget | null): HTMLElement | null => {
     const x = t instanceof Element ? t.closest<HTMLElement>('.tq-cell') : null
@@ -148,7 +186,7 @@ export function createGridMouse(opts: {
     const TOL = 4
     const cell = e.target instanceof Element ? e.target.closest<HTMLElement>('.tq-cell') : null
     const cr = cell?.getBoundingClientRect()
-    const inside = (v: number, a: number, b: number): boolean => v > a + TOL && v < b
+    const inside = (v: number, a: number, b: number): boolean => v > a + TOL && v < b - TOL
     let acc = 0
     for (let k = 0; k < cols.length - 1; k++) {
       acc += cols[k]
@@ -186,6 +224,23 @@ export function createGridMouse(opts: {
     gs.pickGrid(hit.g)
     const info = gs.gridInfo()
     if (!info) return
+    let seg: { s1: number; s2: number; all: boolean } | null = null
+    if (hit.kind === 'col') {
+      const rect = hit.g.getBoundingClientRect()
+      const rowsPx = trackPx(hit.g, true)
+      const sr = rowsPx.reduce((a, b) => a + b, 0)
+      let acc = 0
+      let row = rowsPx.length - 1
+      for (let i = 0; i < rowsPx.length; i++) {
+        acc += rowsPx[i]
+        if (e.clientY < rect.top + (acc / sr) * rect.height) {
+          row = i
+          break
+        }
+      }
+      const s = colSegment(info, hit.idx, row)
+      seg = s
+    }
     rz = {
       hit,
       info,
@@ -195,7 +250,11 @@ export function createGridMouse(opts: {
       saveCols: hit.g.style.gridTemplateColumns,
       saveRows: hit.g.style.gridTemplateRows,
       list: null,
-      h: null
+      h: null,
+      seg,
+      orig: hit.kind === 'col' ? { nodes: Array.from(hit.g.childNodes), css: hit.g.style.cssText } : null,
+      raf: 0,
+      dmm: 0
     }
   }
 
@@ -204,6 +263,14 @@ export function createGridMouse(opts: {
     e.preventDefault()
     const { hit, info, rect } = rz
     if (hit.kind === 'col') {
+      if (rz.seg) {
+        const total = effectiveWidths(info.widths, info.cols, info.frameMm).reduce((a, b) => a + b, 0)
+        rz.dmm = ((e.clientX - rz.start) / rect.width) * total
+        const s = rz
+        cancelAnimationFrame(s.raf)
+        s.raf = requestAnimationFrame(() => previewSeg(s))
+        return
+      }
       const base = dragColWidths(info, hit.idx, 0)
       if (!base) return
       const total = base.reduce((a, b) => a + b, 0)
@@ -227,6 +294,20 @@ export function createGridMouse(opts: {
     rz = null
     if (!s) return
     const { hit, info } = s
+    cancelAnimationFrame(s.raf)
+    if (s.seg) {
+      const { s1, s2 } = s.seg
+      const dmm = s.dmm
+      const e2 =
+        Math.abs(dmm) < 0.25
+          ? ''
+          : applyGridEdit((getLine) => moveColSegment(info, hit.idx, s1, s2, dmm, getLine))
+      if (e2 !== null) {
+        if (e2) toast(e2)
+        restoreSeg(hit.g, s.orig)
+      }
+      return
+    }
     const undoStyle = (): void => {
       hit.g.style.gridTemplateColumns = s.saveCols
       hit.g.style.gridTemplateRows = s.saveRows

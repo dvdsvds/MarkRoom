@@ -25,7 +25,7 @@ export function dragColWidths(
   step = 0.5
 ): number[] | null {
   if (k < 0 || k + 1 >= info.cols) return null
-  const eff = effectiveWidths(info.widths, info.cols).map(r2)
+  const eff = effectiveWidths(info.widths, info.cols, info.frameMm).map(r2)
   const pair = r2(eff[k] + eff[k + 1])
   if (pair < MIN_COL_MM * 2) return null
   const left = Math.min(pair - MIN_COL_MM, Math.max(MIN_COL_MM, snap(eff[k] + deltaMm, step)))
