@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useMemo, useRef } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { markdownRenderer } from '../../markdown/renderMarkdown'
 import { useCodeRun } from './useCodeRun'
 import { useScrollSync } from './useScrollSync'
@@ -8,6 +8,7 @@ import { useCodeDecorations } from './useCodeDecorations'
 import { useOutputBlocks } from './useOutputBlocks'
 import { useTemplateRender } from '../template/preview/useTemplateRender'
 import { useTemplateEdit } from '../template/preview/useTemplateEdit'
+import { getLiveEdit, subscribeLiveEdit } from '../template/preview/liveEdit'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -54,7 +55,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       sourceRef.current = source
     })
 
-    const html = useMemo(() => markdownRenderer.render(source, baseDir), [source, baseDir])
+    const live = useSyncExternalStore(subscribeLiveEdit, getLiveEdit)
+    const shownRef = useRef(source)
+    if (!live) shownRef.current = source
+    const shown = shownRef.current
+    const html = useMemo(() => markdownRenderer.render(shown, baseDir), [shown, baseDir])
     useScrollSync(containerRef, ref, onScrollRatio)
     useClickHandlers(containerRef, onWikilinkClick, onToggleTask, onLinkClick)
 

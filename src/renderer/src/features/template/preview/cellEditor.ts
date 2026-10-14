@@ -4,6 +4,7 @@ import { enterMath, isMath, mathBeside, texOf } from '../view/cellMath'
 import { renderMath } from '../view/mathText'
 import type { Toolbar } from '../view/templateToolbar'
 import { rcOf, whole, type GridSelection } from './gridSelection'
+import { setLiveEdit } from './liveEdit'
 
 export const ZW = '\u200b'
 export const ZWRE = /\u200b/g
@@ -21,6 +22,7 @@ export function createCellEditor(opts: {
   commit: () => void
   startEdit: (cell: HTMLElement, at?: { x: number; y: number }) => void
   moveTab: (from: { r: number; c: number; rs: number; cs: number }, dir: number) => void
+  sync: () => void
 } {
   const { gs, toolbar } = opts
   const { pickGrid, paint, size, cellAt, select } = gs
@@ -59,6 +61,7 @@ export function createCellEditor(opts: {
     const pd = document.createElement('div')
     pd.className = 'tq-para'
     pd.dataset.head = head
+    pd.dataset.raw = raw
     pd.style.cssText = css
     fillCell(pd, raw)
     if (raw === '') pd.appendChild(document.createElement('br'))
@@ -90,6 +93,37 @@ export function createCellEditor(opts: {
     s.removeAllRanges()
     s.addRange(c)
   }
+    const collectParas = (box: HTMLElement): { head: string; text: string }[] => {
+    const out: { head: string; text: string }[] = []
+    for (const pd of Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))) {
+      const head = pd.dataset.head ?? ''
+      const text = serializeCell(pd)
+      pd.dataset.raw = text
+      for (const line of text.split('\n')) out.push({ head, text: line })
+    }
+    return out
+  }
+  const liveSync = (): void => {
+    const box = state.editing
+    const cell = box?.closest<HTMLElement>('.tq-cell')
+    if (!box || !cell) return
+    const paras = collectParas(box)
+    const sig = JSON.stringify(paras)
+    if (sig === box.dataset.orig) return
+    if (cell.dataset.def !== undefined) {
+      const def = Number(cell.dataset.def)
+      replaceCellParas(def, Number(cell.dataset.end), paras)
+      cell.dataset.end = String(def + paras.length + 1)
+    } else if (cell.dataset.gridEnd !== undefined && paras.some((p) => p.text.trim() !== '')) {
+      const p = rcOf(cell)
+      const after = Number(cell.dataset.gridEnd)
+      addCellParas(after, p.r, p.c, p.rs, p.cs, paras)
+      cell.dataset.def = String(after + 1)
+      cell.dataset.end = String(after + paras.length + 2)
+      delete cell.dataset.gridEnd
+    }
+    box.dataset.orig = sig
+  }
   const commit = (): void => {
     const box = state.editing
     if (!box) return
@@ -98,11 +132,9 @@ export function createCellEditor(opts: {
     const cell = box.closest<HTMLElement>('.tq-cell')
     box.removeEventListener('keydown', onEditKey)
     box.removeEventListener('focusout', onFocusOut)
-    const paras: { head: string; text: string }[] = []
-    for (const pd of Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))) {
-      const head = pd.dataset.head ?? ''
-      for (const line of serializeCell(pd).split('\n')) paras.push({ head, text: line })
-    }
+    box.removeEventListener('input', liveSync)
+    setLiveEdit(false)
+    const paras = collectParas(box)
     const sig = JSON.stringify(paras)
     for (const mf of Array.from(box.querySelectorAll('math-field'))) {
       const t = isMath(mf) ? texOf(mf) : ''
@@ -149,6 +181,8 @@ export function createCellEditor(opts: {
     toolbar()?.refresh()
     box.addEventListener('keydown', onEditKey)
     box.addEventListener('focusout', onFocusOut)
+    box.addEventListener('input', liveSync)
+    setLiveEdit(true)
     box.focus()
     const s = window.getSelection()
     if (!s) return
@@ -238,6 +272,7 @@ export function createCellEditor(opts: {
     if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault()
       splitPara(e.currentTarget as HTMLElement)
+      liveSync()
       return
     }
     const box = e.currentTarget as HTMLElement
@@ -300,7 +335,7 @@ export function createCellEditor(opts: {
     }
   }
 
-  return { state, spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab }
+  return { state, spanOf, caretIn, leaveScript, enterScript, commit, startEdit, moveTab, sync: liveSync }
 }
 
 export type CellEditor = ReturnType<typeof createCellEditor>

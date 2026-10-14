@@ -9,7 +9,7 @@ import {
   textChangeOf,
   type TextChange
 } from '../view/cellInline'
-import { readCellOpts, setCellOpts, type CellOptChange } from '../grid/gridEdit'
+import { HAlign, readCellOpts, setCellOpts, type CellOptChange } from '../grid/gridEdit'
 import { createToolbar, type Toolbar } from '../view/templateToolbar'
 import { toast } from '../../../components/uiKit'
 import { ZWRE, type CellEditor } from './cellEditor'
@@ -30,6 +30,13 @@ export function createToolbarBridge(opts: {
   onSel: () => void
 } {
   const { el, grid, editMode, gs, ed, tx, onceRendered } = opts
+  const ALIGNS = ['left', 'center', 'right', 'justify', 'distribute']
+  const curPara = (box: HTMLElement): HTMLElement | null => {
+    const n = curRange()?.startContainer ?? null
+    const at = n instanceof Element ? n : (n?.parentElement ?? null)
+    const pd = at?.closest<HTMLElement>('.tq-para') ?? null
+    return pd && box.contains(pd) ? pd : null
+  }
   const { cells, cellAt, normalize, gridInfo } = gs
   const { spanOf, caretIn, leaveScript, enterScript, commit, startEdit } = ed
 
@@ -74,6 +81,10 @@ export function createToolbarBridge(opts: {
       const box = ed.state.editing
       if (!box) {
         runCell(t, ch)
+        return
+      }
+      if (ch.align !== undefined) {
+        applyAlign(box, t, ch.align)
         return
       }
       const tc = textChangeOf(ch)
@@ -173,9 +184,38 @@ export function createToolbarBridge(opts: {
       const t = targetRect()
       const info = gridInfo()
       if (!t || !info) return null
-      return readGrid((getLine) => readCellOpts(info, t, getLine))
+      const st = readGrid((getLine) => readCellOpts(info, t, getLine))
+      const box = ed.state.editing
+      const pd = st && box ? curPara(box) : null
+      if (!st || !pd) return st
+      const a = (pd.dataset.head ?? '').split(/\s+/).find((x) => ALIGNS.includes(x))
+      return a ? { ...st, align: a as HAlign } : st
     }
   })
+
+  function applyAlign(box: HTMLElement, t: Sel, align: HAlign | null): void {
+    const r = curRange()
+    const all = Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))
+    const hit = r ? all.filter((pd) => r.intersectsNode(pd)) : []
+    const list = hit.length > 0 ? hit : all
+    const info = gridInfo()
+    const cellAlign = info ? readGrid((getLine) => readCellOpts(info, t, getLine))?.align : null
+    for (const pd of list) {
+      const toks = (pd.dataset.head ?? '').split(/\s+/).filter((x) => x !== '' && !ALIGNS.includes(x))
+      if (align) toks.unshift(align)
+      pd.dataset.head = toks.join(' ')
+      const shown = align ?? cellAlign ?? 'left'
+      pd.style.textAlign = shown === 'distribute' ? 'left' : shown
+    }
+    ed.sync()
+    if (r) {
+      box.focus()
+      const s = window.getSelection()
+      s?.removeAllRanges()
+      s?.addRange(r)
+    }
+    toolbar.refresh()
+  }
 
   function applyText(box: HTMLElement, tc: TextChange): void {
     const r = curRange()
