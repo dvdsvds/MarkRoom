@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { FileTypeIcon } from '../FileTypeIcon'
+import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { newFileNameFor } from '@renderer/utils/path'
 
 export function InlineNameInput({

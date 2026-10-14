@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react'
 import type { TreeNode } from '../../types/workspace'
-import { FileExt, FileTypeIcon } from '../FileTypeIcon'
+import { FileExt, FileTypeIcon } from '../../components/FileTypeIcon'
 import { splitName } from '@renderer/utils/path'
 import ChevronIcon from '../../icons/chevron.svg?react'
 import { InlineNameInput, NewFileRow } from './InlineInputs'

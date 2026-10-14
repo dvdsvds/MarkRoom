@@ -1,5 +1,5 @@
 import type { TreeNode } from '../../types/workspace'
-import type { ContextMenuItem } from '../ContextMenu'
+import type { ContextMenuItem } from '../../components/ContextMenu'
 import PlusIcon from '../../icons/ctx-plus.svg?react'
 import RenameIcon from '../../icons/ctx-rename.svg?react'
 import CopyPathIcon from '../../icons/tb-copy.svg?react'
