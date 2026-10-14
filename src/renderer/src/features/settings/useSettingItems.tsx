@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToastStore } from '../../stores/toastStore'
 import { useSettingsStore } from '../../stores/settingsStore'
-import { ShortcutRow } from '../ShortcutRow'
-import { FileTypeIcon } from '../FileTypeIcon'
+import { ShortcutRow } from './ShortcutRow'
+import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { SHORTCUT_LABELS, type ShortcutAction } from '../../utils/shortcuts'
-import { ThemeToggle } from '../ThemeToggle'
+import { ThemeToggle } from '../../components/ThemeToggle'
 import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsParts'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [

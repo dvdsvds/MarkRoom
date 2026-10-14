@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { motion } from 'motion/react'
-import { useSettingsStore } from '../stores/settingsStore'
-import { ConfirmDialog } from './ConfirmDialog'
-import { useSettingItems, type Category } from './settings/useSettingItems'
-import { SettingsNav } from './settings/SettingsNav'
-import { SettingsContent, type Section } from './settings/SettingsContent'
+import { useSettingsStore } from '../../stores/settingsStore'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { useSettingItems, type Category } from './useSettingItems'
+import { SettingsNav } from './SettingsNav'
+import { SettingsContent, type Section } from './SettingsContent'
 
 interface SettingsPanelProps {
   onClose: () => void

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useSettingsStore } from '../stores/settingsStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import {
   DEFAULT_SHORTCUTS,
   SHORTCUT_LABELS,
   eventToShortcut,
   findConflict,
   type ShortcutAction
-} from '../utils/shortcuts'
+} from '../../utils/shortcuts'
 
 interface ShortcutRowProps {
   action: ShortcutAction
