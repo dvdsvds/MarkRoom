@@ -1,7 +1,6 @@
 import { forwardRef, useEffect, useMemo, useRef } from 'react'
 import { markdownRenderer } from '../../markdown/renderMarkdown'
 import { useCodeRun } from './useCodeRun'
-import { useImageMinWidth } from './useImageMinWidth'
 import { useScrollSync } from './useScrollSync'
 import { useClickHandlers } from './useClickHandlers'
 import { useMermaid } from './useMermaid'
@@ -55,7 +54,6 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     })
 
     const html = useMemo(() => markdownRenderer.render(source, baseDir), [source, baseDir])
-    useImageMinWidth(containerRef, html, onMinWidthChange)
     useScrollSync(containerRef, ref, onScrollRatio)
     useClickHandlers(containerRef, onWikilinkClick, onToggleTask)
 

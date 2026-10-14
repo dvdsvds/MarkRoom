@@ -11,6 +11,7 @@ import { blockPlugin } from './blockPlugin'
 import { colorSpanPlugin } from './colorSpanPlugin'
 import { templatePlugin } from '../features/template/parse/templatePlugin'
 import { mathPlugin } from './mathPlugin'
+import { snoteUrl } from '@renderer/utils/snoteUrl'
 
 function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
   const md = new MarkdownIt({
@@ -59,16 +60,15 @@ const sanitizeConfig: SanitizeConfig = {
   ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', ' data-line']
 }
 
-function toSnoteUrl(absPath: string): string {
-  const posix = absPath.replace(/\\/g, '/')
-  const withLead = posix.startsWith('/') ? posix : `/${posix}`
-  return `snote://${encodeURI(withLead)}`
-}
-
 function resolveAttachmentSrcs(html: string, baseDir: string): string {
   return html.replace(/(<img\b[^>]*\bsrc=")([^"]+)(")/g, (match, prefix, src, suffix) => {
     if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('/')) return match
-    return `${prefix}${toSnoteUrl(`${baseDir.replace(/\\/g, '/')}/${src}`)}${suffix}`
+    let path = src.replace(/&amp;/g, '&')
+    try {
+      path = decodeURIComponent(path)
+    } catch {
+    }
+    return `${prefix}${snoteUrl(`${baseDir.replace(/\\/g, '/')}/${path}`)}${suffix}`
   })
 }
 
