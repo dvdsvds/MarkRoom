@@ -27,7 +27,6 @@ import { codeBlocks } from './codeBlocks'
 import { templateCompletion, templateCompletionSource } from '../features/template/editor/templateCompletion'
 import { selectionPerLine } from './selectionPerLine'
 import { getCurrentView, setCurrentView } from './currentView'
-import { selectionToolbar } from './selectionToolbar'
 import { changeGutter } from './changeGutter'
 import { foldChevronGutter } from './foldGutter'
 import { listRenumber } from './listRenumber'
@@ -123,7 +122,6 @@ function buildExtensions(
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     markdownLang,
     markdownColors,
-    selectionToolbar(),
     mdToolbarKeys,
     toolbarCompartment.of(useSettingsStore.getState().showToolbar ? mdToolbarPanel : []),
     slashMenu,
