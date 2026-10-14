@@ -272,18 +272,20 @@ function build(n: TNode): HTMLElement {
       g.dataset.head = String(n.head)
       if (n.close !== null) g.dataset.close = String(n.close)
       g.dataset.cols = String(n.cols)
+      const fw = n.frame === 'none' ? '0px' : edgeWidth(n.frame, n.frameW)
+      const fwMm = fw.endsWith('mm') ? parseFloat(fw) : (parseFloat(fw) * 25.4) / 96
       const fixed = n.widths.reduce<number>((a, w) => a + (w ?? 0), 0)
       const free = n.widths.filter((w) => w === null).length
-      const share = free > 0 ? Math.round((Math.max(0, PAPER_MM - fixed) / free) * 100) / 100 : 0
+      const share = free > 0 ? Math.floor((Math.max(0, PAPER_MM - fixed - fwMm * 2) / free) * 100) / 100 : 0
       g.style.gridTemplateColumns = n.widths.some((w) => w !== null)
         ? n.widths.map((w) => (w !== null ? `${Number(w)}mm` : `${share}mm`)).join(' ')
         : `repeat(${Number(n.cols)}, minmax(0, 1fr))`
+      if (free === 0 && n.widths.some((w) => w !== null)) g.style.width = 'fit-content'
       g.style.gridTemplateRows = n.heights.map((h) => `minmax(${Number(h)}mm, auto)`).join(' ')
       g.dataset.frame = n.frame
       g.dataset.frameW = n.frameW === null ? '' : String(n.frameW)
       g.dataset.frameC = n.frameC ?? ''
       g.style.border = n.frame === 'none' ? '0' : edgeCss(n.frame, n.frameC, n.frameW)
-      const fw = n.frame === 'none' ? '0px' : edgeWidth(n.frame, n.frameW)
       if (n.frame === 'none') g.classList.add('tq-frame-none')
       const rows = n.heights.length
 
