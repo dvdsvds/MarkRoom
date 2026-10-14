@@ -566,6 +566,7 @@ function App(): React.JSX.Element {
                   onMinWidthChange={setPreviewMinWidth}
                   onHasTemplateChange={setHasTemplate}
                   className="min-w-0 flex-1 overflow-auto px-[var(--preview-pad)] pb-6 pt-3"
+                  docKey={activeTab.id}
                 />
               </div>
             </div>

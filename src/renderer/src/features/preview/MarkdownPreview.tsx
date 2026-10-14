@@ -24,6 +24,7 @@ interface MarkdownPreviewProps {
   onMinWidthChange?: (px: number) => void
   onHasTemplateChange?: (has: boolean) => void
   className?: string
+  docKey?: string
 }
 
 export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(
@@ -37,7 +38,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       onReplaceSource,
       onMinWidthChange,
       onHasTemplateChange,
-      className
+      className,
+      docKey
     },
     ref
   ) {
@@ -70,6 +72,11 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     useMermaid(containerRef, html)
     useCodeDecorations(containerRef, html)
     useOutputBlocks(containerRef, html)
+    useEffect(() => {
+      editIdxRef.current = null
+      editModeRef.current = false
+      containerRef.current?.dispatchEvent(new Event('snote-editmode'))
+    })
     useTemplateRender(containerRef, html, editIdxRef, editModeRef)
     useCodeRun(containerRef, html, baseDir, sourceRef, onReplaceSourceRef)
     useTemplateEdit(containerRef, editIdxRef, editModeRef)
