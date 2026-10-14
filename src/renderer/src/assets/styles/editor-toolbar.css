@@ -146,6 +146,9 @@
 .cm-gutterElement {
   line-height: var(--editor-line-height) !important;
 }
+.cm-lineNumbers .cm-gutterElement {
+  line-height: calc(var(--editor-line-height) / 0.9) !important;
+}
 .cm-line {
   line-height: var(--editor-line-height) !important;
   padding-left: 2px !important;
@@ -169,5 +172,3 @@
   background: color-mix(in srgb, var(--color-accent) 28%, transparent);
   padding: 0.2286em 0;
 }
-
-/* ───────── select ───────── */
