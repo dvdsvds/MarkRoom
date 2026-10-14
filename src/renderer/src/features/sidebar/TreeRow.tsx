@@ -100,6 +100,7 @@ export function TreeRow({
                 onCancel={ctx.onCancelRename}
                 paddingLeft={paddingLeft}
                 inline
+                medium={!isSystem}
               />
             </div>
           ) : (
@@ -158,6 +159,7 @@ export function TreeRow({
                     onCancel={ctx.onCancelNewFolder}
                     paddingLeft={0}
                     inline
+                    medium
                   />
                 </div>
               )}

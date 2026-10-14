@@ -8,7 +8,8 @@ export function InlineNameInput({
   onCancel,
   onValueChange,
   paddingLeft,
-  inline = false
+  inline = false,
+  medium = false
 }: {
   initialValue: string
   onCommit: (value: string) => void
@@ -16,6 +17,7 @@ export function InlineNameInput({
   onValueChange?: (value: string) => void
   paddingLeft: number
   inline?: boolean
+  medium?: boolean
 }): React.JSX.Element {
   const [value, setValue] = useState(initialValue)
   return (
@@ -39,10 +41,10 @@ export function InlineNameInput({
       onClick={(e) => e.stopPropagation()}
       className={
         inline
-          ? '-ml-px relative min-w-0 flex-1 rounded border border-accent bg-bg px-1 py-0 leading-none text-[13px] text-text outline-none'
+          ? `-ml-[5px] h-6 min-w-0 flex-1 rounded border border-accent bg-bg px-1 text-[13px] text-text outline-none${medium ? ' font-medium' : ''}`
           : 'my-0.5 w-[calc(100%-8px)] rounded border border-accent bg-bg px-1.5 py-0.5 text-sm text-text outline-none'
       }
-      style={inline ? { top: '0px' } : { marginLeft: paddingLeft }}
+      style={inline ? undefined : { marginLeft: paddingLeft }}
     />
   )
 }
