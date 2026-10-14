@@ -9,10 +9,10 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!patches/**'
+  - '!scripts/**'
 asarUnpack:
   - resources/**
-# 업데이트 후 첫 실행 안내 팝업에 쓸 버전별 변경 내용 (기획 문서 11장).
-# main/updateInfo.ts가 process.resourcesPath에서 읽는다.
 extraResources:
   - from: resources/changelog.json
     to: changelog.json
