@@ -534,8 +534,6 @@ function App(): React.JSX.Element {
             activeTabId={activeTabId}
             onSelect={setActiveTab}
             onClose={tabClose.requestClose}
-            onCloseOthers={tabClose.closeOthers}
-            onCloseToRight={tabClose.closeToRight}
             onCloseAll={tabClose.closeAll}
             onMissingClick={handleMissingTabClick}
           />

@@ -8,13 +8,8 @@ interface TabBarProps {
   tabs: Tab[]
   activeTabId: string | null
   onSelect: (tabId: string) => void
-  /** X 버튼, 가운데 클릭, 우클릭 메뉴 "닫기"에서 부른다. 저장 안 된 내용이 있으면
-   * 저장/저장 안 함/취소를 먼저 물어본다 (App.tsx가 처리). */
   onClose: (tabId: string) => void
-  onCloseOthers: (tabId: string) => void
-  onCloseToRight: (tabId: string) => void
   onCloseAll: () => void
-  /** 파일이 사라진(빨간 취소선) 탭을 클릭하면. */
   onMissingClick: (tab: Tab) => void
 }
 
@@ -34,22 +29,16 @@ function CloseGlyph(): React.JSX.Element {
   )
 }
 
-/** 알약 모양 탭. 저장 안 된 변경이 있으면 점(•)으로, 파일이 사라졌으면
- * 빨간 취소선으로 표시한다 (기획 문서 8장). 활성 탭 배경은 탭 사이를 부드럽게 이동한다. */
 export function TabBar({
   tabs,
   activeTabId,
   onSelect,
   onClose,
-  onCloseOthers,
-  onCloseToRight,
   onCloseAll,
   onMissingClick
 }: TabBarProps): React.JSX.Element | null {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null)
   const activeRef = useRef<HTMLDivElement>(null)
-  // 활성 탭 배경의 위치. 탭 줄 안쪽(스크롤 내용) 기준 좌표라서, 탭 줄이 스크롤되거나
-  // 사이드바 크기가 바뀌어도 탭에 붙어 있고, 활성 탭이 바뀔 때만 미끄러진다.
   const [pill, setPill] = useState<{
     left: number
     width: number
@@ -89,8 +78,6 @@ export function TabBar({
   const menuItems: ContextMenuItem[] = contextMenu
     ? [
         { label: '닫기', onClick: () => onClose(contextMenu.tab.id) },
-        { label: '다른 탭 닫기', onClick: () => onCloseOthers(contextMenu.tab.id) },
-        { label: '오른쪽 탭 닫기', onClick: () => onCloseToRight(contextMenu.tab.id) },
         { label: '모두 닫기', onClick: () => onCloseAll() },
         ...(contextMenu.tab.filePath
           ? [
