@@ -76,7 +76,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       editIdxRef.current = null
       editModeRef.current = false
       containerRef.current?.dispatchEvent(new Event('snote-editmode'))
-    })
+    }, [docKey])
     useTemplateRender(containerRef, html, editIdxRef, editModeRef)
     useCodeRun(containerRef, html, baseDir, sourceRef, onReplaceSourceRef)
     useTemplateEdit(containerRef, editIdxRef, editModeRef)

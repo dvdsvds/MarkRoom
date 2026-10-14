@@ -30,6 +30,13 @@ export function readGrid<T>(compute: (getLine: (n: number) => string) => T): T |
   return compute((n) => doc.line(n).text)
 }
 
+export function docLineReader(): ((n: number) => string) | null {
+  const view = getCurrentView()
+  if (!view) return null
+  const doc = view.state.doc
+  return (n) => (n >= 1 && n <= doc.lines ? doc.line(n).text : '')
+}
+
 export function applyGridEdit(
   compute: (
     getLine: (n: number) => string

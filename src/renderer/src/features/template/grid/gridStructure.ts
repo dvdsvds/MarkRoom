@@ -26,6 +26,17 @@ import {
   type Rect
 } from './gridCore'
 
+export function mergeDropsText(info: GridInfo, rect: Rect, getLine: GetLine): boolean {
+  const inside = cellsIn(info, rect)
+  if (typeof inside === 'string') return false
+  return inside.some(
+    (c) =>
+      !(c.r === rect.r1 && c.c === rect.c1) &&
+      c.def !== null &&
+      bodyOf(c, getLine).some((l) => l.trim() !== '')
+  )
+}
+
 export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {
   const inside = cellsIn(info, rect)
   if (typeof inside === 'string') return fail(inside)
@@ -41,9 +52,10 @@ export function mergeGrid(info: GridInfo, rect: Rect, getLine: GetLine): GridRes
       : { indent: gridIndent, head: [], tail: [] }
 
   const bodyIndent = parts.indent + '  '
+  const tl = inside.find((c) => c.r === rect.r1 && c.c === rect.c1)
   const body: string[] = []
-  for (const c of real) {
-    for (const l of bodyOf(c, getLine)) if (l.trim() !== '') body.push(bodyIndent + l.trim())
+  if (tl && tl.def !== null) {
+    for (const l of bodyOf(tl, getLine)) if (l.trim() !== '') body.push(bodyIndent + l.trim())
   }
 
   let h: number | null | undefined

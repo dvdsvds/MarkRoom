@@ -312,3 +312,48 @@ export function openSplitPanel(d: {
   ci.select()
   return p.box
 }
+
+export function openConfirmPanel(d: {
+  title: string
+  message: string
+  okLabel?: string
+  onOk: () => void
+  onClose?: () => void
+}): HTMLElement {
+  const close = (): void => {
+    p.box.remove()
+    d.onClose?.()
+  }
+  const p = panel({ title: d.title, top: '28%', onClose: close })
+  p.box.dataset.tqPanel = '1'
+  const msg = document.createElement('div')
+  msg.textContent = d.message
+  msg.style.cssText = 'font-size:13px;line-height:1.6;white-space:pre-line'
+  p.body.appendChild(msg)
+
+  const label = d.okLabel ?? '확인'
+  const ok = (): void => {
+    close()
+    d.onOk()
+  }
+  p.foot.style.cssText += ';display:flex;align-items:center;justify-content:space-between;gap:12px'
+  const btns = document.createElement('div')
+  btns.style.cssText = 'display:flex;gap:6px'
+  const okBtn = button(label, `${label} (Enter)`, ok, { primary: true })
+  btns.append(button('취소', '취소 (Esc)', close, { outline: true }), okBtn)
+  p.foot.append(hintLine([{ key: 'Enter' }, ` ${label} · `, { key: 'Esc' }, ' 취소']), btns)
+
+  p.box.addEventListener('keydown', (ev) => {
+    ev.stopPropagation()
+    if (ev.key === 'Enter') {
+      ev.preventDefault()
+      ok()
+    } else if (ev.key === 'Escape') {
+      ev.preventDefault()
+      close()
+    }
+  })
+  document.body.appendChild(p.box)
+  okBtn.focus()
+  return p.box
+}

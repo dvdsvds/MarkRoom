@@ -1,4 +1,4 @@
-import { applyGridEdit } from '../editor/templateEdit'
+import { applyGridEdit, docLineReader } from '../editor/templateEdit'
 import { redoEditor, undoEditor } from '../../../editor/MarkdownEditor'
 import {
   deleteCols,
@@ -11,11 +11,12 @@ import {
   type GridResult,
   type Rect
 } from '../grid/gridEdit'
-import { openSplitPanel } from '../view/templatePanels'
+import { openConfirmPanel, openSplitPanel } from '../view/templatePanels'
 import { toast } from '../../../components/uiKit'
 import type { BorderPanel } from './borderPanel'
 import type { CellEditor } from './cellEditor'
 import { rcOf, whole, type GridSelection } from './gridSelection'
+import { mergeDropsText } from '../grid/gridStructure'
 
 export function createGridKeys(opts: {
   gs: GridSelection
@@ -27,13 +28,28 @@ export function createGridKeys(opts: {
   const { gridInfo, normalize, select, cellAt, size } = gs
 
   const doMerge = (): void => {
-    const info = gridInfo()
     const sel = gs.state.sel
-    if (!info || !sel) return
+    const first = gridInfo()
+    if (!first || !sel) return
     const rect: Rect = normalize(sel)
-    const err = applyGridEdit((getLine) => mergeGrid(info, rect, getLine))
-    if (err) toast(err)
-    else select(null)
+    const run = (): void => {
+      const info = gridInfo()
+      if (!info) return
+      const err = applyGridEdit((getLine) => mergeGrid(info, rect, getLine))
+      if (err) toast(err)
+      else select(null)
+    }
+    const getLine = docLineReader()
+    if (getLine && mergeDropsText(first, rect, getLine)) {
+      openConfirmPanel({
+        title: '칸 합치기',
+        message: '왼쪽 위 칸의 글자만 남고, 다른 칸의 글자는 지워져요.',
+        okLabel: '합치기',
+        onOk: run
+      })
+      return
+    }
+    run()
   }
 
   const askSplit = (): void => {
@@ -82,6 +98,7 @@ export function createGridKeys(opts: {
     }
     const target = e.target as HTMLElement | null
     if (target?.closest('.cm-editor')) return
+    if (target?.closest('[data-tq-panel')) return
     if (e.key === 'Escape' && border.isOpen()) {
       e.preventDefault()
       border.close()
