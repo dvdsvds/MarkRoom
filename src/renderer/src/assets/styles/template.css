@@ -154,6 +154,15 @@
   width: fit-content;
   min-width: 0;
 }
+.cm-line.cm-sel-line {
+  border-radius: 0 !important;
+}
+.cm-line.cm-codeblock.cm-sel-line {
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 14px !important;
+  width: auto;
+}
 .tq-grid.tq-hot-col,
 .tq-grid.tq-hot-col * {
   cursor: col-resize !important;
