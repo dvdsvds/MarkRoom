@@ -3,7 +3,8 @@ import { motion } from 'motion/react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { ConfirmDialog } from './ConfirmDialog'
 import { Card } from './settings/SettingsParts'
-import { CATEGORIES, useSettingItems, type Category, type SettingItem } from './settings/useSettingItems'
+import { useSettingItems, type Category, type SettingItem } from './settings/useSettingItems'
+import { SettingsNav } from './settings/SettingsNav'
 
 interface SettingsPanelProps {
   onClose: () => void
@@ -66,74 +67,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps): React.JSX.Elemen
         onClick={(e) => e.stopPropagation()}
         className="flex h-[560px] max-h-[calc(100vh-48px)] w-[720px] max-w-[calc(100vw-32px)] overflow-hidden rounded-2xl border border-border bg-bg-elevated shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
       >
-        <div className="flex w-[176px] shrink-0 flex-col gap-0.5 bg-bg-soft px-2.5 py-3.5">
-          <div className="relative mb-2.5">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 18 18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary"
-              aria-hidden="true"
-            >
-              <circle cx="8" cy="8" r="4.9" />
-              <path d="M11.6 11.6L15.5 15.5" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value)
-                setViewMode(e.target.value.trim().length > 0 ? 'search' : 'category')
-              }}
-              placeholder="설정 검색"
-              className="h-[30px] w-full rounded-lg bg-text/[0.07] pl-8 pr-7 text-[13px] text-text outline-none transition-shadow placeholder:text-text-tertiary focus:ring-1 focus:ring-accent/60"
-            />
-            {query.length > 0 && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('')
-                  setViewMode('category')
-                }}
-                title="지우기 (전체 보기)"
-                className="absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded text-text-tertiary hover:text-text"
-              >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                >
-                  <path d="M3 3l8 8M11 3l-8 8" />
-                </svg>
-              </button>
-            )}
-          </div>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => {
-                setActiveCategory(cat)
-                setViewMode('category')
-              }}
-              className={`h-[30px] w-full rounded-lg px-2.5 text-left text-[13px] outline-none transition-colors ${
-                !showSearchResults && activeCategory === cat
-                  ? 'bg-bg-mute text-text'
-                  : 'text-text-secondary hover:bg-bg-mute/60 hover:text-text'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
+        <SettingsNav
+          query={query}
+          onQueryChange={(value) => {
+            setQuery(value)
+            setViewMode(value.trim().length > 0 ? 'search' : 'category')
+          }}
+          onQueryClear={() => {
+            setQuery('')
+            setViewMode('category')
+          }}
+          activeCategory={activeCategory}
+          highlightCategory={!showSearchResults}
+          onSelectCategory={(cat) => {
+            setActiveCategory(cat)
+            setViewMode('category')
+          }}
+        />
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-14 shrink-0 items-center justify-between pl-7 pr-3.5">
             <h2 className="text-[17px] font-medium text-text">
