@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { join } from 'path'
+import { join, resolve, sep } from 'path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerWorkspaceIpc } from './workspace/ipc'
@@ -18,6 +18,10 @@ protocol.registerSchemesAsPrivileged([
   {
     scheme: 'snote',
     privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true }
+  },
+  {
+    scheme: 'app',
+    privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true }
   }
 ])
 
@@ -27,7 +31,7 @@ let mainWindowRef: BrowserWindow | null = null
 
 function isAllowedNavigationTarget(url: string): boolean {
   if (is.dev && devServerUrl && url.startsWith(devServerUrl)) return true
-  return url.startsWith('file://')
+  return url.startsWith('app://renderer/')
 }
 
 function createWindow(): void {
@@ -82,7 +86,7 @@ function createWindow(): void {
   if (is.dev && devServerUrl) {
     mainWindow.loadURL(devServerUrl)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadURL('app://renderer/index.html')
   }
 }
 
@@ -110,8 +114,7 @@ app.whenReady().then(() => {
 
   const currentVersion = app.getVersion()
   const lastSeenVersion = getLastSeenVersion()
-  const changelogToShow =
-    lastSeenVersion && lastSeenVersion !== currentVersion ? readChangelogFor(currentVersion) : null
+  const changelogToShow = lastSeenVersion && lastSeenVersion !== currentVersion ? readChangelogFor(currentVersion) : null
   setLastSeenVersion(currentVersion)
   ipcMain.handle('app:getChangelog', () => changelogToShow)
 
@@ -122,6 +125,20 @@ app.whenReady().then(() => {
     })
     autoUpdater.checkForUpdatesAndNotify().catch(() => {})
   }
+
+  const rendererRoot = join(__dirname, '../renderer')
+  protocol.handle('app', async (request) => {
+    try {
+      const url = new URL(request.url)
+      if (url.host !== 'renderer') return new Response(null, { status: 404 })
+      const target = resolve(rendererRoot, '.' + decodeURIComponent(url.pathname))
+      if (target !== rendererRoot && !target.startsWith(rendererRoot + sep))
+        return new Response(null, { status: 403 })
+      return net.fetch(pathToFileURL(target).href)
+    } catch {
+      return new Response(null, { status: 404 })
+    }
+  })
 
   protocol.handle('snote', async (request) => {
     try {

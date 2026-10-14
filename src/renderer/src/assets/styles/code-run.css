@@ -1,10 +1,9 @@
 .prose-preview .code-run {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin: 0 auto 0.8em;
+  gap: 1em;
+  margin: 0 0 0.8em;
   width: 100%;
-  max-width: 98%;
 }
 .code-run-btn {
   display: inline-flex;
@@ -49,7 +48,9 @@
   display: flex;
   gap: 6px;
 }
-.code-run-out {
+.prose-preview .code-run-out {
+  width: auto;
+  max-width: none;
   margin: 0;
   padding: 0.7em 1em;
   font-family: var(--font-editor);
@@ -59,15 +60,11 @@
   background: var(--color-bg-soft);
   border-radius: 10px;
 }
-.code-run-out.error {
+.prose-preview .code-run-out::before {
+  content: none;
+}
+.prose-preview .code-run-out.error {
   color: var(--color-diff-remove-text);
   background: color-mix(in srgb, var(--color-diff-remove-text) 10%, transparent);
-}
-.prose-preview > pre,
-.prose-preview > .code-run {
-  width: auto;
-  max-width: none;
-  margin-left: calc(1% - 0.98 * var(--preview-pad, 0px));
-  margin-right: calc(1% - 0.98 * var(--preview-pad, 0px));
 }
 /* ───────── 색 문법 ───────── */

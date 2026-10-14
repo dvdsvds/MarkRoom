@@ -141,9 +141,8 @@
   border-radius: 10px;
   padding: 2.4em 1.1em 0.9em;
   overflow: auto;
-  margin: 1em auto;
+  margin: 1em 0;
   width: 100%;
-  max-width: 98%;
   white-space: pre-wrap;
   word-break: break-word;
 }

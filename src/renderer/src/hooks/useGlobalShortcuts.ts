@@ -29,7 +29,6 @@ export function useGlobalShortcuts(actions: GlobalShortcutActions): void {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent): void => {
-    console.log('[key]', e.key, e.code, e.ctrlKey, e.shiftKey)
       const a = actionsRef.current
       const { shortcuts, uiZoom, setUiZoom } = useSettingsStore.getState()
 
