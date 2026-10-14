@@ -1,6 +1,5 @@
-import chokidar, { type FSWatcher } from 'chokidar'
-import { renameSync } from 'fs'
-import { basename, dirname, extname, join } from 'path'
+import { readdirSync, renameSync, statSync, watch, type FSWatcher, type Stats } from 'fs'
+import { basename, dirname, extname, join, relative, sep } from 'path'
 import { getRootDir } from './paths'
 import { sanitizeTitle, uniqueFileName } from './fileOps'
 
@@ -16,8 +15,6 @@ export function markSavedByApp(filePath: string): void {
 function wasSavedByApp(filePath: string): boolean {
   return recentlySavedByApp.has(filePath)
 }
-
-let watcher: FSWatcher | null = null
 
 interface WatcherCallbacks {
   onTreeChanged: () => void
@@ -43,35 +40,123 @@ function sanitizeExternalName(filePath: string): { oldPath: string; newPath: str
   return { oldPath: filePath, newPath }
 }
 
+let watcher: FSWatcher | null = null
+const files = new Set<string>()
+const dirs = new Set<string>()
+const pending = new Map<string, ReturnType<typeof setTimeout>>()
+let treeTimer: ReturnType<typeof setTimeout> | null = null
+
+const isHidden = (root: string, p: string): boolean => /(^|[/\\])\../.test(relative(root, p))
+
+function scan(root: string, dir: string): void {
+  let entries
+  try {
+    entries = readdirSync(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const e of entries) {
+    const p = join(dir, e.name)
+    if (isHidden(root, p)) continue
+    if (e.isDirectory()) {
+      dirs.add(p)
+      scan(root, p)
+    } else if (e.isFile()) {
+      files.add(p)
+    }
+  }
+}
+
 export function startWatcher(callbacks: WatcherCallbacks): void {
   if (watcher) return
   const root = getRootDir()
+  files.clear()
+  dirs.clear()
+  scan(root, root)
 
-  watcher = chokidar.watch(root, {
-    ignoreInitial: true,
-    ignored: (path: string) => /(^|[/\\])\../.test(path.replace(root, ''))
-  })
+  const treeChanged = (): void => {
+    if (treeTimer) clearTimeout(treeTimer)
+    treeTimer = setTimeout(() => {
+      treeTimer = null
+      callbacks.onTreeChanged()
+    }, 100)
+  }
 
-  watcher
-    .on('add', (filePath: string) => {
-      const sanitized = sanitizeExternalName(filePath)
-      if (sanitized) callbacks.onExternalNameSanitized(sanitized.oldPath, sanitized.newPath)
-      callbacks.onTreeChanged()
-    })
-    .on('addDir', () => callbacks.onTreeChanged())
-    .on('unlink', (filePath: string) => {
-      if (!wasSavedByApp(filePath)) callbacks.onFileExternallyRemoved(filePath)
-      callbacks.onTreeChanged()
-    })
-    .on('unlinkDir', () => callbacks.onTreeChanged())
-    .on('change', (filePath: string) => {
-      if (!wasSavedByApp(filePath)) {
-        callbacks.onFileExternallyChanged(filePath)
+  const handle = (p: string): void => {
+    let st: Stats | null = null
+    try {
+      st = statSync(p)
+    } catch {
+      st = null
+    }
+    if (st?.isFile()) {
+      if (files.has(p)) {
+        if (!wasSavedByApp(p)) callbacks.onFileExternallyChanged(p)
+        return
       }
-    })
+      files.add(p)
+      const sanitized = sanitizeExternalName(p)
+      if (sanitized) {
+        files.delete(sanitized.oldPath)
+        files.add(sanitized.newPath)
+        callbacks.onExternalNameSanitized(sanitized.oldPath, sanitized.newPath)
+      }
+      treeChanged()
+      return
+    }
+    if (st?.isDirectory()) {
+      if (!dirs.has(p)) {
+        dirs.add(p)
+        scan(root, p)
+        treeChanged()
+      }
+      return
+    }
+    if (files.delete(p)) {
+      if (!wasSavedByApp(p)) callbacks.onFileExternallyRemoved(p)
+      treeChanged()
+      return
+    }
+    if (dirs.delete(p)) {
+      const prefix = p + sep
+      for (const f of [...files]) {
+        if (!f.startsWith(prefix)) continue
+        files.delete(f)
+        if (!wasSavedByApp(f)) callbacks.onFileExternallyRemoved(f)
+      }
+      for (const d of [...dirs]) if (d.startsWith(prefix)) dirs.delete(d)
+      treeChanged()
+    }
+  }
+
+  watcher = watch(root, { recursive: true }, (_event, name) => {
+    if (!name) {
+      files.clear()
+      dirs.clear()
+      scan(root, root)
+      treeChanged()
+      return
+    }
+    const p = join(root, name.toString())
+    if (isHidden(root, p)) return
+    const t = pending.get(p)
+    if (t) clearTimeout(t)
+    pending.set(
+      p,
+      setTimeout(() => {
+        pending.delete(p)
+        handle(p)
+      }, 50)
+    )
+  })
+  watcher.on('error', () => stopWatcher())
 }
 
 export function stopWatcher(): void {
-  void watcher?.close()
+  watcher?.close()
   watcher = null
+  for (const t of pending.values()) clearTimeout(t)
+  pending.clear()
+  if (treeTimer) clearTimeout(treeTimer)
+  treeTimer = null
 }
