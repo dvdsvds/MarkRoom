@@ -42,6 +42,7 @@ export type GridCell = {
   src: { def: number; end: number } | null
   ord: number
   gridEnd: number | null
+  paras: { text: string; raw: string; head: string; style: Style }[] | null
 }
 export type TNode =
   | { k: 'block'; block: OutputBlock }

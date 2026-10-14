@@ -2,7 +2,7 @@ import type { Sides, Style } from './templateTypes'
 
 export const OPEN_RE = /^template\s*\[$/
 export const VALUE_OPEN_RE = /^value\s*\[$/
-export const OPENER_RE = /^(?:box|table|chart|grid|row|value|template)\b[^[\]]*\[$/
+export const OPENER_RE = /^(?:box|table|chart|row|col|value|template)\b[^[\]]*\[$/
 export const DEF_RE = /^(?:col|row)\s*=/
 export const MAX_LINES = 1500
 export const MAX_DEPTH = 4

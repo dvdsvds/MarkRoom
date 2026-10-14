@@ -530,7 +530,7 @@ export function deleteRows(info: GridInfo, rect: Rect, getLine: GetLine): GridRe
   }
   const keepLast = rect.r2 === rows - 1 ? rect.r1 - 1 : rows - 1
   ensureLastRow(info, getLine, items, rows - n, info.heights[keepLast])
-  return assemble(info, getLine, items, null)
+  return assemble(info, getLine, items, null, info.heights.length - (rect.r2 - rect.r1 + 1))
 }
 
 export function deleteCols(info: GridInfo, rect: Rect, getLine: GetLine): GridResult {

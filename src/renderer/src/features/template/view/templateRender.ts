@@ -377,7 +377,20 @@ function build(n: TNode): HTMLElement {
         if (s.p !== null) d.style.padding = `${s.p}pt`
 
         const t = el('div', 'tq-text')
-        fillText(t, c.text, s.align)
+        if (c.paras) {
+          c.paras.forEach((p, i) => {
+            const pd = el('div', 'tq-para')
+            pd.dataset.pi = String(i)
+            pd.dataset.raw = p.raw
+            pd.dataset.head = p.head
+            applyStyle(pd, p.style)
+            fillText(pd, p.text, p.style.align)
+            if (p.text === '') pd.appendChild(document.createElement('br'))
+            t.appendChild(pd)
+          })
+        } else {
+          fillText(t, c.text, s.align)
+        }
         d.appendChild(t)
         if (s.dd || s.du) d.style.position = 'relative'
         if (s.dd) addDiag(d, 'down', s.dd)

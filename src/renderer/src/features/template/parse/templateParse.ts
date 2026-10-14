@@ -1,4 +1,4 @@
-import { parseBlock, splitCells } from '../../../markdown/blockPlugin'
+import { parseBlock } from '../../../markdown/blockPlugin'
 import type { FrameKind, LineKind, ParsedTemplate, Style, TNode } from './templateTypes'
 import { Ctx, merge, parseEdgeValue, parseOpts } from './templateOpts'
 import { parseGrid, parseWidths } from './templateGrid'
@@ -86,37 +86,6 @@ function parsePage(t: string, ctx: Ctx, base: Style, index: number): Style {
   return merge(base, parseOpts(rest, ctx, 'page', 'page'))
 }
 
-function parseTable(
-  lines: string[],
-  pos: { i: number },
-  vars: Map<string, string>,
-  ctx: Ctx
-): TNode {
-  const raw: string[][] = []
-  for (;;) {
-    const line = nextRaw(lines, pos)
-    if (line === null) break
-    const t = line.trim()
-    if (t === ']') break
-    raw.push(splitCells(t).map((c) => fill(c, vars)))
-  }
-  if (raw.length === 0) {
-    ctx.warn('table: 내용이 없어요. 첫 줄은 머리글이에요.')
-    return { k: 'table', columns: [''], rows: [] }
-  }
-  let columns = raw[0]
-  if (columns.length > 12) {
-    ctx.warn('table: 열은 12개까지예요. 넘친 열은 잘랐어요.')
-    columns = columns.slice(0, 12)
-  }
-  let rows = raw.slice(1)
-  if (rows.length > 200) {
-    ctx.warn('table: 데이터는 200줄까지예요. 넘친 줄은 잘랐어요.')
-    rows = rows.slice(0, 200)
-  }
-  return { k: 'table', columns, rows: rows.map((r) => columns.map((_, c) => r[c] ?? '')) }
-}
-
 function parseNodes(
   lines: string[],
   pos: { i: number },
@@ -152,6 +121,25 @@ function parseNodes(
       out.push({ k: 'space', n: clamp(Number(m[1] ?? 1), 1, 20) })
       continue
     }
+
+    if (/^title(?:\s|:|$)/.test(t)) {
+      const [head, tail] = splitColon(t)
+      if (tail === null) {
+        ctx.warn(`title에는 : 가 필요해요. 예: title : 제목 → ${t}`)
+        continue
+      }
+      const base = parseOpts(['center', 'bold', 'fs=16'], ctx, 'title', 'text')
+      const opt = parseOpts(tokenize(head).slice(1), ctx, 'title', 'text')
+      out.push({
+        k: 'text',
+        text: unesc(fill(tail.trim(), vars)),
+        style: merge(merge(pageStyle, base), opt),
+        line: ctx.lineBase + pos.i - 1,
+        raw: tail.trim()
+      })
+      continue
+    }
+
     if (/^text(?:\s|:|$)/.test(t)) {
       const [head, tail] = splitColon(t)
       if (tail === null) {
@@ -181,7 +169,6 @@ function parseNodes(
         skipBlock(lines, pos)
         continue
       }
-      const gm = /^grid=(\d{1,3})$/.exec(name)
       if (name === 'box') {
         out.push({
           k: 'box',
@@ -200,40 +187,51 @@ function parseNodes(
         if ('error' in r) ctx.warn(r.error)
         else out.push({ k: 'block', block: r.block })
       } else if (name === 'table') {
-        out.push(parseTable(lines, pos, vars, ctx))
-      } else if (gm) {
+        let cols = 0
+        let rows = 0
         let frame: FrameKind = 'solid'
         let frameW: number | null = null
         let frameC: string | null = null
         let widthsIn: (number | null)[] | null = null
         for (const tok of head.slice(1)) {
+          const cm = /^col=(\d{1,3})$/.exec(tok)
+          const rm = /^row=(\d{1,3})$/.exec(tok)
           const fm = /^frame=(.+)$/.exec(tok)
           const wm = /^widths=(.+)$/.exec(tok)
-          if (fm) {
+          if (cm) cols = Number(cm[1])
+          else if (rm) rows = Number(rm[1])
+          else if (fm) {
             const v = parseEdgeValue(fm[1], EDGE_KINDS)
-            if (typeof v === 'string') ctx.warn(`grid: frame= ${v}: ${fm[1]}`)
+            if (typeof v === 'string') ctx.warn(`table: frame= ${v}: ${fm[1]}`)
             else {
               frame = v.kind as FrameKind
               frameW = v.w
               frameC = v.c
             }
           } else if (wm) widthsIn = parseWidths(wm[1], ctx)
-          else ctx.warn(`grid: 모르는 옵션이에요 (frame=, widths=): ${tok}`)
+          else ctx.warn(`table: 모르는 옵션이에요 (col=, row=, frame=, widths=): ${tok}`)
+        }
+        if (cols === 0) {
+          ctx.warn('table: col=로 열 개수를 적어 주세요. 예: table col=3 row=2 [ 이 표는 건너뛰었어요.')
+          skipBlock(lines, pos)
+          continue
         }
         const headLine = ctx.lineBase + pos.i - 1
+
         out.push(
           parseGrid(
             lines,
             pos,
             vars,
             ctx,
-            Number(gm[1]),
+            cols,
             frame,
             frameW,
             frameC,
             widthsIn,
             pageStyle,
-            headLine
+            headLine,
+            rows
           )
         )
       } else {

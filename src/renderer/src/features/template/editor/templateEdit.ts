@@ -1,6 +1,12 @@
 import { getCurrentView } from '../../../editor/currentView'
 
 const cellIndent = (def: string): string => (/^\s*/.exec(def)?.[0] ?? '') + '  '
+const paraLines = (ind: string, paras: { head: string; text: string }[]): string[] =>
+  paras.map((p) => {
+    const head = p.head.trim()
+    const text = p.text.replace(/\s*[\r\n]+\s*/g, ' ').trim()
+    return `${ind}text${head ? ' ' + head : ''} :${text ? ' ' + text : ''}`
+  })
 const cellBody = (def: string, text: string): string[] =>
   text
     .replace(/\r\n?/g, '\n')
@@ -19,6 +25,26 @@ export function replaceCellText(defLine: number, endLine: number, text: string):
   const body = cellBody(def.text, text)
   view.dispatch({
     changes: { from: def.to, to: last.to, insert: body.length > 0 ? '\n' + body.join('\n') : '' },
+    userEvent: 'input.cell'
+  })
+}
+
+export function replaceCellParas(
+  defLine: number,
+  endLine: number,
+  paras: { head: string; text: string }[]
+): void {
+  const view = getCurrentView()
+  if (!view) return
+  const doc = view.state.doc
+  if (defLine < 1 || defLine > doc.lines) return
+  const def = doc.line(defLine)
+  const last = doc.line(Math.min(Math.max(defLine, endLine), doc.lines))
+  const ind = /^\s*/.exec(def.text)?.[0] ?? ''
+  const head = def.text.replace(/\s*\[\s*$/, '')
+  const insert = [`${head} [`, ...paraLines(ind + '  ', paras), `${ind}]`].join('\n')
+  view.dispatch({
+    changes: { from: def.from, to: last.to, insert },
     userEvent: 'input.cell'
   })
 }
@@ -140,6 +166,35 @@ export function addCellText(
   const cols = cs > 1 ? `col=${c + 1}-${c + cs}` : `col=${c + 1}`
   const rows = rs > 1 ? `row=${r + 1}-${r + rs}` : `row=${r + 1}`
   const lines = [`${base}${cols} ${rows} :`, ...cellBody(ref, text)]
+  view.dispatch({
+    changes: { from: doc.line(afterLine).to, insert: '\n' + lines.join('\n') },
+    userEvent: 'input.cell'
+  })
+}
+
+export function addCellParas(
+  afterLine: number,
+  r: number,
+  c: number,
+  rs: number,
+  cs: number,
+  paras: { head: string; text: string }[]
+): void {
+  const view = getCurrentView()
+  if (!view) return
+  const doc = view.state.doc
+  if (afterLine < 1 || afterLine > doc.lines) return
+  let ref = doc.line(afterLine).text
+  for (let n = afterLine; n >= 1; n--) {
+    if (/^\s*(?:col|row)=/.test(doc.line(n).text)) {
+      ref = doc.line(n).text
+      break
+    }
+  }
+  const base = /^\s*/.exec(ref)?.[0] ?? ''
+  const cols = cs > 1 ? `col=${c + 1}-${c + cs}` : `col=${c + 1}`
+  const rows = rs > 1 ? `row=${r + 1}-${r + rs}` : `row=${r + 1}`
+  const lines = [`${base}${cols} ${rows} [`, ...paraLines(base + '  ', paras), `${base}]`]
   view.dispatch({
     changes: { from: doc.line(afterLine).to, insert: '\n' + lines.join('\n') },
     userEvent: 'input.cell'

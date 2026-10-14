@@ -46,6 +46,7 @@ type Def = {
   label: string
   d1: number
   d2: number
+  paras: { text: string; head: string; opt: Opt }[] | null
 }
 
 export function parseGrid(
@@ -59,7 +60,8 @@ export function parseGrid(
   frameC: string | null,
   widthsIn: (number | null)[] | null,
   pageStyle: Style,
-  headLine: number
+  headLine: number,
+  rowsIn: number
 ): TNode {
   let cols = colsIn
   if (cols < 1 || cols > 100) {
@@ -115,7 +117,9 @@ export function parseGrid(
       continue
     }
 
-    const [head, tail] = splitColon(t)
+    const block = /\[$/.test(t)
+    const td = block ? t.replace(/\s*\[$/, '') : t
+    const [head, tail] = splitColon(td)
     const label = head.trim()
     let c1 = 0
     let c2 = 0
@@ -162,9 +166,47 @@ export function parseGrid(
       ctx.warn(`${label}: row는 1~${MAX_ROWS}이에요. 이 칸은 그리지 않았어요.`)
       ok = false
     }
+
     const opt = parseOpts(optTokens.concat(tail === null ? [] : tokenize(tail)), ctx, label, 'cell')
-    cur = { c1, c2, r1, r2, opt, lines: [], indent: ind, label, d1: idx, d2: idx }
-    if (ok) defs.push(cur)
+    const def: Def = {
+      c1,
+      c2,
+      r1,
+      r2,
+      opt,
+      lines: [],
+      indent: ind,
+      label,
+      d1: idx,
+      d2: idx,
+      paras: block ? [] : null
+    }
+    cur = def
+    if (ok) defs.push(def)
+    if (block) {
+      const paras: { text: string; head: string; opt: Opt }[] = []
+      for (;;) {
+        const pr = nextRaw(lines, pos)
+        if (pr === null) break
+        const pt = pr.trim()
+        def.d2 = pos.i - 1
+        if (pt === ']') break
+        if (/^text(?:\s|:|$)/.test(pt)) {
+          const [ph, pv] = splitColon(pt)
+          if (pv === null) {
+            ctx.warn(`text에는 : 가 필요해요. 예: text center : 글자 → ${pt}`)
+            continue
+          }
+          const hd = tokenize(ph).slice(1)
+          paras.push({ text: pv.trim(), head: hd.join(' '), opt: parseOpts(hd, ctx, 'text', 'text') })
+        } else {
+          paras.push({ text: pt, head: '', opt: parseOpts([], ctx, 'text', 'text') })
+        }
+      }
+      def.paras = paras
+      def.lines = paras.map((p) => p.text)
+      cur = null
+    }
   }
 
   const occ: number[][] = []
@@ -217,14 +259,24 @@ export function parseGrid(
       raw: d.lines.join('\n'),
       src: { def: ctx.lineBase + d.d1, end: ctx.lineBase + d.d2 },
       ord: idx,
-      gridEnd: null
+      gridEnd: null,
+      paras: d.paras
+        ? d.paras.map((p) => ({
+            text: unesc(fill(p.text, vars)),
+            raw: p.text,
+            head: p.head,
+            style: merge(merge(pageStyle, d.opt), p.opt)
+          }))
+        : null,
     })
     if (d.opt.h !== undefined) hs.push({ r, rs, h: d.opt.h })
     curRow = r
     while (curRow < occ.length && occ[curRow].every((x) => x !== -1)) curRow++
   }
 
-  if (occ.length === 0) ensureRows(1)
+  if (rowsIn > 0 && occ.length > rowsIn)
+    ctx.warn(`table: row=${rowsIn}보다 칸이 많아서 ${occ.length}줄로 그렸어요.`)
+  ensureRows(Math.max(1, Math.min(rowsIn, MAX_ROWS)))
   const R = occ.length
   for (let r = 0; r < R; r++) {
     for (let c = 0; c < cols; c++) {
@@ -239,7 +291,8 @@ export function parseGrid(
           raw: '',
           src: null,
           ord: -1,
-          gridEnd: null
+          gridEnd: null,
+          paras: null
         })
       }
     }

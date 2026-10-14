@@ -1,4 +1,4 @@
-import { addCellText, replaceCellText } from '../editor/templateEdit'
+import { addCellParas, replaceCellParas } from '../editor/templateEdit'
 import { fillCell, mkScript, serializeCell } from '../view/cellInline'
 import { enterMath, isMath, mathBeside, texOf } from '../view/cellMath'
 import { renderMath } from '../view/mathText'
@@ -55,7 +55,41 @@ export function createCellEditor(opts: {
     s.getRangeAt(0).insertNode(sp)
     if (sp.firstChild) caretIn(sp.firstChild, 1)
   }
+  const makePara = (raw: string, head: string, css: string): HTMLElement => {
+    const pd = document.createElement('div')
+    pd.className = 'tq-para'
+    pd.dataset.head = head
+    pd.style.cssText = css
+    fillCell(pd, raw)
+    if (raw === '') pd.appendChild(document.createElement('br'))
+    return pd
+  }
 
+  const splitPara = (box: HTMLElement): void => {
+    const s = window.getSelection()
+    if (!s || s.rangeCount === 0) return
+    const r = s.getRangeAt(0)
+    if (!r.collapsed) r.deleteContents()
+    const at = r.startContainer instanceof Element ? r.startContainer : r.startContainer.parentElement
+    const pd = at?.closest<HTMLElement>('.tq-para')
+    if (!pd || !box.contains(pd)) return
+    const tail = document.createRange()
+    tail.setStart(r.startContainer, r.startOffset)
+    tail.setEnd(pd, pd.childNodes.length)
+    const np = pd.cloneNode(false) as HTMLElement
+    np.appendChild(tail.extractContents())
+    for (const x of [pd, np]) {
+      const blank =
+        (x.textContent ?? '').replace(ZWRE, '') === '' && !x.querySelector('math-field, .tq-math')
+      if (blank) x.replaceChildren(document.createElement('br'))
+    }
+    pd.after(np)
+    const c = document.createRange()
+    c.setStart(np, 0)
+    c.collapse(true)
+    s.removeAllRanges()
+    s.addRange(c)
+  }
   const commit = (): void => {
     const box = state.editing
     if (!box) return
@@ -64,7 +98,12 @@ export function createCellEditor(opts: {
     const cell = box.closest<HTMLElement>('.tq-cell')
     box.removeEventListener('keydown', onEditKey)
     box.removeEventListener('focusout', onFocusOut)
-    const value = serializeCell(box)
+    const paras: { head: string; text: string }[] = []
+    for (const pd of Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))) {
+      const head = pd.dataset.head ?? ''
+      for (const line of serializeCell(pd).split('\n')) paras.push({ head, text: line })
+    }
+    const sig = JSON.stringify(paras)
     for (const mf of Array.from(box.querySelectorAll('math-field'))) {
       const t = isMath(mf) ? texOf(mf) : ''
       if (t) {
@@ -76,12 +115,12 @@ export function createCellEditor(opts: {
     }
     box.contentEditable = 'false'
     cell?.classList.remove('tq-editing')
-    if (!cell || value === (cell.dataset.raw ?? '')) return
+    if (!cell || sig === box.dataset.orig) return
     if (cell.dataset.def !== undefined) {
-      replaceCellText(Number(cell.dataset.def), Number(cell.dataset.end), value)
-    } else if (cell.dataset.gridEnd !== undefined && value.trim() !== '') {
+      replaceCellParas(Number(cell.dataset.def), Number(cell.dataset.end), paras)
+    } else if (cell.dataset.gridEnd !== undefined && paras.some((p) => p.text.trim() !== '')) {
       const p = rcOf(cell)
-      addCellText(Number(cell.dataset.gridEnd), p.r, p.c, p.rs, p.cs, value)
+      addCellParas(Number(cell.dataset.gridEnd), p.r, p.c, p.rs, p.cs, paras)
     }
   }
 
@@ -93,7 +132,17 @@ export function createCellEditor(opts: {
     gs.state.sel = null
     paint()
     cell.classList.add('tq-editing')
-    fillCell(box, cell.dataset.raw ?? '')
+    const shown = Array.from(box.querySelectorAll<HTMLElement>(':scope > .tq-para'))
+    const items =
+      shown.length > 0
+        ? shown.map((pd) => ({
+            raw: pd.dataset.raw ?? '',
+            head: pd.dataset.head ?? '',
+            css: pd.style.cssText
+          }))
+        : (cell.dataset.raw ?? '').split('\n').map((raw) => ({ raw, head: '', css: '' }))
+    box.replaceChildren(...items.map((it) => makePara(it.raw, it.head, it.css)))
+    box.dataset.orig = JSON.stringify(items.map((it) => ({ head: it.head, text: it.raw })))
     box.contentEditable = 'plaintext-only'
     box.spellcheck = false
     state.editing = box
@@ -185,6 +234,11 @@ export function createCellEditor(opts: {
         rr.setStart(s0.anchorNode, s0.anchorOffset)
         if (rr.toString().replace(ZWRE, '') === '') leaveScript(sp)
       }
+    }
+    if (e.key === 'Enter' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      e.preventDefault()
+      splitPara(e.currentTarget as HTMLElement)
+      return
     }
     const box = e.currentTarget as HTMLElement
     const cell = box.closest<HTMLElement>('.tq-cell')

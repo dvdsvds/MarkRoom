@@ -106,16 +106,16 @@ function buildDef(
   h: number | null | undefined
 ): string {
   const strip = (a: string[]): string[] => (h === undefined ? a : a.filter((t) => !isH(t)))
-  const rest = strip(p.head.filter((t) => !isPos(t)))
-  const tail = p.tail === null ? null : strip(p.tail)
+  const rest = strip(p.head.filter((t) => !isPos(t) && t !== '['))
+  const tail = p.tail === null ? null : strip(p.tail.filter((t) => t !== '['))
   const pos = [
     `col=${c + 1}${cs > 1 ? `-${c + cs}` : ''}`,
     `row=${r + 1}${rs > 1 ? `-${r + rs}` : ''}`
   ]
   const hTok = typeof h === 'number' ? [`h=${fmt(h)}`] : []
   const left = [...pos, ...rest, ...hTok].join(' ')
-  if (tail === null) return p.indent + left
-  return p.indent + left + ' :' + (tail.length > 0 ? ' ' + tail.join(' ') : '')
+  const opts = tail === null ? '' : ' :' + (tail.length > 0 ? ' ' + tail.join(' ') : '')
+  return p.indent + left + opts + ' ['
 }
 
 export function bodyOf(c: CellInfo, getLine: GetLine): string[] {
@@ -201,28 +201,45 @@ export interface Out {
   h?: number | null
 }
 
-function header(line: string, cols: { n: number; widths: number[] | null } | null): string {
-  if (!cols) return line
+function header(
+  line: string,
+  cols: { n: number; widths: number[] | null } | null,
+  rows: number
+): string {
   const indent = /^\s*/.exec(line)?.[0] ?? ''
-  const body = line.trim().replace(/\[$/, '').trim()
-  const toks = tokenize(body)
-    .filter((t) => !/^widths=/.test(t))
-    .map((t) => (/^grid=\d+$/.test(t) ? `grid=${cols.n}` : t))
-  if (cols.widths) toks.push(`widths=${cols.widths.map(fmt).join(',')}`)
-  return `${indent}${toks.join(' ')} [`
+  const toks = tokenize(line.trim().replace(/\[$/, '').trim()).slice(1)
+  const colTok = cols ? `col=${cols.n}` : (toks.find((t) => /^col=/.test(t)) ?? '')
+  const rest = toks.filter(
+    (t) => !/^(?:grid|col|row)=/.test(t) && !(cols !== null && /^widths=/.test(t))
+  )
+  const out = ['table', colTok, `row=${rows}`, ...rest].filter((t) => t !== '')
+  if (cols?.widths) out.push(`widths=${cols.widths.map(fmt).join(',')}`)
+  return `${indent}${out.join(' ')} [`
 }
 
 export function assemble(
   info: GridInfo,
   getLine: GetLine,
   items: Out[],
-  cols: { n: number; widths: number[] | null } | null
+  cols: { n: number; widths: number[] | null } | null,
+  rows?: number
 ): GridResult {
   items.sort((a, b) => a.key - b.key || a.seq - b.seq)
-  const lines: string[] = [header(getLine(info.head), cols)]
+  const maxRow = items.reduce((m, it) => Math.max(m, it.r + it.rs), 1)
+  const rowCount = rows ?? Math.max(maxRow, info.heights.length)
+  const lines: string[] = [header(getLine(info.head), cols, rowCount)]
   for (const it of items) {
+    const block = it.parts.head.includes('[') || (it.parts.tail?.includes('[') ?? false)
+    let body = it.body
+    if (!block) {
+      const ind = it.parts.indent + '  '
+      body = body.filter((l) => l.trim() !== '').map((l) => `${ind}text : ${l.trim()}`)
+    }
+    if (body.length === 0 || body[body.length - 1].trim() !== ']') {
+      body = [...body, `${it.parts.indent}]`]
+    }
     lines.push(buildDef(it.parts, it.r, it.c, it.rs, it.cs, it.h))
-    lines.push(...it.body)
+    lines.push(...body)
   }
   lines.push(getLine(info.close))
   return { ok: true, from: info.head, to: info.close, lines }
