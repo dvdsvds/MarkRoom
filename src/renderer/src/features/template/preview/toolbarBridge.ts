@@ -142,6 +142,7 @@ export function createToolbarBridge(opts: {
       } else {
         enterScript(kind)
       }
+      ed.sync()
       toolbar.syncScript()
     },
     selStyle: () => {
@@ -230,6 +231,7 @@ export function createToolbarBridge(opts: {
     s?.removeAllRanges()
     s?.addRange(out)
     lastRange = out.cloneRange()
+    ed.sync()
     toolbar.refresh()
   }
 
