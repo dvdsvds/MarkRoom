@@ -1,5 +1,5 @@
 import type MarkdownIt from 'markdown-it'
-import type { OutputBlock } from '../components/outputBlocks'
+import type { OutputBlock } from '../utils/outputBlocks'
 
 type MD = InstanceType<typeof MarkdownIt>
 type Align = 'left' | 'center' | 'right'

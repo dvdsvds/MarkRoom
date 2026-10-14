@@ -1,4 +1,4 @@
-import type { OutputBlock } from '../../../components/outputBlocks'
+import type { OutputBlock } from '../../../utils/outputBlocks'
 
 export type Align = 'left' | 'center' | 'right' | 'justify' | 'distribute'
 export type VAlign = 'top' | 'middle' | 'bottom'

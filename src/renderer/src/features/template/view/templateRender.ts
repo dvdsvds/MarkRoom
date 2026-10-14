@@ -8,9 +8,9 @@ import type {
   TNode
 } from '../parse/templatePlugin'
 import { fontCandidates } from '../../../utils/systemFonts'
-import { plainInline, splitInline, type InlineOpts } from '../../../components/inlineText'
-import { renderMath, splitMath } from '../../../components/mathText'
-import { renderBlocks } from '../../../components/outputBlocks'
+import { plainInline, splitInline, type InlineOpts } from './inlineText'
+import { renderMath, splitMath } from './mathText'
+import { renderBlocks } from '../../../utils/outputBlocks'
 
 type Ok = Exclude<ParsedTemplate, { error: string }>
 

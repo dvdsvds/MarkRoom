@@ -1,4 +1,4 @@
-import type { OutputBlock } from '../components/outputBlocks'
+import type { OutputBlock } from '../utils/outputBlocks'
 
 type TableBlock = Extract<OutputBlock, { kind: 'table' }>
 type ChartBlock = Extract<OutputBlock, { kind: 'chart' }>

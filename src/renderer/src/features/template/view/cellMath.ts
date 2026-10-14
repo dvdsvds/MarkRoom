@@ -1,5 +1,5 @@
 import { MathfieldElement } from 'mathlive'
-import { ZW } from '../../../components/mathText'
+import { ZW } from './mathText'
 
 let ready = false
 function setup(): void {
