@@ -9,7 +9,7 @@ import DOMPurify, { type Config as SanitizeConfig } from 'dompurify'
 import { wikilinkPlugin } from './wikilinkPlugin'
 import { blockPlugin } from './blockPlugin'
 import { colorSpanPlugin } from './colorSpanPlugin'
-import { templatePlugin } from './templatePlugin'
+import { templatePlugin } from '../features/template/parse/templatePlugin'
 import { mathPlugin } from './mathPlugin'
 
 function createMarkdownIt(): InstanceType<typeof MarkdownIt> {

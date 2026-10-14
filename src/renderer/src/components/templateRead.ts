@@ -1,12 +1,9 @@
-/** 그려진 격자(.tq-grid)에서 선택한 칸 범위의 현재 테두리를 읽는다. 그리기 쪽이 붙여 둔 data-* 값을 쓴다. */
-
 export interface EdgeVal {
   kind: string
   w: number | null
   c: string | null
 }
 export type PvKey = 'left' | 'right' | 'top' | 'bottom' | 'vmid' | 'hmid' | 'dd' | 'du'
-/** 값이 없으면 선이 없는 것, 'mixed'는 칸마다 달라서 하나로 말할 수 없다는 뜻 */
 export type EdgeRead = Partial<Record<PvKey, EdgeVal | 'mixed' | null>>
 
 interface Piece {

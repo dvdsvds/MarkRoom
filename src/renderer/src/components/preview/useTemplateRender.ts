@@ -1,6 +1,6 @@
 import { useEffect, type MutableRefObject, type RefObject } from 'react'
 import { renderTemplate } from '../templateRender'
-import type { ParsedTemplate } from '../../markdown/templatePlugin'
+import type { ParsedTemplate } from '../../features/template/parse/templatePlugin'
 
 export function useTemplateRender(
   containerRef: RefObject<HTMLDivElement | null>,

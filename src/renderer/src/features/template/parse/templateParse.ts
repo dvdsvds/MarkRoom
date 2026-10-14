@@ -1,4 +1,4 @@
-import { parseBlock, splitCells } from './blockPlugin'
+import { parseBlock, splitCells } from '../../../markdown/blockPlugin'
 import type { FrameKind, LineKind, ParsedTemplate, Style, TNode } from './templateTypes'
 import { Ctx, merge, parseEdgeValue, parseOpts } from './templateOpts'
 import { parseGrid, parseWidths } from './templateGrid'

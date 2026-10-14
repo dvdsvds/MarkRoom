@@ -6,7 +6,7 @@ import type {
   ParsedTemplate,
   Style,
   TNode
-} from '../markdown/templatePlugin'
+} from '../features/template/parse/templatePlugin'
 import { fontCandidates } from '../utils/systemFonts'
 import { plainInline, splitInline, type InlineOpts } from './inlineText'
 import { renderMath, splitMath } from './mathText'
