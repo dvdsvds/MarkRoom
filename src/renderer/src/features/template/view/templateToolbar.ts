@@ -103,9 +103,9 @@ function sep(): HTMLElement {
 const MORE_ICON =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 4l4 4-4 4M8.5 4l4 4-4 4"/></svg>'
 
-/** 버튼 스타일에 display가 !important로 걸려 있을 수 있어서 같이 !important로 숨긴다. */
 function setShown(el: HTMLElement, shown: boolean): void {
-  if (shown) el.style.removeProperty('display')
+  if (el.dataset.display === undefined) el.dataset.display = el.style.display
+  if (shown) el.style.display = el.dataset.display
   else el.style.setProperty('display', 'none', 'important')
 }
 
