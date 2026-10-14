@@ -151,6 +151,14 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: 'markroom-settings',
       version: 2,
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<SettingsState>
+        return {
+          ...current,
+          ...p,
+          shortcuts: { ...DEFAULT_SHORTCUTS, ...(p.shortcuts ?? {}) }
+        }
+      },
       migrate: (persisted, version) => {
         const s = persisted as Partial<SettingsState>
         if (version < 1) {

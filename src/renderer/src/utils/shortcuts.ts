@@ -11,6 +11,8 @@ export interface ShortcutMap {
   zoomOut: string
   zoomReset: string
   toggleToc: string
+  todoDashboard: string
+  backlinks: string
 }
 
 export type ShortcutAction = keyof ShortcutMap
@@ -27,7 +29,9 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   zoomIn: 'Ctrl+=',
   zoomOut: 'Ctrl+-',
   zoomReset: 'Ctrl+0',
-  toggleToc: 'Ctrl+Shift+O'
+  toggleToc: 'Ctrl+Shift+O',
+  todoDashboard: 'Ctrl+Shift+T',
+  backlinks: 'Ctrl+Shift+B'
 }
 
 export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
@@ -42,11 +46,13 @@ export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   zoomIn: 'UI 확대',
   zoomOut: 'UI 축소',
   zoomReset: 'UI 배율 초기화',
-  toggleToc: '목차 패널 열기/포커스'
+  toggleToc: '목차 패널 열기/포커스',
+  todoDashboard: '할일 대시보드',
+  backlinks: '백링크 패널'
 }
 
 function normalizeKey(key: string): string {
-  const lower = key.length === 1 ? key.toLowerCase() : key.toLowerCase()
+  const lower = key.toLowerCase()
   return lower === '+' ? '=' : lower
 }
 
@@ -66,7 +72,8 @@ export function eventToShortcut(e: KeyboardEvent): string | null {
   return parts.join('+')
 }
 
-export function matchesShortcut(e: KeyboardEvent, combo: string): boolean {
+export function matchesShortcut(e: KeyboardEvent, combo: string | undefined): boolean {
+  if (!combo) return false
   const parts = combo.split('+')
   const rawKey = parts[parts.length - 1]
   const wantCtrl = parts.includes('Ctrl')

@@ -19,7 +19,9 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'zoomReset',
   'diffApply',
   'diffRestore',
-  'toggleToc'
+  'toggleToc',
+  'todoDashboard',
+  'backlinks'
 ]
 
 export const CATEGORIES = ['일반', '화면', '상태 표시줄', '단축키'] as const

@@ -80,12 +80,12 @@ export function useGlobalShortcuts(actions: GlobalShortcutActions): void {
         a.openOrFocusToc()
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyT') {
+      if (matchesShortcut(e, shortcuts.todoDashboard)) {
         e.preventDefault()
         a.toggleTodo()
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyB') {
+      if (matchesShortcut(e, shortcuts.backlinks)) {
         e.preventDefault()
         a.toggleBacklinks()
         return
