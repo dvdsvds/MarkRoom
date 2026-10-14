@@ -360,6 +360,27 @@ function App(): React.JSX.Element {
     [handleOpenFile, pushToast]
   )
 
+  const handleLinkClick = useCallback(
+    (href: string): void => {
+      let rel = href.split('#')[0].split('?')[0]
+      try {
+        rel = decodeURIComponent(rel)
+      } catch {
+      }
+      if (!rel) return
+      const base = getAttachmentDir()
+      const sep = base.includes('\\') ? '\\' : '/'
+      const lead = base.startsWith('/') ? '/' : ''
+      const out: string[] = []
+      for (const p of `${base}/${rel}`.split(/[\\/]/)) {
+        if (p === '..') out.pop()
+        else if (p !== '.' && p !== '') out.push(p)
+      }
+      handleOpenFile(lead + out.join(sep))
+    },
+    [getAttachmentDir, handleOpenFile]
+  )
+
   const handleOpenTodo = useCallback(
     (filePath: string, line: number): void => {
       setTodoOpen(false)
@@ -562,6 +583,7 @@ function App(): React.JSX.Element {
                   onScrollRatio={handlePreviewScrollRatio}
                   onWikilinkClick={handleWikilinkClick}
                   onToggleTask={handleToggleTask}
+                  onLinkClick={handleLinkClick}
                   onReplaceSource={handleReplaceSource}
                   onMinWidthChange={setPreviewMinWidth}
                   onHasTemplateChange={setHasTemplate}

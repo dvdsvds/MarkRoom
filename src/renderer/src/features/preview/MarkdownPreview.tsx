@@ -24,6 +24,7 @@ interface MarkdownPreviewProps {
   onHasTemplateChange?: (has: boolean) => void
   className?: string
   docKey?: string
+  onLinkClick?: (href: string) => void
 }
 
 export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreviewProps>(
@@ -34,8 +35,8 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
       onScrollRatio,
       onWikilinkClick,
       onToggleTask,
+      onLinkClick,
       onReplaceSource,
-      onMinWidthChange,
       onHasTemplateChange,
       className,
       docKey
@@ -55,7 +56,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
 
     const html = useMemo(() => markdownRenderer.render(source, baseDir), [source, baseDir])
     useScrollSync(containerRef, ref, onScrollRatio)
-    useClickHandlers(containerRef, onWikilinkClick, onToggleTask)
+    useClickHandlers(containerRef, onWikilinkClick, onToggleTask, onLinkClick)
 
     const onHasTemplateChangeRef = useRef(onHasTemplateChange)
 
