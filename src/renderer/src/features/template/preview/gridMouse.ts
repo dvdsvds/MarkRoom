@@ -146,16 +146,21 @@ export function createGridMouse(opts: {
     const sr = rows.reduce((a, b) => a + b, 0)
     if (sc <= 0 || sr <= 0) return null
     const TOL = 4
+    const cell = e.target instanceof Element ? e.target.closest<HTMLElement>('.tq-cell') : null
+    const cr = cell?.getBoundingClientRect()
+    const inside = (v: number, a: number, b: number): boolean => v > a + TOL && v < b
     let acc = 0
     for (let k = 0; k < cols.length - 1; k++) {
       acc += cols[k]
-      if (Math.abs(e.clientX - (r.left + (acc / sc) * r.width)) <= TOL)
+      const x = r.left + (acc / sc) * r.width
+      if (Math.abs(e.clientX - x) <= TOL && !(cr && inside(x, cr.left, cr.right)))
         return { g: t, kind: 'col', idx: k }
     }
     acc = 0
     for (let k = 0; k < rows.length; k++) {
       acc += rows[k]
-      if (Math.abs(e.clientY - (r.top + (acc / sr) * r.height)) <= TOL)
+      const y = r.top + (acc / sr) * r.height
+      if (Math.abs(e.clientY - y) <= TOL && !(cr && inside(y, cr.top, cr.bottom)))
         return { g: t, kind: 'row', idx: k }
     }
     return null
