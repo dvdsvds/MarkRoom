@@ -137,21 +137,27 @@ export function createCellEditor(opts: {
     }
   }
 
-  const moveTab = (from: { r: number; c: number; rs: number; cs: number }, dir: number): void => {
+  const tabTarget = (
+    from: { r: number; c: number; rs: number; cs: number },
+    dir: number
+  ): { r: number; c: number } | null => {
     const { rows, cols } = size()
     let r = from.r
     let c = dir > 0 ? from.c + from.cs : from.c - 1
     for (let guard = 0; guard < rows * cols + 2; guard++) {
       if (c >= cols) ((c = 0), r++)
       if (c < 0) ((c = cols - 1), r--)
-      if (r < 0 || r >= rows) return
-      const x = cellAt(r, c)
-      if (x) {
-        startEdit(x)
-        return
-      }
+      if (r < 0 || r >= rows) return null
+      if (cellAt(r, c)) return { r, c }
       c += dir
     }
+    return null
+  }
+
+  const moveTab = (from: { r: number; c: number; rs: number; cs: number }, dir: number): void => {
+    const t = tabTarget(from, dir)
+    const x = t && cellAt(t.r, t.c)
+    if (x) startEdit(x)
   }
 
   function onFocusOut(e: FocusEvent): void {
@@ -196,8 +202,10 @@ export function createCellEditor(opts: {
       }, 0)
     } else if (e.key === 'Tab') {
       e.preventDefault()
+      const dir = e.shiftKey ? -1 : 1
+      if (!tabTarget(p, dir)) return
       commit()
-      window.setTimeout(() => moveTab(p, e.shiftKey ? -1 : 1), 0)
+      window.setTimeout(() => moveTab(p, dir), 0)
     } else if (e.key.startsWith('Arrow') && !e.shiftKey && !e.ctrlKey && !e.altKey) {
       const near =
         e.key === 'ArrowRight'
@@ -228,10 +236,10 @@ export function createCellEditor(opts: {
       e.preventDefault()
       const nr = dy > 0 ? p.r + p.rs : dy < 0 ? p.r - 1 : p.r
       const nc = dx > 0 ? p.c + p.cs : dx < 0 ? p.c - 1 : p.c
-      commit()
       const { rows, cols } = size()
+      if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) return
+      commit()
       window.setTimeout(() => {
-        if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) return
         const t = cellAt(nr, nc)
         if (t) startEdit(t)
       }, 0)
