@@ -2,6 +2,7 @@ import { basename, dirname, extname, join, relative, resolve, sep } from 'path'
 import { walkMdFiles } from './links'
 import { readFileSync, statSync } from 'fs'
 import { copyFile, mkdir, writeFile } from 'fs/promises'
+import { frontMatterFor } from './noteProps'
 
 const WIKILINK_RE = /\[\[\s*([^[\]\n]+?)\s*\]\]/g
 const IMG_RE = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)\)/g
@@ -196,7 +197,7 @@ export async function exportFolder(rootDir: string, opts: ExportOptions): Promis
       return `[${title}](${wrapHref(linkPath)})`
     })
 
-    writes.push({ to: destPath, text })
+    writes.push({ to: destPath, text: frontMatterFor(filePath) + text })
   }
 
   for (const w of writes) {

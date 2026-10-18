@@ -13,7 +13,13 @@ import footnoteIcon from '../icons/tb-footnote.svg?raw'
 import tableIcon from '../icons/tb-table.svg?raw'
 import codeBlockIcon from '../icons/tb-code-block.svg?raw'
 import ruleIcon from '../icons/tb-rule.svg?raw'
+import strikeIcon from '../icons/tb-strike.svg?raw'
+import codeInlineIcon from '../icons/tb-code-inline.svg?raw'
+import textColorIcon from '../icons/tb-text-color.svg?raw'
+import highlightIcon from '../icons/tb-highlight.svg?raw'
 import {
+  applyColor,
+  toggleWrap,
   insertCodeBlock,
   insertFootnote,
   insertLink,
@@ -29,7 +35,6 @@ interface SlashCmd {
   cmd: string
   label: string
   icon: string
-  /** 같은 묶음끼리는 붙어 있고, 묶음 사이에 구분선이 들어간다 */
   group: number
   run: (view: EditorView) => void
 }
@@ -59,7 +64,11 @@ const CMDS: SlashCmd[] = [
     group: 3,
     run: (v) => insertCodeBlock(v)
   },
-  { cmd: 'rule', label: '구분선', icon: ruleIcon, group: 3, run: (v) => insertRule(v) }
+  { cmd: 'rule', label: '구분선', icon: ruleIcon, group: 3, run: (v) => insertRule(v) },
+  { cmd: 'strike', label: '취소선', icon: strikeIcon, group: 4, run: (v) => toggleWrap(v, '~~') },
+  { cmd: 'icode', label: '인라인 코드', icon: codeInlineIcon, group: 4, run: (v) => toggleWrap(v, '`') },
+  { cmd: 'color', label: '글자색', icon: textColorIcon, group: 4, run: (v) => applyColor(v, 'fg', 'red') },
+  { cmd: 'bg', label: '배경색', icon: highlightIcon, group: 4, run: (v) => applyColor(v, 'bg', 'yellow') }
 ]
 
 const TRIGGER = /(?:^|\s)\/([A-Za-z0-9가-힣]*)$/

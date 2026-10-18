@@ -55,39 +55,30 @@ export function SearchPanel({ rootDir, onOpenFile, onClose }: SearchPanelProps):
   const [text, setText] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [active, setActive] = useState(0)
-  const [listHeight, setListHeight] = useState<number | null>(null)
-  // 열리는 동안(창 애니메이션 중)에는 목록 높이를 애니메이션하지 않는다. 겹치면 프레임이 떨어진다.
-  const [settled, setSettled] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const innerRef = useRef<HTMLDivElement>(null)
   const rowRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   useEffect(() => {
     inputRef.current?.focus()
-    const t = window.setTimeout(() => setSettled(true), 250)
-    return () => window.clearTimeout(t)
   }, [])
 
   useEffect(() => {
     let cancelled = false
-    void window.api.workspace.search({ text, folder: null }).then((r) => {
-      if (cancelled) return
-      setResults(r.slice(0, MAX_RESULTS))
-      setActive(0)
-    })
+    const t = window.setTimeout(
+      () => {
+        void window.api.workspace.search({ text, folder: null }).then((r) => {
+          if (cancelled) return
+          setResults(r.slice(0, MAX_RESULTS))
+          setActive(0)
+        })
+      },
+      text ? 150 : 0
+    )
     return () => {
       cancelled = true
+      window.clearTimeout(t)
     }
   }, [text])
-
-  // 결과 수가 바뀌면 목록 높이가 뚝 바뀌지 않고 부드럽게 늘고 줄도록 안쪽 높이를 잰다.
-  useEffect(() => {
-    const el = innerRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setListHeight(el.offsetHeight))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   useEffect(() => {
     rowRefs.current[active]?.scrollIntoView({ block: 'nearest' })
@@ -157,15 +148,8 @@ export function SearchPanel({ rootDir, onOpenFile, onClose }: SearchPanelProps):
           />
         </div>
 
-        <motion.div
-          initial={false}
-          animate={{
-            height: listHeight === null ? 'auto' : Math.min(listHeight, MAX_LIST_HEIGHT)
-          }}
-          transition={{ duration: settled ? 0.15 : 0, ease: [0.4, 0, 0.2, 1] }}
-          className="overflow-y-auto"
-        >
-          <div ref={innerRef} className="p-1.5">
+        <div className="overflow-y-auto" style={{ maxHeight: MAX_LIST_HEIGHT }}>
+          <div className="p-1.5">
             {results.length === 0 ? (
               <p className="px-3 py-6 text-center text-[13px] text-text-tertiary">
                 일치하는 파일이 없어요
@@ -214,7 +198,7 @@ export function SearchPanel({ rootDir, onOpenFile, onClose }: SearchPanelProps):
               })
             )}
           </div>
-        </motion.div>
+        </div>
 
         <div className="flex h-[34px] items-center gap-4 border-t border-border px-4 text-[11.5px] text-text-tertiary">
           <span className="flex items-center gap-1.5">

@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 import playIcon from '../../icons/tb-play.svg?raw'
 import { runPython } from '@renderer/python/pyRunner'
+import { runJs } from '@renderer/js/jsRunner'
 import { applyResult, blockToText, outputToText } from '../../markdown/resultText'
 import { applyValues } from '../../markdown/valueBlock'
 import { renderBlocks } from '../../utils/outputBlocks'
@@ -77,7 +78,7 @@ export function useCodeRun(
         if (saveBtn) saveBtn.disabled = true
         const r = isPython
           ? await runPython(codeText, baseDir ?? '')
-          : await window.api.code.run(codeText, baseDir ?? '')
+          : await runJs(codeText, baseDir ?? '')
         const lines: string[] = []
         if (r.output) lines.push(r.output)
         if (r.result !== null) lines.push(`→ ${r.result}`)

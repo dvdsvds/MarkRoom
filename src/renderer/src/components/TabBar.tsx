@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import type { Tab } from '../stores/tabsStore'
 import { ContextMenu, type ContextMenuItem } from './ContextMenu'
@@ -39,36 +39,6 @@ export function TabBar({
 }: TabBarProps): React.JSX.Element | null {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; tab: Tab } | null>(null)
   const activeRef = useRef<HTMLDivElement>(null)
-  const [pill, setPill] = useState<{
-    left: number
-    width: number
-    top: number
-    height: number
-  } | null>(null)
-
-  useLayoutEffect(() => {
-    const el = activeRef.current
-    if (!el) {
-      setPill(null)
-      return
-    }
-    const next = {
-      left: el.offsetLeft,
-      width: el.offsetWidth,
-      top: el.offsetTop,
-      height: el.offsetHeight
-    }
-    setPill((prev) =>
-      prev &&
-      prev.left === next.left &&
-      prev.width === next.width &&
-      prev.top === next.top &&
-      prev.height === next.height
-        ? prev
-        : next
-    )
-  }, [activeTabId, tabs])
-
   useEffect(() => {
     activeRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' })
   }, [activeTabId])
@@ -97,16 +67,6 @@ export function TabBar({
 
   return (
     <div className="relative flex h-10 shrink-0 items-center gap-1 overflow-x-auto px-2">
-      {pill && (
-        <motion.div
-          aria-hidden="true"
-          initial={false}
-          animate={{ x: pill.left, width: pill.width }}
-          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-          style={{ top: pill.top, height: pill.height }}
-          className="pointer-events-none absolute left-0 rounded-md bg-bg-mute"
-        />
-      )}
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId
         return (
@@ -130,6 +90,15 @@ export function TabBar({
                 : 'text-text-tertiary hover:bg-bg-mute hover:text-text-secondary'
             }`}
           >
+            {isActive && (
+              <motion.div
+                aria-hidden="true"
+                layoutId="tab-active-pill"
+                transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                style={{ borderRadius: 6 }}
+                className="pointer-events-none absolute inset-0 bg-bg-mute"
+              />
+            )}
             <span
               className={`relative truncate ${tab.missing ? 'text-danger line-through' : ''}`}
               title={tab.missing ? '파일이 없어요' : undefined}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence } from 'motion/react'
+import { AnimatePresence, motion } from 'motion/react'
 import { MarkdownEditor, type MarkdownEditorHandle } from './editor/MarkdownEditor'
 import { MarkdownPreview, type MarkdownPreviewHandle } from './features/preview/MarkdownPreview'
 import { Sidebar, type SidebarHandle } from './features/sidebar/Sidebar'
@@ -34,13 +34,18 @@ import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
 import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
-import { readFileContent } from './utils/fileKind'
+import SidebarIcon  from './icons/sidebar.svg?react'
+import GrpahIcon from './icons/graph.svg?react'
+import { readFileContent, fileKindOf } from './utils/fileKind'
 import { FileViewer } from './components/FileViewer'
 import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
-import { dirOf } from './utils/path'
+import { dirOf, fileNameOf, splitName } from './utils/path'
+import { GraphDialog } from './components/GraphDialog'
+import { useNotePropsStore } from './stores/notePropsStore'
+import { TagBar } from './components/TagBar'
 
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
@@ -88,7 +93,9 @@ function App(): React.JSX.Element {
   const markSaved = useTabsStore((s) => s.markSaved)
   const closeTab = useTabsStore((s) => s.closeTab)
   const renamePath = useTabsStore((s) => s.renamePath)
+  const rewriteWikilinks = useTabsStore((s) => s.rewriteWikilinks)
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
+  const tagBarPath = activeTab?.kind === 'text' && !activeTab.missing && activeTab.filePath?.toLowerCase().endsWith('.md') ? activeTab.filePath : null
   const isViewer = activeTab !== null && activeTab.kind !== 'text'
   const sidebarRef = useRef<SidebarHandle>(null)
 
@@ -96,6 +103,8 @@ function App(): React.JSX.Element {
   const [previewMinWidth, setPreviewMinWidth] = useState(0)
   const [hasTemplate, setHasTemplate] = useState(false)
   const sidebar = useSidebarResize()
+  const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed)
+  const setSidebarCollapsed = useSettingsStore((s) => s.setSidebarCollapsed)
   const split = useSplitResize(splitRef, hasTemplate, previewMinWidth)
 
   const [searchOpen, setSearchOpen] = useState(false)
@@ -112,6 +121,7 @@ function App(): React.JSX.Element {
   const [tocFocusToken, setTocFocusToken] = useState(0)
   const [todoOpen, setTodoOpen] = useState(false)
   const [backlinksOpen, setBacklinksOpen] = useState(false)
+  const [graphOpen, setGraphOpen] = useState(false)
   const [selectedFolderPath, setSelectedFolderPath] = useState<string | null>(null)
   const pushToast = useToastStore((s) => s.push)
   const editorRef = useRef<MarkdownEditorHandle>(null)
@@ -149,7 +159,7 @@ function App(): React.JSX.Element {
         content: tab.content
       })
       if (result.filePath) {
-        markSaved(tabId, result.filePath)
+        markSaved(tabId, result.filePath, tab.content)
       }
     },
     [markSaved]
@@ -161,6 +171,15 @@ function App(): React.JSX.Element {
   }, [saveTab])
 
   const tabClose = useTabClose(saveTab)
+  const { requestQuit } = tabClose
+
+  useEffect(
+    () =>
+      window.api.window.onCloseRequested(() =>
+        requestQuit(() => void window.api.window.confirmClose())
+      ),
+    [requestQuit]
+  )
 
   useEffect(() => {
     void (async (): Promise<void> => {
@@ -168,6 +187,7 @@ function App(): React.JSX.Element {
       setRootDir(dir)
       const initialTree = await window.api.workspace.getTree()
       setTree(initialTree)
+      await useNotePropsStore.getState().load()
 
       await restoreOpenTabs(new Set(flattenFilePaths(initialTree)))
 
@@ -198,7 +218,10 @@ function App(): React.JSX.Element {
     settingsOpen,
     save: saveActiveTab,
     openSearch: () => setSearchOpen(true),
-    newFile: () => sidebarRef.current?.startNewFile(resolveNewNoteDir()),
+    newFile: () => {
+      setSidebarCollapsed(false)
+      sidebarRef.current?.startNewFile(resolveNewNoteDir())
+    },
     toggleSettings: () => setSettingsOpen((v) => !v),
     closeSettings: () => setSettingsOpen(false),
     openOrFocusToc: () =>
@@ -207,17 +230,25 @@ function App(): React.JSX.Element {
         return true
       }),
     toggleTodo: () => setTodoOpen((v) => !v),
-    toggleBacklinks: () => setBacklinksOpen((v) => !v)
+    toggleBacklinks: () => setBacklinksOpen((v) => !v),
+    toggleSidebar: () => setSidebarCollapsed(!useSettingsStore.getState().sidebarCollapsed),
+    toggleGraph: () => setGraphOpen((v) => !v)
   })
 
   const handleOpenFile = useCallback(
     (filePath: string): void => {
       setSelectedFolderPath(null)
+      if (fileKindOf(filePath) === 'external') {
+        void window.api.workspace.openInDefaultApp(filePath).then((error) => {
+          if (error) pushToast({ kind: 'info', message: '이 파일을 열 수 있는 앱이 없어요.' })
+        })
+        return
+      }
       void readFileContent(filePath).then((fileContent) => {
         openFile(filePath, fileContent)
       })
     },
-    [openFile]
+    [openFile, pushToast]
   )
 
   const handleEditorChange = useCallback(
@@ -247,11 +278,23 @@ function App(): React.JSX.Element {
   )
 
   const handleEntryRenamed = useCallback(
-    (oldPath: string, newPath: string): void => renamePath(oldPath, newPath),
-    [renamePath]
+    (oldPath: string, newPath: string): void => {
+      renamePath(oldPath, newPath)
+      const oldName = splitName(fileNameOf(oldPath))
+      const newName = splitName(fileNameOf(newPath))
+      if (oldName.ext.toLowerCase() === '.md' && newName.ext.toLowerCase() === '.md') {
+        rewriteWikilinks(oldName.base, newName.base)
+      }
+      void useNotePropsStore.getState().load()
+    },
+    [renamePath, rewriteWikilinks]
   )
+
   const handleEntryMoved = useCallback(
-    (oldPath: string, newPath: string): void => renamePath(oldPath, newPath),
+    (oldPath: string, newPath: string): void => {
+      renamePath(oldPath, newPath)
+      void useNotePropsStore.getState().load()
+    },
     [renamePath]
   )
 
@@ -259,6 +302,7 @@ function App(): React.JSX.Element {
     (path: string): void => {
       const tab = useTabsStore.getState().tabs.find((t) => t.filePath === path)
       if (tab) closeTab(tab.id)
+      void useNotePropsStore.getState().load()
     },
     [closeTab]
   )
@@ -469,6 +513,16 @@ function App(): React.JSX.Element {
       <TitleBar>
         <button
           type="button"
+          onClick={() => { 
+            setSidebarCollapsed(!sidebarCollapsed)
+          }}
+          title={`사이드바 ${sidebarCollapsed ? '펼치기' : '접기'} (Ctrl+Shift+E)`}
+          className={TITLE_BTN}
+        >
+          <SidebarIcon />
+        </button>
+        <button
+          type="button"
           onClick={() => setSearchOpen(true)}
           title="검색 (Ctrl+P)"
           className={TITLE_BTN}
@@ -499,35 +553,54 @@ function App(): React.JSX.Element {
         >
           <BacklinksIcon />
         </button>
+        <button
+          type="button"
+          onClick={() => setGraphOpen((v) => !v)}
+          title="그래프 (Ctrl+Shift+G)"
+          className={TITLE_BTN}
+        >
+          <GrpahIcon />
+        </button>
       </TitleBar>
       <main className="flex min-h-0 flex-1 pb-2 pr-2">
-        <div className="relative shrink-0" style={{ width: sidebar.width }}>
-          <Sidebar
-            ref={sidebarRef}
-            tree={tree}
-            rootDir={rootDir}
-            activeFilePath={activeTab?.filePath ?? null}
-            onOpenFile={handleOpenFile}
-            onFileCreated={handleOpenFile}
-            onEntryRenamed={handleEntryRenamed}
-            onEntryMoved={handleEntryMoved}
-            onEntryDeleted={handleEntryDeleted}
-            onFocusEditor={() => requestAnimationFrame(() => editorRef.current?.focus())}
-            dirtyFilePaths={dirtyFilePaths}
-            onCompareChanges={handleCompareChanges}
-            onOpenHistory={handleOpenHistory}
-            onOpenAtLine={handleOpenTodo}
-            selectedFolderPath={selectedFolderPath}
-            onSelectFolder={setSelectedFolderPath}
-            className="h-full"
-          />
+        <motion.div
+          className="relative shrink-0"
+          initial={false}
+          animate={{ width: sidebarCollapsed ? 8 : sidebar.width }}
+          transition={{ duration: sidebar.resizing ? 0 : 0.2, ease: [0.4, 0, 0.2, 1] }}
+        >
+          <div className="h-full overflow-hidden" inert={sidebarCollapsed}>
+            <div className="h-full" style={{ width: sidebar.width }}>
+              <Sidebar
+                ref={sidebarRef}
+                tree={tree}
+                rootDir={rootDir}
+                activeFilePath={activeTab?.filePath ?? null}
+                onOpenFile={handleOpenFile}
+                onFileCreated={handleOpenFile}
+                onEntryRenamed={handleEntryRenamed}
+                onEntryMoved={handleEntryMoved}
+                onEntryDeleted={handleEntryDeleted}
+                onFocusEditor={() => requestAnimationFrame(() => editorRef.current?.focus())}
+                dirtyFilePaths={dirtyFilePaths}
+                onCompareChanges={handleCompareChanges}
+                onOpenHistory={handleOpenHistory}
+                onOpenAtLine={handleOpenTodo}
+                selectedFolderPath={selectedFolderPath}
+                onSelectFolder={setSelectedFolderPath}
+                className="h-full"
+              />
+            </div>
+        </div>
+        {!sidebarCollapsed && (
           <div
             onMouseDown={sidebar.onResizeStart}
             className="group absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
           >
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent" />
           </div>
-        </div>
+        )}
+      </motion.div>
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-bg">
           <TabBar
             tabs={tabs}
@@ -537,6 +610,7 @@ function App(): React.JSX.Element {
             onCloseAll={tabClose.closeAll}
             onMissingClick={handleMissingTabClick}
           />
+          {tagBarPath && <TagBar filePath={tagBarPath} />}
           {activeTab && activeTab.kind !== 'text' && activeTab.filePath ? (
             <FileViewer  key={activeTab.id} filePath={activeTab.filePath} kind={activeTab.kind}/>
           ) : activeTab ? (
@@ -666,6 +740,19 @@ function App(): React.JSX.Element {
             getOverrides={getTodoOverrides}
             onClose={() => setTodoOpen(false)}
           />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {graphOpen && (
+          <GraphDialog
+            key="graph-dialog"
+            activePath={activeTab?.filePath ?? null}
+            onOpen={(filePath) => {
+              setGraphOpen(false)
+              handleOpenFile(filePath)
+            }}
+            onClose={() => setGraphOpen(false)}
+            />
         )}
       </AnimatePresence>
       {backlinksOpen && activeTab && !isViewer && (

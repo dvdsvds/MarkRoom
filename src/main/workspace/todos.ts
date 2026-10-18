@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync } from 'fs'
+import { readdirSync } from 'fs'
 import { join } from 'path'
+import { readNoteCached } from './noteCache'
 
 export interface TodoItem {
   path: string
@@ -40,7 +41,7 @@ export function scanTodos(rootDir: string, overrides: Record<string, string> = {
       content = overridden
     } else {
       try {
-        content = readFileSync(path, 'utf-8')
+        content = readNoteCached(path)
       } catch {
         continue
       }

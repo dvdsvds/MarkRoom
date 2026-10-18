@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useTabsStore } from '../stores/tabsStore'
-import { readFileContent } from '../utils/fileKind'
+import { fileKindOf, readFileContent } from '../utils/fileKind'
 
 const STORAGE_KEY = 'markroom-open-tabs'
 let restoreDone = false
@@ -20,7 +20,10 @@ export async function restoreOpenTabs(knownPaths: Set<string>): Promise<void> {
       saved = null
     }
     const { openFile, setActiveTab } = useTabsStore.getState()
-    for (const p of (saved?.paths ?? []).filter((path) => knownPaths.has(path))) {
+    const paths = (saved?.paths ?? []).filter(
+      (path) => knownPaths.has(path) && fileKindOf(path) !== 'external'
+    )
+    for (const p of paths) {
       openFile(p, await readFileContent(p))
     }
     const activePath = saved?.activeTabId ?? null

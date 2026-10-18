@@ -1,4 +1,4 @@
-type RunResult = Awaited<ReturnType<typeof window.api.code.run>>
+import type { RunResult } from '@renderer/utils/outputBlocks'
 
 const RUN_TIMEOUT_MS = 5000
 const LOAD_TIMEOUT_MS = 60_000
@@ -14,7 +14,7 @@ let session: Session | null = null
 let queue: Promise<unknown> = Promise.resolve()
 let nextId = 1
 
-const failure = (error: string, timedOut = false): RunResult => ({
+export const failure = (error: string, timedOut = false): RunResult => ({
   output: '',
   result: null,
   error,
@@ -61,7 +61,7 @@ function createSession(): Session {
   return { worker, ready }
 }
 
-function normalize(d: Record<string, unknown>): RunResult {
+export function normalize(d: Record<string, unknown>): RunResult {
   const blocks = Array.isArray(d.blocks)
     ? (d.blocks as RunResult['blocks'])
         .filter((b) => b && (b.kind === 'table' || b.kind === 'chart'))

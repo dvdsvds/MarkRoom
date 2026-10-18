@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { join, resolve, sep } from 'path'
+import { basename, join, resolve, sep } from 'path'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { registerWorkspaceIpc } from './workspace/ipc'
@@ -28,6 +28,7 @@ protocol.registerSchemesAsPrivileged([
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 
 let mainWindowRef: BrowserWindow | null = null
+let closeConfirmed = true
 
 function isAllowedNavigationTarget(url: string): boolean {
   if (is.dev && devServerUrl && url.startsWith(devServerUrl)) return true
@@ -55,6 +56,14 @@ function createWindow(): void {
   })
 
   mainWindowRef = mainWindow
+
+  closeConfirmed = false
+  mainWindow.on('close', (event) => {
+    if (closeConfirmed) return
+    event.preventDefault()
+    mainWindow.webContents.send('window:close-requested')
+  })
+
   mainWindow.on('closed', () => {
     if (mainWindowRef === mainWindow) mainWindowRef = null
     destroyQuickCapture()
@@ -109,6 +118,10 @@ app.whenReady().then(() => {
     else mainWindowRef.maximize()
   })
   ipcMain.handle('window:close', () => mainWindowRef?.close())
+  ipcMain.handle('window:confirmClose', () => {
+    closeConfirmed = true
+    mainWindowRef?.close()
+  })
   ipcMain.handle('window:isMaximized', () => mainWindowRef?.isMaximized() ?? false)
   ipcMain.handle('window:platform', () => process.platform)
 
@@ -134,7 +147,11 @@ app.whenReady().then(() => {
       const target = resolve(rendererRoot, '.' + decodeURIComponent(url.pathname))
       if (target !== rendererRoot && !target.startsWith(rendererRoot + sep))
         return new Response(null, { status: 403 })
-      return net.fetch(pathToFileURL(target).href)
+      const res = await net.fetch(pathToFileURL(target).href)
+      if (basename(target) !== 'js-worker.js') return res
+      const headers = new Headers(res.headers)
+      headers.set('Content-Security-Policy', "default-src 'none; script-src 'unsafe-eval'")
+      return new Response(res.body, { status: res.status, headers })
     } catch {
       return new Response(null, { status: 404 })
     }

@@ -38,7 +38,7 @@ function ImageViewer({ filePath }: { filePath: string }): React.JSX.Element {
     const box = boxRef.current
     if (!box) return
     const onWheel = (e: WheelEvent): void => {
-      if (!e.ctrlKey || !e.metaKey) return
+      if (!e.ctrlKey && !e.metaKey) return
       e.preventDefault()
       e.stopPropagation()
       const rect = box.getBoundingClientRect()

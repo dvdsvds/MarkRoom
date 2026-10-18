@@ -13,6 +13,8 @@ export interface GlobalShortcutActions {
   openOrFocusToc: () => void
   toggleTodo: () => void
   toggleBacklinks: () => void
+  toggleSidebar: () => void
+  toggleGraph: () => void
 }
 
 function copyActivePath(e: KeyboardEvent, relative: boolean): void {
@@ -88,6 +90,16 @@ export function useGlobalShortcuts(actions: GlobalShortcutActions): void {
       if (matchesShortcut(e, shortcuts.backlinks)) {
         e.preventDefault()
         a.toggleBacklinks()
+        return
+      }
+      if (matchesShortcut(e, shortcuts.toggleSidebar)) {
+        e.preventDefault()
+        a.toggleSidebar()
+        return
+      }
+      if (matchesShortcut(e, shortcuts.graph)) {
+        e.preventDefault()
+        a.toggleGraph()
         return
       }
       if (e.key === 'Escape' && a.settingsOpen) {

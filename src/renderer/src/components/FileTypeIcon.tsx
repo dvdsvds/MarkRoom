@@ -1,6 +1,7 @@
 import { fileKindOf } from '@renderer/utils/fileKind'
 import { splitName } from '@renderer/utils/path'
 import FolderSvg from '../icons/folder.svg?react'
+import FolderOpenSvg from '../icons/folder-open.svg?react'
 import MdSvg from '../icons/file-md.svg?react'
 import CsvSvg from '../icons/file-csv.svg?react'
 import PdfSvg from '../icons/file-pdf.svg?react'
@@ -44,14 +45,16 @@ const SVGS = {
 export function FileTypeIcon({
   name,
   kind,
-  size = 18
+  size = 18,
+  open = false
 }: {
   name: string
   kind: 'file' | 'folder'
   size?: number
+  open?: boolean
 }): React.JSX.Element {
   const type = typeOf(name, kind)
-  const Svg = SVGS[type]
+  const Svg = kind === 'folder' && open ? FolderOpenSvg : SVGS[type]
   return (
     <span className="flex shrink-0" style={{ color: `var(--icon-${type})` }} aria-hidden="true">
       <Svg width={size} height={size} style={{ display: 'block' }} />

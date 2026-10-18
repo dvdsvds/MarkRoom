@@ -21,7 +21,9 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'diffRestore',
   'toggleToc',
   'todoDashboard',
-  'backlinks'
+  'backlinks',
+  'toggleSidebar',
+  'graph'
 ]
 
 export const CATEGORIES = ['일반', '화면', '상태 표시줄', '단축키'] as const

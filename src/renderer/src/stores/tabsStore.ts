@@ -1,5 +1,6 @@
 import { fileKindOf, type FileKind } from '@renderer/utils/fileKind'
 import { create } from 'zustand'
+import { sepOf } from '@renderer/utils/path'
 
 export interface Tab {
   id: string
@@ -29,10 +30,11 @@ interface TabsState {
   openFile: (filePath: string, content: string) => void
   setActiveTab: (tabId: string) => void
   setContent: (tabId: string, content: string) => void
-  markSaved: (tabId: string, filePath: string) => void
+  markSaved: (tabId: string, filePath: string, savedContent: string) => void
   closeTab: (tabId: string) => void
   syncExternalChange: (filePath: string, content: string) => void
   renamePath: (oldPath: string, newPath: string) => void
+  rewriteWikilinks: (oldTitle: string, newTitle: string) => void
   markMissingByPath: (path: string) => void
 }
 
@@ -80,10 +82,12 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       tabs: s.tabs.map((t) => (t.id === tabId ? { ...t, content, dirty: true } : t))
     })),
 
-  markSaved: (tabId, filePath) =>
+  markSaved: (tabId, filePath, savedContent) =>
     set((s) => ({
       tabs: s.tabs.map((t) =>
-        t.id === tabId ? { ...t, filePath, dirty: false } : t
+        t.id === tabId 
+          ? { ...t, filePath, dirty: t.content !== savedContent, missing: false } 
+          : t
       )
     })),
 
@@ -111,11 +115,29 @@ export const useTabsStore = create<TabsState>((set, get) => ({
 
   renamePath: (oldPath, newPath) =>
     set((s) => ({
-      tabs: s.tabs.map((t) => (t.filePath === oldPath ? { ...t, filePath: newPath } : t))
+      tabs: s.tabs.map((t) => {
+        if (t.filePath === oldPath) return { ...t, filePath: newPath }
+        if (t.filePath?.startsWith(oldPath + sepOf(oldPath))) {
+          return { ...t, filePath: newPath + t.filePath.slice(oldPath.length) }
+        }
+        return t
+      })
     })),
+
+  rewriteWikilinks: (oldTitle, newTitle) => {
+    const escaped = oldTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const pattern = new RegExp(`\\[\\[\\s*${escaped}\\s*\\]\\]`, 'g')
+    set((s) => ({
+      tabs: s.tabs.map((t) => {
+        if (!t.filePath?.toLowerCase().endsWith('.md')) return t
+        const content = t.content.replace(pattern, () => `[[${newTitle}]]`)
+        return content === t.content ? t : { ...t, content }
+      })
+    }))
+  },
 
   markMissingByPath: (path) =>
     set((s) => ({
-      tabs: s.tabs.map((t) => (t.filePath === path ? { ...t, missing: true, dirty: false } : t))
+      tabs: s.tabs.map((t) => (t.filePath === path ? { ...t, missing: true } : t))
     }))
 }))

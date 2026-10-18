@@ -49,7 +49,15 @@ function walkForTmp(dir: string, results: RecoverableItem[]): void {
     } catch {
       continue
     }
-    const currentContent = existsSync(targetPath) ? readFileSync(targetPath, 'utf-8') : null
+    let currentContent: string | null = null
+    try {
+      if (existsSync(targetPath)) {
+        if (!statSync(targetPath).isFile()) continue
+        currentContent = readFileSync(targetPath, 'utf-8')
+      }
+    } catch {
+      continue
+    }
     results.push({ tmpPath: fullPath, targetPath, tmpContent, currentContent })
   }
 }

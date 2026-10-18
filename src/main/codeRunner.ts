@@ -1,35 +1,8 @@
-import { ipcMain, utilityProcess } from 'electron'
+import { ipcMain } from 'electron'
 import { readFileSync, statSync } from 'fs'
 import { extname, resolve } from 'path'
-import runnerPath from './runner?modulePath'
 import { assertInsideRoot } from './workspace/paths'
 
-export type OutputBlock =
-  | {
-      kind: 'table'
-      title: string
-      columns: string[]
-      align: ('left' | 'center' | 'right')[]
-      rows: (string | number)[][]
-    }
-  | {
-      kind: 'chart'
-      type: 'bar' | 'line' | 'pie'
-      title: string
-      labels: string[]
-      series: { name: string; values: number[] }[]
-    }
-
-export interface RunResult {
-  output: string
-  result: string | null
-  error: string | null
-  timedOut: boolean
-  blocks: OutputBlock[]
-  values: Record<string, string>
-}
-
-const TIMEOUT_MS = 5000
 const MAX_CODE_LENGTH = 100_000
 const MAX_FILE_BYTES = 2 * 1024 * 1024
 const ALLOWED_EXT = new Set(['.csv', '.tsv', '.json', '.txt', '.md'])
@@ -67,72 +40,15 @@ function collectFiles(
   return { files, fileErrors }
 }
 
-function runCode(code: string, baseDir: string): Promise<RunResult> {
-  const { files, fileErrors } = collectFiles(code, baseDir)
-  return new Promise((resolvePromise) => {
-    const child = utilityProcess.fork(runnerPath)
-    let done = false
-    const finish = (r: RunResult): void => {
-      if (done) return
-      done = true
-      clearTimeout(timer)
-      child.kill()
-      resolvePromise(r)
-    }
-    const timer = setTimeout(
-      () =>
-        finish({
-          output: '',
-          result: null,
-          error: `${TIMEOUT_MS / 1000}초 안에 끝나지 않아서 중단했어요.`,
-          timedOut: true,
-          blocks: [],
-          values: {}
-        }),
-      TIMEOUT_MS
-    )
-    child.on('message', (msg: RunResult) =>
-      finish({
-        ...msg,
-        blocks: Array.isArray(msg.blocks) ? msg.blocks : [],
-        values: msg.values && typeof msg.values === 'object' ? msg.values : {}
-      })
-    )
-    child.on('exit', () =>
-      finish({
-        output: '',
-        result: null,
-        error: '실행이 예기치 않게 종료됐어요.',
-        timedOut: false,
-        blocks: [],
-        values: {}
-      })
-    )
-    child.postMessage({ code, files, fileErrors })
-  })
-}
-
 export function registerCodeRunner(): void {
-  ipcMain.handle('code:readFiles', (_event, code: unknown, baseDir: unknown) => {
+  ipcMain.handle('code:readFiles', (_event, code: unknown, baseDir: unknown, lang: unknown) => {
     if (typeof code !== 'string' || code.length > MAX_CODE_LENGTH) {
       return { files: {}, fileErrors: {} }
     }
-    return collectFiles(code, typeof baseDir === 'string' ? baseDir : '', PY_FILE_CALL_RE)
+    return collectFiles(
+      code,
+      typeof baseDir === 'string' ? baseDir : '',
+      lang === 'js' ? FILE_CALL_RE : PY_FILE_CALL_RE
+    )
   })
-  ipcMain.handle(
-    'code:run',
-    (_event, code: unknown, baseDir: unknown): Promise<RunResult> | RunResult => {
-      if (typeof code !== 'string' || code.length > MAX_CODE_LENGTH) {
-        return {
-          output: '',
-          result: null,
-          error: '코드가 너무 길어요.',
-          timedOut: false,
-          blocks: [],
-          values: {}
-        }
-      }
-      return runCode(code, typeof baseDir === 'string' ? baseDir : '')
-    }
-  )
 }

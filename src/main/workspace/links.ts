@@ -1,5 +1,6 @@
-import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs'
-import { extname, join } from 'path'
+import { readdirSync, statSync, writeFileSync } from 'fs'
+import { basename, extname, join } from 'path'
+import { readNoteCached } from './noteCache'
 
 export function walkMdFiles(dir: string): string[] {
   let entries: string[]
@@ -47,7 +48,7 @@ export function findBacklinks(rootDir: string, title: string, excludePath?: stri
     if (filePath === excludePath) continue
     let content: string
     try {
-      content = readFileSync(filePath, 'utf-8')
+      content = readNoteCached(filePath)
     } catch {
       continue
     }
@@ -88,7 +89,7 @@ export function findBacklinkContexts(
     if (filePath === excludePath) continue
     let content: string
     try {
-      content = readFileSync(filePath, 'utf-8')
+      content = readNoteCached(filePath)
     } catch {
       continue
     }
@@ -113,7 +114,8 @@ export function findBacklinkContexts(
 export function updateWikilinksOnRename(
   rootDir: string,
   oldTitle: string,
-  newTitle: string
+  newTitle: string,
+  beforeWrite?: (filePath: string, before: string) => void
 ): string[] {
   if (oldTitle === newTitle) return []
   const pattern = wikilinkPattern(oldTitle)
@@ -121,17 +123,59 @@ export function updateWikilinksOnRename(
   for (const filePath of walkMdFiles(rootDir)) {
     let content: string
     try {
-      content = readFileSync(filePath, 'utf-8')
+      content = readNoteCached(filePath)
     } catch {
       continue
     }
     if (!pattern.test(content)) continue
     pattern.lastIndex = 0
-    const updated = content.replace(pattern, `[[${newTitle}]]`)
+    const updated = content.replace(pattern, () => `[[${newTitle}]]`)
     if (updated !== content) {
+      beforeWrite?.(filePath, content)
       writeFileSync(filePath, updated, 'utf-8')
       changed.push(filePath)
     }
   }
   return changed
+}
+
+export interface LinkGraph {
+  nodes: { path: string; title: string }[]
+  edges: { source: string; target: string }[]
+}
+
+const WIKILINK_RE = /\[\[([^[\n]+?)\]\]/g
+
+export function buildLinkGraph(rootDir: string): LinkGraph {
+  const files = walkMdFiles(rootDir)
+  const byTitle = new Map<string, string>()
+  for (const filePath of files) {
+    const title = basename(filePath, extname(filePath))
+    if (!byTitle.has(title)) byTitle.set(title, filePath)
+  }
+  const edges: LinkGraph['edges'] = []
+  const seen = new Set<string>()
+  for (const filePath of files) {
+    let content: string
+    try {
+      content = readNoteCached(filePath)
+    } catch {
+      continue
+    }
+    for (const m of content.matchAll(WIKILINK_RE)) {
+      const target = byTitle.get(m[1].trim())
+      if (!target || target === filePath) continue
+      const key = `${filePath}\0${target}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push({ source: filePath, target })
+    }
+  }
+  return {
+    nodes: files.map((filePath) => ({
+      path: filePath,
+      title: basename(filePath, extname(filePath))
+    })),
+    edges
+  }
 }

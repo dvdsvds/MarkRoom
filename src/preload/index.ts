@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type { TreeNode } from '../main/workspace/tree'
+import { openInDefaultApp } from '../main/workspace/fileOps'
 
 interface SaveNoteArgs {
   filePath: string | null
@@ -15,6 +16,11 @@ interface SaveNoteResult {
 interface Backlink {
   path: string
   count: number
+}
+
+interface LinkGraph {
+  nodes: { path: string; title: string }[]
+  edges: { source: string; target: string }[]
 }
 
 interface BacklinkWithContext {
@@ -76,31 +82,6 @@ interface HistoryEntry {
   size: number
 }
 
-type OutputBlock =
-  | {
-      kind: 'table'
-      title: string
-      columns: string[]
-      align: ('left' | 'center' | 'right')[]
-      rows: (string | number)[][]
-    }
-  | {
-      kind: 'chart'
-      type: 'bar' | 'line' | 'pie'
-      title: string
-      labels: string[]
-      series: { name: string; values: number[] }[]
-    }
-
-interface RunResult {
-  output: string
-  result: string | null
-  error: string | null
-  timedOut: boolean
-  blocks: OutputBlock[]
-  values: Record<string, string>
-}
-
 const api = {
   app: {
     getChangelog: (): Promise<string | null> => ipcRenderer.invoke('app:getChangelog')
@@ -109,6 +90,12 @@ const api = {
     minimize: (): Promise<void> => ipcRenderer.invoke('window:minimize'),
     toggleMaximize: (): Promise<void> => ipcRenderer.invoke('window:toggleMaximize'),
     close: (): Promise<void> => ipcRenderer.invoke('window:close'),
+    confirmClose: (): Promise<void> => ipcRenderer.invoke('window:confirmClose'),
+    onCloseRequested: (callback: () => void): (() => void) => {
+      const listener = (): void => callback()
+      ipcRenderer.on('window:close-requested', listener)
+      return () => ipcRenderer.removeListener('window:close-requested', listener)
+    },
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     platform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('window:platform'),
     onMaximizedChanged: (callback: (isMaximized: boolean) => void): (() => void) => {
@@ -140,14 +127,19 @@ const api = {
       relPath: string
     }): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('export:pdfFile', payload)
   },
+  props: {
+    getAll: (): Promise<Record<string, Record<string, string>>> =>
+      ipcRenderer.invoke('props:getAll'),
+    set: (filePath: string, props: Record<string, string> | null): Promise<void> =>
+      ipcRenderer.invoke('props:set', filePath, props)
+  },
   code: {
-    run: (code: string, baseDir: string): Promise<RunResult> =>
-      ipcRenderer.invoke('code:run', code, baseDir),
     readFiles: (
       code: string,
-      baseDir: string
+      baseDir: string,
+      lang: 'js' | 'py' = 'py'
     ): Promise<{ files: Record<string, string>; fileErrors: Record<string, string> }> =>
-      ipcRenderer.invoke('code:readFiles', code, baseDir)
+      ipcRenderer.invoke('code:readFiles', code, baseDir, lang)
   },
   workspace: {
     getRootDir: (): Promise<string> => ipcRenderer.invoke('workspace:getRootDir'),
@@ -167,12 +159,15 @@ const api = {
     trash: (targetPath: string): Promise<void> => ipcRenderer.invoke('workspace:trash', targetPath),
     reveal: (targetPath: string): Promise<void> =>
       ipcRenderer.invoke('workspace:reveal', targetPath),
+    openInDefaultApp: (targetPath: string): Promise<string> =>
+      ipcRenderer.invoke('workspace:openInDefaultApp', targetPath),
     copyPath: (targetPath: string, relative: boolean): Promise<void> =>
       ipcRenderer.invoke('workspace:copyPath', targetPath, relative),
     findBacklinks: (mdPath: string): Promise<Backlink[]> =>
       ipcRenderer.invoke('workspace:findBacklinks', mdPath),
     findBacklinkContexts: (mdPath: string): Promise<BacklinkWithContext[]> =>
       ipcRenderer.invoke('workspace:findBacklinkContexts', mdPath),
+    linkGraph: (): Promise<LinkGraph> => ipcRenderer.invoke('workspace:linkGraph'),
     saveAttachment: (
       noteDirPath: string,
       kind: 'img' | 'files',

@@ -247,7 +247,7 @@
 }
 .cm-activeLine {
   background-color: color-mix(in srgb, var(--color-text) 4.5%, transparent) !important;
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* ───────── 에디터 위쪽 툴바 ───────── */

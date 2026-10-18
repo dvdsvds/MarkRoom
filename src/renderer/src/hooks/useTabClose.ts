@@ -11,6 +11,7 @@ interface UseTabClose {
   closeConfirm: CloseConfirm | null
   requestClose: (tabId: string) => void
   closeAll: () => void
+  requestQuit: (onDone: () => void) => void 
   confirmSave: () => void
   confirmDiscard: () => void
   cancelClose: () => void
@@ -20,6 +21,7 @@ export function useTabClose(saveTab: (tabId: string) => Promise<void>): UseTabCl
   const closeTab = useTabsStore((s) => s.closeTab)
   const [closeConfirm, setCloseConfirm] = useState<CloseConfirm | null>(null)
   const queueRef = useRef<string[]>([])
+  const quitRef = useRef<(() => void) | null>(null)
 
   const askNext = useCallback((): void => {
     while (queueRef.current.length > 0) {
@@ -27,7 +29,7 @@ export function useTabClose(saveTab: (tabId: string) => Promise<void>): UseTabCl
       const tab = useTabsStore.getState().tabs.find((t) => t.id === id)
       if (!tab) continue
       if (!tab.dirty) {
-        closeTab(id)
+        if (!quitRef.current) closeTab(id)
         continue
       }
       useTabsStore.getState().setActiveTab(id)
@@ -35,10 +37,14 @@ export function useTabClose(saveTab: (tabId: string) => Promise<void>): UseTabCl
       return
     }
     setCloseConfirm(null)
+    const onQuit = quitRef.current
+    quitRef.current = null
+    onQuit?.()
   }, [closeTab])
 
   const requestClose = useCallback(
     (tabId: string): void => {
+      quitRef.current = null
       queueRef.current = [tabId]
       askNext()
     },
@@ -46,30 +52,41 @@ export function useTabClose(saveTab: (tabId: string) => Promise<void>): UseTabCl
   )
 
   const closeAll = useCallback((): void => {
+    quitRef.current = null
     queueRef.current = useTabsStore.getState().tabs.map((t) => t.id)
     askNext()
   }, [askNext])
+
+  const requestQuit = useCallback(
+    (onDone: () => void): void => {
+      quitRef.current = onDone
+      queueRef.current = useTabsStore.getState().tabs.map((t) => t.id)
+      askNext()
+    },
+    [askNext]
+  )
 
   const confirmSave = useCallback((): void => {
     if (!closeConfirm) return
     const { tabId } = closeConfirm
     setCloseConfirm(null)
     void saveTab(tabId).then(() => {
-      closeTab(tabId)
+      if (!quitRef.current) closeTab(tabId)
       askNext()
     })
   }, [closeConfirm, saveTab, closeTab, askNext])
 
   const confirmDiscard = useCallback((): void => {
     if (!closeConfirm) return
-    closeTab(closeConfirm.tabId)
+    if (!quitRef.current) closeTab(closeConfirm.tabId)
     askNext()
   }, [closeConfirm, closeTab, askNext])
 
   const cancelClose = useCallback((): void => {
     queueRef.current = []
+    quitRef.current = null
     setCloseConfirm(null)
   }, [])
 
-  return { closeConfirm, requestClose, closeAll, confirmSave, confirmDiscard, cancelClose }
+  return { closeConfirm, requestClose, requestQuit, closeAll, confirmSave, confirmDiscard, cancelClose }
 }

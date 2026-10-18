@@ -13,6 +13,8 @@ export interface ShortcutMap {
   toggleToc: string
   todoDashboard: string
   backlinks: string
+  toggleSidebar: string
+  graph: string
 }
 
 export type ShortcutAction = keyof ShortcutMap
@@ -31,7 +33,9 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   zoomReset: 'Ctrl+0',
   toggleToc: 'Ctrl+Shift+O',
   todoDashboard: 'Ctrl+Shift+T',
-  backlinks: 'Ctrl+Shift+B'
+  backlinks: 'Ctrl+Shift+B',
+  toggleSidebar: 'Ctrl+Shift+E',
+  graph: 'Ctrl+Shift+G',
 }
 
 export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
@@ -48,7 +52,9 @@ export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   zoomReset: 'UI 배율 초기화',
   toggleToc: '목차 패널 열기/포커스',
   todoDashboard: '할일 대시보드',
-  backlinks: '백링크 패널'
+  backlinks: '백링크 패널',
+  toggleSidebar: '사이드바 접기/펼치기',
+  graph: '그래프 뷰'
 }
 
 function normalizeKey(key: string): string {

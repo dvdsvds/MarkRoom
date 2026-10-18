@@ -1,6 +1,3 @@
-import { createContext, runInContext } from 'vm'
-
-const SETUP = String.raw`
 var __logs = [];
 var __files = {};
 var __fileErrors = {};
@@ -225,63 +222,71 @@ function chart(spec) {
   }
   __pushBlock({ kind: 'chart', type: type, title: spec.title ? String(spec.title) : '', labels: labels, series: series });
 }
-`
 
-interface RunRequest {
-  code: string
-  files: Record<string, string>
-  fileErrors: Record<string, string>
+function lock() {
+  const names = [
+    'fetch',
+    'XMLHttpRequest',
+    'WebSocket',
+    'EventSource',
+    'importScripts',
+    'indexedDB',
+    'caches',
+    'Worker',
+    'SharedWorker',
+    'BroadcastChannel'
+  ]
+  for (const k of names) {
+    try {
+      Object.defineProperty(self, k, { value: undefined, configurable: false, writable: false })
+    } catch (_) {
+      try {
+        self[k] = undefined
+      } catch (_2) {
+        /* 무시 */
+      }
+    }
+  }
 }
 
-process.parentPort.on('message', async (event) => {
-  const { code, files, fileErrors } = event.data as RunRequest
-  const ctx = createContext({})
-  runInContext(SETUP, ctx)
-  runInContext(
-    `__files = JSON.parse(${JSON.stringify(JSON.stringify(files))});` +
-      `__fileErrors = JSON.parse(${JSON.stringify(JSON.stringify(fileErrors))});`,
-    ctx
-  )
+const post = self.postMessage.bind(self)
 
-  let result: string | null = null
-  let error: string | null = null
+self.onmessage = async (e) => {
+  const d = e.data || {}
+  __files = d.files || {}
+  __fileErrors = d.fileErrors || {}
+  lock()
+  let result = null
+  let error = null
   try {
-    let value = runInContext(code, ctx, { timeout: 3000 })
+    let value = (0, eval)(String(d.code))
     if (value && typeof value.then === 'function') value = await value
-    if (value !== undefined) {
-      const fmtResult = runInContext('__fmtResult', ctx) as (v: unknown) => string
-      result = fmtResult(value)
-    }
-  } catch (e) {
-    const err = e as { name?: unknown; message?: unknown } | null
+    if (value !== undefined) result = __fmtResult(value)
+  } catch (err) {
     error =
       err && err.message !== undefined
-        ? `${String(err.name ?? 'Error')}: ${String(err.message)}`
-        : String(e)
+        ? String(err.name ?? 'Error') + ': ' + String(err.message)
+        : String(err)
   }
-
   let output = ''
   try {
-    output = String(runInContext('__logs.join("\\n")', ctx))
-  } catch {
+    output = String(__logs.join('\n'))
+  } catch (_) {
     output = ''
   }
-  let blocks: unknown[] = []
+  let blocks = []
   try {
-    const json = String(runInContext('JSON.stringify(__blocks)', ctx))
-    if (json.length > 2_000_000) {
-      error = error ?? '표/차트 데이터가 너무 커요.'
-    } else {
-      blocks = JSON.parse(json)
-    }
-  } catch {
+    const json = JSON.stringify(__blocks)
+    if (json.length > 2000000) error = error ?? '표/차트 데이터가 너무 커요.'
+    else blocks = JSON.parse(json)
+  } catch (_) {
     blocks = []
   }
-  let values: Record<string, string> = {}
+  let values = {}
   try {
-    values = JSON.parse(String(runInContext('JSON.stringify(__values)', ctx)))
-  } catch {
+    values = JSON.parse(JSON.stringify(__values))
+  } catch (_) {
     values = {}
   }
-  process.parentPort.postMessage({ output, result, error, timedOut: false, blocks, values })
-})
+  post({ output, result, error, blocks, values })
+}

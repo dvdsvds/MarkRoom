@@ -5,15 +5,16 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExportDialog } from '../export/ExportDialog'
 import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { dirOf, fileNameOf } from '@renderer/utils/path'
-import ChevronIcon from '../../icons/chevron.svg?react'
 import ExportIcon from '../../icons/export.svg?react'
 import NewFileIcon from '../../icons/new-file.svg?react'
 import NewFolderIcon from '../../icons/new-folder.svg?react'
+import ChevronIcon from '../../icons/chevron.svg?react'
 import { InlineNameInput, NewFileRow } from './InlineInputs'
 import { TreeRow, type RowContext } from './TreeRow'
 import { buildMenuItems } from './sidebarMenu'
 import { useTreeFocus } from './useTreeFocus'
 import { useTreeActions } from './useTreeActions'
+import { TagSection } from './TagSection'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -37,6 +38,32 @@ interface SidebarProps {
 
 export interface SidebarHandle {
   startNewFile: (dirPath: string) => void
+}
+
+function SectionHeader({
+  label,
+  open,
+  onToggle
+}: {
+  label: string
+  open: boolean
+  onToggle: () => void
+}): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex h-[26px] items-center gap-1 rounded-md pl-1 pr-2 text-[11px] font-medium tracking-wide text-text-tertiary transition-colors hover:text-text-secondary"
+    >
+      <ChevronIcon
+        width={12}
+        height={12}
+        className="shrink-0 transition-transform"
+        style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)' }}
+      />
+      {label}
+    </button>
+  )
 }
 
 const ICON_BTN =
@@ -64,15 +91,16 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }: SidebarProps,
   ref
 ) {
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; node: TreeNode } | null>(
+    null
+  )
   const [exportTarget, setExportTarget] = useState<{
     folderPath: string
     isRoot: boolean
     label: string
   } | null>(null)
-  useImperativeHandle(ref, () => ({
-    startNewFile: (dirPath: string) => setNewFileIn(dirPath)
-  }))
+  const [filesOpen, setFilesOpen] = useState(true)
+  const [tagsOpen, setTagsOpen] = useState(true)
 
   const {
     rowRefs,
@@ -127,6 +155,10 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onFileCreated
   })
 
+  useImperativeHandle(ref, () => ({
+    startNewFile: (dirPath: string) => setNewFileIn(dirPath)
+  }))
+
   const resolveToolbarDir = (): string | null => {
     if (selectedFolderPath) return selectedFolderPath
     if (activeFilePath) return dirOf(activeFilePath)
@@ -172,19 +204,19 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   }
 
   const menuItems = contextMenu
-  ? buildMenuItems(contextMenu.node, {
-      rootDir,
-      dirtyFilePaths,
-      expandPath,
-      startNewFile: setNewFileIn,
-      startNewFolder: setNewFolderIn,
-      startRename: setEditingPath,
-      openExport: setExportTarget,
-      openDelete: openDeleteConfirm,
-      onCompareChanges,
-      onOpenHistory
-    })
-  : []
+    ? buildMenuItems(contextMenu.node, {
+        rootDir,
+        dirtyFilePaths,
+        expandPath,
+        startNewFile: setNewFileIn,
+        startNewFolder: setNewFolderIn,
+        startRename: setEditingPath,
+        openExport: setExportTarget,
+        openDelete: openDeleteConfirm,
+        onCompareChanges,
+        onOpenHistory
+      })
+    : []
 
   return (
     <div
@@ -195,92 +227,102 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       onDrop={(e) => rootDir && handleDrop(e, rootDir)}
       onKeyDown={(e) => handleTreeKeyDown(e, openDeleteConfirm)}
     >
-      <div className="flex h-9 shrink-0 items-center justify-between pl-4 pr-2">
-        <span className="text-[11px] font-medium tracking-wide text-text-tertiary">탐색</span>
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-focus-within/sb:opacity-100 group-hover/sb:opacity-100">
-          <button
-            type="button"
-            onClick={() =>
-              rootDir && setExportTarget({ folderPath: rootDir, isRoot: true, label: '전체' })
-            }
-            title="전체 내보내기"
-            disabled={!rootDir}
-            className={ICON_BTN}
-          >
-            <ExportIcon />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const dir = resolveToolbarDir()
-              if (dir) {
-                expandPath(dir)
-                setNewFolderIn(dir)
+      <div className={`flex min-h-0 flex-col ${filesOpen ? 'flex-1' : 'shrink-0'}`}>
+        <div className="flex h-9 shrink-0 items-center justify-between pl-2 pr-2">
+          <SectionHeader label="파일" open={filesOpen} onToggle={() => setFilesOpen((v) => !v)} />
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-focus-within/sb:opacity-100 group-hover/sb:opacity-100">
+            <button
+              type="button"
+              onClick={() =>
+                rootDir && setExportTarget({ folderPath: rootDir, isRoot: true, label: '전체' })
               }
-            }}
-            title="새 폴더"
-            disabled={!rootDir}
-            className={`${ICON_BTN} !w-[30px]`}
-          >
-            <NewFolderIcon />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const dir = resolveToolbarDir()
-              if (dir) {
-                expandPath(dir)
-                setNewFileIn(dir)
-              }
-            }}
-            title="새 파일"
-            disabled={!rootDir}
-            className={ICON_BTN}
-          >
-            <NewFileIcon />
-          </button>
+              title="전체 내보내기"
+              disabled={!rootDir}
+              className={ICON_BTN}
+            >
+              <ExportIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const dir = resolveToolbarDir()
+                if (dir) {
+                  expandPath(dir)
+                  setNewFolderIn(dir)
+                }
+              }}
+              title="새 폴더"
+              disabled={!rootDir}
+              className={`${ICON_BTN} !w-[30px]`}
+            >
+              <NewFolderIcon />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const dir = resolveToolbarDir()
+                if (dir) {
+                  expandPath(dir)
+                  setNewFileIn(dir)
+                }
+              }}
+              title="새 파일"
+              disabled={!rootDir}
+              className={ICON_BTN}
+            >
+              <NewFileIcon />
+            </button>
+          </div>
         </div>
-      </div>
-      <div
-        className="flex-1 overflow-auto px-2 pb-2"
-        onMouseDown={(e) => {
-          if (e.target === e.currentTarget) {
-            setFocusedPath(null)
-            setHighlightOff(true)
-            setShowRing(false)
-            if (rootDir) onSelectFolder(rootDir)
-            e.currentTarget.parentElement?.focus()
-          }
-        }}
-      >
-        {newFolderIn === rootDir && rootDir && (
-          <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft: 8 }}>
-            <ChevronIcon
-              width={12}
-              height={12}
-              style={{ width: 12, height: 12 }}
-              className="shrink-0 opacity-0"
-            />
-            <FileTypeIcon name="" kind="folder" />
-            <InlineNameInput
-              initialValue=""
-              onCommit={(value) => commitNewFolder(rootDir, value)}
-              onCancel={() => setNewFolderIn(null)}
-              paddingLeft={0}
-              inline
-            />
+        {filesOpen && (
+          <div
+            className="flex-1 overflow-auto px-2 pb-2"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) {
+                setFocusedPath(null)
+                setHighlightOff(true)
+                setShowRing(false)
+                if (rootDir) onSelectFolder(rootDir)
+                e.currentTarget.parentElement?.parentElement?.focus()
+              }
+            }}
+          >
+            {newFolderIn === rootDir && rootDir && (
+              <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft: 8 }}>
+                <FileTypeIcon name="" kind="folder" />
+                <InlineNameInput
+                  initialValue=""
+                  onCommit={(value) => commitNewFolder(rootDir, value)}
+                  onCancel={() => setNewFolderIn(null)}
+                  paddingLeft={0}
+                  inline
+                />
+              </div>
+            )}
+            {newFileIn === rootDir && rootDir && (
+              <NewFileRow
+                paddingLeft={8}
+                onCommit={(value) => commitNewFile(rootDir, value)}
+                onCancel={() => setNewFileIn(null)}
+              />
+            )}
+            {tree.map((node) => (
+              <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />
+            ))}
           </div>
         )}
-        {newFileIn === rootDir && rootDir && (
-          <NewFileRow
-            paddingLeft={8 + 20}
-            onCommit={(value) => commitNewFile(rootDir, value)}
-            onCancel={() => setNewFileIn(null)}
-          />
+      </div>
+      <div
+        className={`flex min-h-0 flex-col border-t border-border ${tagsOpen ? 'flex-1' : 'shrink-0'}`}
+      >
+        <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+          <SectionHeader label="태그" open={tagsOpen} onToggle={() => setTagsOpen((v) => !v)} />
+        </div>
+        {tagsOpen && (
+          <div className="flex-1 overflow-auto pb-2">
+            <TagSection tree={tree} activeFilePath={activeFilePath} onOpenFile={onOpenFile} />
+          </div>
         )}
-        {tree.map((node) => (
-          <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />
-        ))}
       </div>
       {contextMenu && (
         <ContextMenu

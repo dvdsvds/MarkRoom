@@ -1,7 +1,8 @@
 import { readdirSync, renameSync, statSync, watch, type FSWatcher, type Stats } from 'fs'
 import { basename, dirname, extname, join, relative, sep } from 'path'
 import { getRootDir } from './paths'
-import { sanitizeTitle, uniqueFileName } from './fileOps'
+import { sanitizeFileName, uniqueFileName } from './fileOps'
+import { invalidateNote } from './noteCache'
 
 const recentlySavedByApp = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -27,11 +28,17 @@ export function markRemovalByApp(filePath: string): void {
   markSavedByApp(filePath)
 }
 
+export function markMoveByApp(path: string): void {
+  markSavedByApp(path)
+  const prefix = path + sep
+  for (const f of files) if (f.startsWith(prefix)) markSavedByApp(f)
+}
+
 function sanitizeExternalName(filePath: string): { oldPath: string; newPath: string } | null {
   if (extname(filePath).toLowerCase() !== '.md') return null
   const dir = dirname(filePath)
   const rawTitle = basename(filePath, '.md')
-  const cleanTitle = sanitizeTitle(rawTitle)
+  const cleanTitle = sanitizeFileName(rawTitle)
   if (cleanTitle === rawTitle) return null
   const newName = uniqueFileName(dir, cleanTitle, filePath)
   const newPath = join(dir, newName)
@@ -83,6 +90,7 @@ export function startWatcher(callbacks: WatcherCallbacks): void {
   }
 
   const handle = (p: string): void => {
+    invalidateNote(p)
     let st: Stats | null = null
     try {
       st = statSync(p)
@@ -95,7 +103,7 @@ export function startWatcher(callbacks: WatcherCallbacks): void {
         return
       }
       files.add(p)
-      const sanitized = sanitizeExternalName(p)
+      const sanitized = wasSavedByApp(p) ? null : sanitizeExternalName(p)
       if (sanitized) {
         files.delete(sanitized.oldPath)
         files.add(sanitized.newPath)

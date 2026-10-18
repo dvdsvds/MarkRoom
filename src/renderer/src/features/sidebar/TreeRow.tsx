@@ -2,7 +2,6 @@ import { AnimatePresence, motion } from 'motion/react'
 import type { TreeNode } from '../../types/workspace'
 import { FileExt, FileTypeIcon } from '../../components/FileTypeIcon'
 import { splitName } from '@renderer/utils/path'
-import ChevronIcon from '../../icons/chevron.svg?react'
 import { InlineNameInput, NewFileRow } from './InlineInputs'
 
 export interface RowContext {
@@ -64,8 +63,8 @@ export function TreeRow({
   ctx: RowContext
 }): React.JSX.Element {
   const expanded = ctx.isExpanded(node.path)
-  const paddingLeft = 8 + depth * 12
-  const childPadding = 8 + (depth + 1) * 12
+  const paddingLeft = 8 + depth * 16
+  const childPadding = 8 + (depth + 1) * 16
 
   if (node.type === 'folder') {
     const isSystem = SYSTEM_FOLDERS.has(node.name)
@@ -83,17 +82,7 @@ export function TreeRow({
         >
           {ctx.editingPath === node.path ? (
             <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft }}>
-              <ChevronIcon
-                width={12}
-                height={12}
-                style={{
-                  width: 12,
-                  height: 12,
-                  transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)'
-                }}
-                className="shrink-0 text-text-secondary transition-transform"
-              />
-              <FileTypeIcon name={node.name} kind="folder" />
+              <FileTypeIcon name={node.name} kind="folder" open={expanded} />
               <InlineNameInput
                 initialValue={node.name}
                 onCommit={(value) => ctx.onCommitRename(node, value)}
@@ -118,13 +107,7 @@ export function TreeRow({
               } ${isSelected ? 'bg-bg-mute' : ''} text-text`}
               style={{ paddingLeft }}
             >
-              <ChevronIcon
-                width={12}
-                height={12}
-                className="shrink-0 text-text-secondary transition-transform"
-                style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-              />
-              <FileTypeIcon name={node.name} kind="folder" />
+              <FileTypeIcon name={node.name} kind="folder" open={expanded} />
               <span className={`truncate ${isSystem ? 'font-normal' : 'font-medium'}`}>
                 {node.name}
               </span>
@@ -146,12 +129,6 @@ export function TreeRow({
                   className="flex h-7 w-full items-center gap-2 pr-2"
                   style={{ paddingLeft: childPadding }}
                 >
-                  <ChevronIcon
-                    width={12}
-                    height={12}
-                    style={{ width: 12, height: 12 }}
-                    className="shrink-0 opacity-0"
-                  />
                   <FileTypeIcon name="" kind="folder" />
                   <InlineNameInput
                     initialValue=""
@@ -165,7 +142,7 @@ export function TreeRow({
               )}
               {ctx.newFileIn === node.path && (
                 <NewFileRow
-                  paddingLeft={childPadding + 20}
+                  paddingLeft={childPadding}
                   onCommit={(value) => ctx.onCommitNewFile(node.path, value)}
                   onCancel={ctx.onCancelNewFile}
                 />
@@ -182,10 +159,7 @@ export function TreeRow({
 
   if (ctx.editingPath === node.path) {
     return (
-      <div
-        className="flex h-7 w-full items-center gap-2 pr-2"
-        style={{ paddingLeft: paddingLeft + 20 }}
-      >
+      <div className="flex h-7 w-full items-center gap-2 pr-2" style={{ paddingLeft }}>
         <FileTypeIcon name={node.name} kind="file" />
         <InlineNameInput
           initialValue={nameWithoutExt(node)}
@@ -213,7 +187,7 @@ export function TreeRow({
       className={`${ROW_BASE} ${
         ctx.showRing && ctx.focusedPath === node.path ? 'ring-1 ring-inset ring-accent/60' : ''
       } ${isActive ? 'bg-bg-mute' : ''} ${ctx.draggingPath === node.path ? 'opacity-40' : ''}`}
-      style={{ paddingLeft: paddingLeft + 20 }}
+      style={{ paddingLeft }}
     >
       <FileTypeIcon name={node.name} kind="file" />
       <span className="truncate">

@@ -22,6 +22,11 @@ interface Backlink {
   count: number
 }
 
+interface LinkGraph {
+  nodes: { path: string; title: string }[]
+  edges: { source: string; target: string}[]
+}
+
 interface SearchQuery {
   text: string
   folder: string | null
@@ -62,31 +67,6 @@ interface HistoryEntry {
   size: number
 }
 
-type OutputBlock =
-  | {
-      kind: 'table'
-      title: string
-      columns: string[]
-      align: ('left' | 'center' | 'right')[]
-      rows: (string | number)[][]
-    }
-  | {
-      kind: 'chart'
-      type: 'bar' | 'line' | 'pie'
-      title: string
-      labels: string[]
-      series: { name: string; values: number[] }[]
-    }
-
-interface RunResult {
-  output: string
-  result: string | null
-  error: string | null
-  timedOut: boolean
-  blocks: OutputBlock[]
-  values: Record<string, string>
-}
-
 export interface MarkRoomApi {
   app: {
     getChangelog: () => Promise<string | null>
@@ -95,6 +75,8 @@ export interface MarkRoomApi {
     minimize: () => Promise<void>
     toggleMaximize: () => Promise<void>
     close: () => Promise<void>
+    confirmClose: () => Promise<void>
+    onCloseRequested: (callback: () => void) => () => void
     isMaximized: () => Promise<boolean>
     platform: () => Promise<NodeJS.Platform>
     onMaximizedChanged: (callback: (isMaximized: boolean) => void) => () => void
@@ -116,12 +98,16 @@ export interface MarkRoomApi {
       pdfDir: string
       relPath: string
     }) => Promise<{ ok: boolean; error?: string }>
-  }
+  },
+  props: {
+    getAll: () => Promise<Record<string, Record<string, string>>>
+    set: (filePath: string, props: Record<string, string> | null) => Promise<void>
+  },
   code: {
-    run: (code: string, baseDir: string) => Promise<RunResult>
     readFiles: (
       code: string,
-      baseDir: string
+      baseDir: string,
+      lagn?: 'js' | 'py'
     ) => Promise<{ files: Record<string, string>; fileErrors: Record<string, string> }>
   }
   workspace: {
@@ -135,9 +121,11 @@ export interface MarkRoomApi {
     moveEntry: (sourcePath: string, targetDirPath: string) => Promise<string>
     trash: (targetPath: string) => Promise<void>
     reveal: (targetPath: string) => Promise<void>
+    openInDefaultApp: (targetPath: string) => Promise<string>
     copyPath: (targetPath: string, relative: boolean) => Promise<void>
     findBacklinks: (mdPath: string) => Promise<Backlink[]>
     findBacklinkContexts: (mdPath: string) => Promise<BacklinkWithContext[]>
+    linkGraph: () => Promise<LinkGraph>
     saveAttachment: (
       noteDirPath: string,
       kind: 'img' | 'files',

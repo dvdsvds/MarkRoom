@@ -14,11 +14,19 @@ import {
   createEmptyNote,
   moveEntry,
   revealInFolder,
+  openInDefaultApp,
   saveAttachment
 } from './fileOps'
-import { findBacklinks, findBacklinkContexts, updateWikilinksOnRename } from './links'
+import { findBacklinks, findBacklinkContexts, updateWikilinksOnRename, buildLinkGraph } from './links'
 import { searchNotes, type SearchQuery } from './search'
-import { markRemovalByApp, markSavedByApp, startWatcher } from './watcher'
+import {
+  getAllNoteProps,
+  moveNoteProps,
+  removeNoteProps,
+  setNoteProps,
+  type NoteProps
+} from './noteProps'
+import { markRemovalByApp, markSavedByApp, markMoveByApp, startWatcher } from './watcher'
 import { checkExportLinks, exportFolder, listPdfNotes, type ExportOptions } from './exporter'
 import { applyRecovery, discardRecovery, findRecoverableFiles } from './recovery'
 import {
@@ -61,6 +69,8 @@ function saveNote({ filePath, content }: SaveNoteArgs): SaveNoteResult {
   return { filePath, renamed: false }
 }
 
+const preparedExportDirs = new Set<string>()
+
 export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): void {
   ipcMain.handle('workspace:getRootDir', () => getRootDir())
   ipcMain.handle('workspace:getTree', () => buildTree(getRootDir()))
@@ -79,25 +89,39 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:renameEntry', (_event, oldPath: string, newName: string) => {
     const target = join(dirname(oldPath), newName)
     const isMarkdown = extname(oldPath).toLowerCase() === '.md'
-    markRemovalByApp(oldPath)
+    markMoveByApp(oldPath)
+    markSavedByApp(target)
     renameEntry(oldPath, target)
     moveHistory(oldPath, target)
+    moveNoteProps(oldPath, target)
     if (isMarkdown && extname(target).toLowerCase() === '.md') {
-      updateWikilinksOnRename(getRootDir(), titleOf(oldPath), titleOf(target))
+      updateWikilinksOnRename(getRootDir(), titleOf(oldPath), titleOf(target), (p, before) => {
+        markSavedByApp(p)
+        recordSnapshot(p, before)
+      })
     }
     return target
   })
   ipcMain.handle('workspace:moveEntry', (_event, sourcePath: string, targetDirPath: string) => {
-    markRemovalByApp(sourcePath)
+    markMoveByApp(sourcePath)
     const destination = moveEntry(sourcePath, targetDirPath, markSavedByApp)
     moveHistory(sourcePath, destination)
+    moveNoteProps(sourcePath, destination)
     return destination
   })
-  ipcMain.handle('workspace:trash', (_event, targetPath: string) => {
+  ipcMain.handle('workspace:trash', async (_event, targetPath: string) => {
     markRemovalByApp(targetPath)
-    return trashEntry(targetPath)
+    await trashEntry(targetPath)
+    removeNoteProps(targetPath)
   })
+  ipcMain.handle('props:getAll', () => getAllNoteProps())
+  ipcMain.handle('props:set', (_event, filePath: string, props: NoteProps | null) =>
+    setNoteProps(filePath, props)
+  )
   ipcMain.handle('workspace:reveal', (_event, targetPath: string) => revealInFolder(targetPath))
+  ipcMain.handle('workspace:openInDefaultApp', (_event, targetPath: string) => 
+    openInDefaultApp(targetPath)
+  )
   ipcMain.handle('workspace:copyPath', (_event, targetPath: string, relative: boolean) => {
     const text = relative ? targetPath.slice(getRootDir().length + 1) : targetPath
     clipboard.writeText(text)
@@ -105,6 +129,7 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:findBacklinks', (_event, mdPath: string) =>
     findBacklinks(getRootDir(), titleOf(mdPath), mdPath)
   )
+  ipcMain.handle('workspace:linkGraph', () => buildLinkGraph(getRootDir()))
   ipcMain.handle('workspace:findBacklinkContexts', (_event, mdPath: string) =>
     findBacklinkContexts(getRootDir(), titleOf(mdPath), mdPath)
   )
@@ -146,7 +171,10 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:listPdfNotes', (_event, folderPath: string) =>
     listPdfNotes(getRootDir(), folderPath)
   )
-  ipcMain.handle('workspace:openPath', (_event, targetPath: string) => shell.openPath(targetPath))
+  ipcMain.handle('workspace:openPath', async (_event, targetPath: string) => {
+    if (!preparedExportDirs.has(targetPath)) return '허용되지 않은 경로예요.'
+    return shell.openPath(targetPath)
+  })
   ipcMain.handle(
     'workspace:prepareExport',
     async (_event, parentDir: string, name: string, md: boolean, pdf: boolean) => {
@@ -168,6 +196,7 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
       } catch {
         return { ok: false as const, error: 'denied' as const }
       }
+      preparedExportDirs.add(baseDir)
       return { ok: true as const, baseDir, mdDir, pdfDir }
     }
   )

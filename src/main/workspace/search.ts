@@ -1,10 +1,10 @@
-import { readFileSync } from 'fs'
-import { basename, extname } from 'path'
+import { basename, extname, sep } from 'path'
 import { walkMdFiles } from './links'
+import { readNoteCached } from './noteCache'
 
 function safeRead(filePath: string): string | null {
   try {
-    return readFileSync(filePath, 'utf-8')
+    return readNoteCached(filePath)
   } catch {
     return null
   }
@@ -28,7 +28,8 @@ export function searchNotes(rootDir: string, query: SearchQuery): SearchResult[]
   const lowerText = query.text.trim().toLowerCase()
 
   for (const filePath of walkMdFiles(rootDir)) {
-    if (query.folder && !filePath.startsWith(`${query.folder}/`)) continue
+    if (results.length >= MAX_RESULTS) break
+    if (query.folder && !filePath.startsWith(query.folder + sep)) continue
 
     const raw = safeRead(filePath)
     if (raw === null) continue
@@ -57,8 +58,6 @@ export function searchNotes(rootDir: string, query: SearchQuery): SearchResult[]
         (end < body.length ? '…' : '')
       results.push({ path: filePath, title, snippet })
     }
-
-    if (results.length >= MAX_RESULTS) break
   }
 
   return results

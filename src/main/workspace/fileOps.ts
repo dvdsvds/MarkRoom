@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'fs'
 import { basename, dirname, extname, join } from 'path'
 import { shell } from 'electron'
 import { assertInsideRoot } from './paths'
@@ -6,8 +6,8 @@ import { assertInsideRoot } from './paths'
 const FORBIDDEN_FILENAME_CHARS = /[/\\:?*"<>|]/g
 
 export function sanitizeTitle(rawTitle: string): string {
-  const cleaned = rawTitle.replace(FORBIDDEN_FILENAME_CHARS, ' ').trim().replace(/\s+/g, '_')
-  return cleaned.length > 0 ? cleaned : '제목_없음'
+  const cleaned = rawTitle.replace(FORBIDDEN_FILENAME_CHARS, ' ').trim().replace(/\s+/g, ' ')
+  return cleaned.length > 0 ? cleaned : '제목 없음'
 }
 
 export function sanitizeFileName(rawName: string): string {
@@ -71,7 +71,16 @@ export async function trashEntry(targetPath: string): Promise<void> {
 export function renameEntry(oldPath: string, newPath: string): void {
   const safeOld = assertInsideRoot(oldPath)
   const safeNew = assertInsideRoot(newPath)
+  if (existsSync(safeNew) && !isSameEntry(safeOld, safeNew)) {
+    throw new Error('같은 이름의 파일이 존재해요.')
+  }
   renameSync(safeOld, safeNew)
+}
+
+function isSameEntry(a: string, b: string): boolean {
+  const statA = statSync(a, { bigint: true })
+  const statB = statSync(b, { bigint: true })
+  return statA.dev === statB.dev && statA.ino === statB.ino
 }
 
 export function uniqueEntryName(targetDir: string, name: string): string {
@@ -117,6 +126,26 @@ export function saveAttachment(
 export function revealInFolder(targetPath: string): void {
   const safePath = assertInsideRoot(targetPath)
   shell.showItemInFolder(safePath)
+}
+
+const DEFAULT_APP_EXTENSIONS = new Set([
+  '.docx',
+  '.xlsx',
+  '.pptx',
+  '.doc',
+  '.xls',
+  '.ppt',
+  '.hwp',
+  '.hwpx'
+])
+
+export async function openInDefaultApp(targetPath: string): Promise<string> {
+  const safePath = assertInsideRoot(targetPath)
+  if (!DEFAULT_APP_EXTENSIONS.has(extname(safePath).toLowerCase())) {
+    shell.showItemInFolder(safePath)
+    return ''
+  }
+  return shell.openPath(safePath)
 }
 
 export function forceRemove(targetPath: string): void {

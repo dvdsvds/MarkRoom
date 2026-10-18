@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { TreeNode } from '../../types/workspace'
 import { dirOf, sepOf, splitName } from '@renderer/utils/path'
+import { useToastStore } from '@renderer/stores/toastStore'
 
 export interface DeleteTarget {
   node: TreeNode
@@ -35,9 +36,16 @@ export function useTreeActions({
     const newName = node.type === 'file' ? `${rawValue}${splitName(node.name).ext}` : rawValue
     setEditingPath(null)
     if (newName === node.name) return
-    void window.api.workspace.renameEntry(node.path, newName).then((newPath) => {
-      onEntryRenamed(node.path, newPath)
-    })
+    window.api.workspace
+      .renameEntry(node.path, newName)
+      .then((newPath) => {
+        onEntryRenamed(node.path, newPath)
+      })
+      .catch(() => {
+        useToastStore
+          .getState()
+          .push({ kind: 'info', message: `'${newName}' 이름이 이미 있거나 바꿀 수 없어요.` })
+      })
   }
 
   const commitNewFolder = (dirPath: string, name: string): void => {

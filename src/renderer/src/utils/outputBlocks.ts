@@ -1,5 +1,27 @@
-type RunResult = Awaited<ReturnType<typeof window.api.code.run>>
-export type OutputBlock = RunResult['blocks'][number]
+export type OutputBlock =
+  | {
+      kind: 'table'
+      title: string
+      columns: string[]
+      align: ('left' | 'center' | 'right')[]
+      rows: (string | number)[][]
+    }
+  | {
+      kind: 'chart'
+      type: 'bar' | 'line' | 'pie'
+      title: string
+      labels: string[]
+      series: { name: string; values: number[] }[]
+    }
+
+export interface RunResult {
+  output: string
+  result: string | null
+  error: string | null
+  timedOut: boolean
+  blocks: OutputBlock[]
+  values: Record<string, string>
+}
 type TableBlock = Extract<OutputBlock, { kind: 'table' }>
 type ChartBlock = Extract<OutputBlock, { kind: 'chart' }>
 
