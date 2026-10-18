@@ -14,6 +14,9 @@ import {
 } from '@codemirror/commands'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { languages } from '@codemirror/language-data'
+import { LanguageDescription } from '@codemirror/language'
+import { isMarkdownPath } from '../utils/fileKind'
+import { fileNameOf } from '../utils/path'
 import { search, searchKeymap } from '@codemirror/search'
 import { createFindPanel } from './findPanel'
 import { vim, Vim } from '@replit/codemirror-vim'
@@ -52,6 +55,7 @@ export interface MarkdownEditorHandle {
 
 interface MarkdownEditorProps {
   tabId: string
+  filePath: string | null
   value: string
   onChange: (tabId: string, value: string) => void
   getNoteIndex: () => NoteRef[]
@@ -69,6 +73,7 @@ interface MarkdownEditorProps {
 
 const vimCompartment = new Compartment()
 const toolbarCompartment = new Compartment()
+const languageCompartment = new Compartment()
 
 export function undoEditor(): void {
   const view = getCurrentView()
@@ -141,10 +146,43 @@ function buildExtensions(
   ]
 }
 
+// 마크다운이 아닌 파일(코드, 설정, 일반 텍스트)용. 문법 색상은 확장자로 골라 나중에 불러온다.
+function buildCodeExtensions(
+  vimModeInitial: boolean,
+  reportCursor: (pos: CursorPosition) => void,
+  reportVimMode: (mode: string) => void,
+  getVimMouse: () => boolean,
+  baseContent: string,
+  onChangeClick: () => void,
+  wrap: boolean
+): Extension[] {
+  return [
+    cursorMetrics(),
+    koreanPhrases,
+    vimCompartment.of(vimModeInitial ? [vim()] : []),
+    changeGutter(baseContent, onChangeClick),
+    search({ top: true, createPanel: createFindPanel }),
+    basicSetup,
+    drawSelection({ cursorBlinkRate: 0 }),
+    fullLineSelection,
+    history(),
+    tooltips({ position: 'fixed', parent: document.body }),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    languageCompartment.of([]),
+    vimImeGuard(),
+    vimPointer(getVimMouse),
+    wrap ? EditorView.lineWrapping : [],
+    vimModeTracker(reportVimMode),
+    cursorReport(reportCursor),
+    editorTheme
+  ]
+}
+
 export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(
   function MarkdownEditor(
     {
       tabId,
+      filePath,
       value,
       onChange,
       getNoteIndex,
@@ -165,6 +203,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
     const viewRef = useRef<EditorView | null>(null)
     const statesRef = useRef<Map<string, EditorState>>(new Map())
     const currentTabIdRef = useRef<string>(tabId)
+    const filePathRef = useRef<string | null>(filePath)
     const onChangeRef = useRef(onChange)
     const getNoteIndexRef = useRef(getNoteIndex)
     const getAttachmentDirRef = useRef(getAttachmentDir)
@@ -210,6 +249,18 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
       }
     }))
 
+    function loadLanguage(stateTabId: string, desc: LanguageDescription): void {
+      void desc.load().then((support) => {
+        const effect = languageCompartment.reconfigure(support)
+        if (currentTabIdRef.current === stateTabId && viewRef.current) {
+          viewRef.current.dispatch({ effects: effect })
+          return
+        }
+        const state = statesRef.current.get(stateTabId)
+        if (state) statesRef.current.set(stateTabId, state.update({ effects: effect }).state)
+      })
+    }
+
     function makeState(doc: string): EditorState {
       const updateListener = EditorView.updateListener.of((update) => {
         statesRef.current.set(currentTabIdRef.current, update.state)
@@ -217,6 +268,26 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
           onChangeRef.current(currentTabIdRef.current, update.state.doc.toString())
         }
       })
+      const path = filePathRef.current
+      if (path && !isMarkdownPath(path)) {
+        const desc = LanguageDescription.matchFilename(languages, fileNameOf(path))
+        if (desc) loadLanguage(currentTabIdRef.current, desc)
+        return EditorState.create({
+          doc,
+          extensions: [
+            ...buildCodeExtensions(
+              vimModeRef.current,
+              (pos) => onCursorChangeRef.current?.(pos),
+              (mode) => onVimModeChangeRef.current?.(mode),
+              () => vimMouseRef.current,
+              baseContentRef.current,
+              () => onOpenBaseDiffRef.current?.(),
+              !desc
+            ),
+            updateListener
+          ]
+        })
+      }
       return EditorState.create({
         doc,
         extensions: [
@@ -292,6 +363,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
       const view = viewRef.current
       if (!view) return
       currentTabIdRef.current = tabId
+      filePathRef.current = filePath
 
       let state = statesRef.current.get(tabId)
       if (!state || state.doc.toString() !== value) {

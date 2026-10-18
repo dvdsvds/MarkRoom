@@ -49,6 +49,21 @@ export function readNote(filePath: string): string {
   return readFileSync(safePath, 'utf-8')
 }
 
+const MAX_TEXT_BYTES = 20 * 1024 * 1024
+const BINARY_SNIFF_BYTES = 8192
+
+export type TextReadResult =
+  | { ok: true; content: string }
+  | { ok: false; reason: 'binary' | 'tooLarge' }
+
+export function readTextFile(filePath: string): TextReadResult {
+  const safePath = assertInsideRoot(filePath)
+  if (statSync(safePath).size > MAX_TEXT_BYTES) return { ok: false, reason: 'tooLarge' }
+  const buf = readFileSync(safePath)
+  if (buf.subarray(0, BINARY_SNIFF_BYTES).includes(0)) return { ok: false, reason: 'binary' }
+  return { ok: true, content: buf.toString('utf-8') }
+}
+
 export function writeFileAtomic(filePath: string, content: string): void {
   const safePath = assertInsideRoot(filePath)
   const dir = dirname(safePath)

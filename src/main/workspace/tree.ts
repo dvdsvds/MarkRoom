@@ -1,32 +1,11 @@
 import { readdirSync, statSync } from 'fs'
-import { basename, extname, join } from 'path'
+import { join } from 'path'
 
 export interface TreeNode {
   name: string
   path: string
   type: 'folder' | 'file'
   children?: TreeNode[]
-}
-
-const VISIBLE_DOC_EXTENSIONS = new Set([
-  '.md',
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.webp',
-  '.svg',
-  '.pdf',
-  '.docx',
-  '.xlsx',
-  '.pptx',
-  '.txt',
-  '.csv'
-])
-
-function isVisibleFile(fileName: string, parentFolderName: string): boolean {
-  if (parentFolderName === 'img' || parentFolderName === 'files') return true
-  return VISIBLE_DOC_EXTENSIONS.has(extname(fileName).toLowerCase())
 }
 
 function sortEntries(nodes: TreeNode[]): TreeNode[] {
@@ -37,7 +16,6 @@ function sortEntries(nodes: TreeNode[]): TreeNode[] {
 }
 
 export function buildTree(dirPath: string): TreeNode[] {
-  const parentFolderName = basename(dirPath)
   let entries: string[]
   try {
     entries = readdirSync(dirPath)
@@ -64,7 +42,7 @@ export function buildTree(dirPath: string): TreeNode[] {
         type: 'folder',
         children: buildTree(fullPath)
       })
-    } else if (stat.isFile() && isVisibleFile(entry, parentFolderName)) {
+    } else if (stat.isFile()) {
       nodes.push({ name: entry, path: fullPath, type: 'file' })
     }
   }

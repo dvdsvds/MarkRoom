@@ -146,6 +146,10 @@ const api = {
     getTree: (): Promise<TreeNode[]> => ipcRenderer.invoke('workspace:getTree'),
     readFile: (filePath: string): Promise<string> =>
       ipcRenderer.invoke('workspace:readFile', filePath),
+    readTextFile: (
+      filePath: string
+    ): Promise<{ ok: true; content: string } | { ok: false; reason: 'binary' | 'tooLarge' }> =>
+      ipcRenderer.invoke('workspace:readTextFile', filePath),
     saveNote: (args: SaveNoteArgs): Promise<SaveNoteResult> =>
       ipcRenderer.invoke('workspace:saveNote', args),
     createFolder: (dirPath: string, name: string): Promise<string> =>

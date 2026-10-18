@@ -114,6 +114,9 @@ export interface MarkRoomApi {
     getRootDir: () => Promise<string>
     getTree: () => Promise<TreeNode[]>
     readFile: (filePath: string) => Promise<string>
+    readTextFile: (
+      filePath: string
+    ) => Promise<{ ok: true; content: string } | { ok: false; reason: 'binary' | 'tooLarge' }>
     saveNote: (args: SaveNoteArgs) => Promise<SaveNoteResult>
     createFolder: (dirPath: string, name: string) => Promise<string>
     createNote: (dirPath: string, name: string) => Promise<string>

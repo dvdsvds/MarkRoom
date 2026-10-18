@@ -24,7 +24,11 @@ export async function restoreOpenTabs(knownPaths: Set<string>): Promise<void> {
       (path) => knownPaths.has(path) && fileKindOf(path) !== 'external'
     )
     for (const p of paths) {
-      openFile(p, await readFileContent(p))
+      try {
+        openFile(p, await readFileContent(p))
+      } catch {
+        // 그사이 바이너리로 바뀌었거나 너무 커진 파일은 복원하지 않는다
+      }
     }
     const activePath = saved?.activeTabId ?? null
     if (activePath) {

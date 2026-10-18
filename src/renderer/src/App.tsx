@@ -36,7 +36,7 @@ import TodoIcon from './icons/todo.svg?react'
 import BacklinksIcon from './icons/backlinks.svg?react'
 import SidebarIcon  from './icons/sidebar.svg?react'
 import GrpahIcon from './icons/graph.svg?react'
-import { readFileContent, fileKindOf } from './utils/fileKind'
+import { readTextFile, fileKindOf, isMarkdownPath } from './utils/fileKind'
 import { FileViewer } from './components/FileViewer'
 import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
@@ -97,6 +97,7 @@ function App(): React.JSX.Element {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const tagBarPath = activeTab?.kind === 'text' && !activeTab.missing && activeTab.filePath?.toLowerCase().endsWith('.md') ? activeTab.filePath : null
   const isViewer = activeTab !== null && activeTab.kind !== 'text'
+  const showPreview = !activeTab?.filePath || isMarkdownPath(activeTab.filePath)
   const sidebarRef = useRef<SidebarHandle>(null)
 
   const splitRef = useRef<HTMLDivElement>(null)
@@ -238,14 +239,37 @@ function App(): React.JSX.Element {
   const handleOpenFile = useCallback(
     (filePath: string): void => {
       setSelectedFolderPath(null)
-      if (fileKindOf(filePath) === 'external') {
+      const openExternally = (): void => {
         void window.api.workspace.openInDefaultApp(filePath).then((error) => {
           if (error) pushToast({ kind: 'info', message: '이 파일을 열 수 있는 앱이 없어요.' })
         })
+      }
+      const kind = fileKindOf(filePath)
+      if (kind === 'external') {
+        openExternally()
         return
       }
-      void readFileContent(filePath).then((fileContent) => {
-        openFile(filePath, fileContent)
+      if (kind !== 'text') {
+        openFile(filePath, '')
+        return
+      }
+      if (useTabsStore.getState().tabs.some((t) => t.filePath === filePath)) {
+        openFile(filePath, '')
+        return
+      }
+      void readTextFile(filePath).then((result) => {
+        if (result.ok) {
+          openFile(filePath, result.content)
+          return
+        }
+        pushToast({
+          kind: 'info',
+          message:
+            result.reason === 'tooLarge'
+              ? '20MB가 넘는 파일이라 폴더에서 보여 드려요.'
+              : '텍스트로 열 수 없는 파일이라 폴더에서 보여 드려요.'
+        })
+        void window.api.workspace.reveal(filePath)
       })
     },
     [openFile, pushToast]
@@ -619,14 +643,19 @@ function App(): React.JSX.Element {
               <div ref={splitRef} className="flex min-h-0 flex-1">
                 <div
                   className="flex min-w-0 shrink-0"
-                  style={{
-                    width: `min(${split.ratio * 100}%, calc(100% - ${previewMinWidth + 1}px))`,
-                    minWidth: EDITOR_MIN_WIDTH
-                  }}
+                  style={
+                    showPreview
+                      ? {
+                          width: `min(${split.ratio * 100}%, calc(100% - ${previewMinWidth + 1}px))`,
+                          minWidth: EDITOR_MIN_WIDTH
+                        }
+                      : { width: '100%' }
+                  }
                 >
                   <MarkdownEditor
                     ref={editorRef}
                     tabId={activeTab.id}
+                    filePath={activeTab.filePath}
                     value={activeTab.content}
                     onChange={handleEditorChange}
                     getNoteIndex={getNoteIndex}
@@ -642,27 +671,31 @@ function App(): React.JSX.Element {
                     className="min-w-0 flex-1 overflow-auto"
                   />
                 </div>
-                <div className="relative w-px shrink-0 bg-border">
-                  <div
-                    onMouseDown={split.onResizeStart}
-                    onDoubleClick={split.resetRatio}
-                    className={`absolute inset-y-0 -left-1 z-10 w-2 ${hasTemplate ? '' : 'cursor-col-resize'}`}
+                {showPreview && (
+                  <div className="relative w-px shrink-0 bg-border">
+                    <div
+                      onMouseDown={split.onResizeStart}
+                      onDoubleClick={split.resetRatio}
+                      className={`absolute inset-y-0 -left-1 z-10 w-2 ${hasTemplate ? '' : 'cursor-col-resize'}`}
+                    />
+                  </div>
+                )}
+                {showPreview && (
+                  <MarkdownPreview
+                    ref={previewRef}
+                    source={activeTab.content}
+                    baseDir={getAttachmentDir()}
+                    onScrollRatio={handlePreviewScrollRatio}
+                    onWikilinkClick={handleWikilinkClick}
+                    onToggleTask={handleToggleTask}
+                    onLinkClick={handleLinkClick}
+                    onReplaceSource={handleReplaceSource}
+                    onMinWidthChange={setPreviewMinWidth}
+                    onHasTemplateChange={setHasTemplate}
+                    className="min-w-0 flex-1 overflow-auto px-[var(--preview-pad)] pb-6 pt-3"
+                    docKey={activeTab.id}
                   />
-                </div>
-                <MarkdownPreview
-                  ref={previewRef}
-                  source={activeTab.content}
-                  baseDir={getAttachmentDir()}
-                  onScrollRatio={handlePreviewScrollRatio}
-                  onWikilinkClick={handleWikilinkClick}
-                  onToggleTask={handleToggleTask}
-                  onLinkClick={handleLinkClick}
-                  onReplaceSource={handleReplaceSource}
-                  onMinWidthChange={setPreviewMinWidth}
-                  onHasTemplateChange={setHasTemplate}
-                  className="min-w-0 flex-1 overflow-auto px-[var(--preview-pad)] pb-6 pt-3"
-                  docKey={activeTab.id}
-                />
+                )}
               </div>
             </div>
           ) : (

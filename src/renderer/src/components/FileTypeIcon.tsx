@@ -19,7 +19,6 @@ function typeOf(name: string, kind: 'file' | 'folder'): IconType {
   if (fileKind === 'pdf') return 'pdf'
   const ext = splitName(name).ext.slice(1).toLowerCase()
   switch (ext) {
-    case '':
     case 'md':
     case 'markdown':
       return 'md'

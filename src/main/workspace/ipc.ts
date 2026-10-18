@@ -7,6 +7,7 @@ import { getHistoryDir, getRootDir } from './paths'
 import { buildTree } from './tree'
 import {
   readNote,
+  readTextFile,
   renameEntry,
   writeFileAtomic,
   createFolder,
@@ -74,6 +75,7 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:getRootDir', () => getRootDir())
   ipcMain.handle('workspace:getTree', () => buildTree(getRootDir()))
   ipcMain.handle('workspace:readFile', (_event, filePath: string) => readNote(filePath))
+  ipcMain.handle('workspace:readTextFile', (_event, filePath: string) => readTextFile(filePath))
   ipcMain.handle('workspace:saveNote', (_event, args: SaveNoteArgs) => saveNote(args))
   ipcMain.handle('workspace:createFolder', (_event, dirPath: string, name: string) => {
     const target = join(dirPath, name)
