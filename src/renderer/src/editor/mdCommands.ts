@@ -194,6 +194,29 @@ export function insertLink(view: EditorView): void {
   })
 }
 
+/** 콜아웃을 넣는다. 고른 줄이 있으면 그 줄들을 감싼다. `note`를 선택해 둬서 바로 종류를 바꿔 쓸 수 있다. */
+export function insertCallout(view: EditorView): void {
+  const s = view.state
+  let lines = linesOf(s)
+  const filled = lines.filter((l) => l.text.trim() !== '')
+  if (filled.length === 0) {
+    const l = lines[0]
+    run(view, {
+      changes: { from: l.from, to: l.to, insert: '> [!note] ' },
+      selection: { anchor: l.from + 4, head: l.from + 8 }
+    })
+    return
+  }
+  lines = filled
+  const first = lines[0]
+  const last = lines[lines.length - 1]
+  const body = lines.map((l) => `> ${l.text}`).join('\n')
+  run(view, {
+    changes: { from: first.from, to: last.to, insert: `> [!note]\n${body}` },
+    selection: { anchor: first.from + 4, head: first.from + 8 }
+  })
+}
+
 export function insertWikilink(view: EditorView): void {
   replaceSel(view, (sel) => ({ text: `[[${sel}]]`, from: 2 + sel.length, to: 2 + sel.length }))
   startCompletion(view)

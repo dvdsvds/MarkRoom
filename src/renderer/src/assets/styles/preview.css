@@ -123,6 +123,64 @@
 .prose-preview blockquote > :first-child {
   margin-top: 0;
 }
+
+/* 콜아웃: > [!warning] 제목 */
+.prose-preview .callout {
+  --c: #2383e2;
+  margin: 1em 0;
+  padding: 0.55em 1em;
+  border-left: 3px solid var(--c);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--c) 9%, transparent);
+}
+.prose-preview .callout[data-color='blue'] { --c: #2383e2; }
+.prose-preview .callout[data-color='cyan'] { --c: #0e9fb5; }
+.prose-preview .callout[data-color='green'] { --c: #2f9e5b; }
+.prose-preview .callout[data-color='yellow'] { --c: #c99a06; }
+.prose-preview .callout[data-color='orange'] { --c: #e07a1f; }
+.prose-preview .callout[data-color='red'] { --c: #e5484d; }
+.prose-preview .callout[data-color='purple'] { --c: #8b5cf6; }
+.prose-preview .callout[data-color='gray'] { --c: #8a8a85; }
+.prose-preview .callout-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  font-weight: 600;
+  color: var(--c);
+}
+.prose-preview .callout-icon {
+  flex-shrink: 0;
+}
+.prose-preview summary.callout-title {
+  cursor: pointer;
+  list-style: none;
+}
+.prose-preview summary.callout-title::-webkit-details-marker {
+  display: none;
+}
+.prose-preview summary.callout-title::after {
+  content: '';
+  margin-left: auto;
+  width: 0.45em;
+  height: 0.45em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+.prose-preview details.callout[open] > summary.callout-title::after {
+  transform: rotate(45deg);
+}
+.prose-preview .callout-content {
+  margin-top: 0.4em;
+  color: var(--color-text);
+}
+.prose-preview .callout-content > :first-child {
+  margin-top: 0;
+}
+.prose-preview .callout-content > :last-child {
+  margin-bottom: 0;
+}
 .prose-preview blockquote > :last-child {
   margin-bottom: 0;
 }

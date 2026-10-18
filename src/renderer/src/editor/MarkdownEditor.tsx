@@ -18,6 +18,7 @@ import { LanguageDescription } from '@codemirror/language'
 import { isMarkdownPath } from '../utils/fileKind'
 import { fileNameOf } from '../utils/path'
 import { csvColumns, delimitedHint, detectDelimiter } from './csvColumns'
+import { calloutCompletionSource, calloutMarkerColors } from './calloutEditor'
 import { search, searchKeymap } from '@codemirror/search'
 import { createFindPanel } from './findPanel'
 import { vim, Vim } from '@replit/codemirror-vim'
@@ -130,12 +131,14 @@ function buildExtensions(
     keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     markdownLang,
     markdownColors,
+    calloutMarkerColors,
     mdToolbarKeys,
     toolbarCompartment.of(useSettingsStore.getState().showToolbar ? mdToolbarPanel : []),
     slashMenu,
     vimImeGuard(),
     markdownLang.language.data.of({ autocomplete: wikilinkCompletionSource(getNoteIndex) }),
     markdownLang.language.data.of({ autocomplete: templateCompletionSource }),
+    markdownLang.language.data.of({ autocomplete: calloutCompletionSource }),
     editingAssist(),
     listRenumber(),
     vimPointer(getVimMouse),

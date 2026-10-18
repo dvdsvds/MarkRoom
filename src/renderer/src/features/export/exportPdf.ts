@@ -35,6 +35,8 @@ function clean(node: HTMLElement): void {
     for (const x of Array.from(node.querySelectorAll('.' + cls))) x.classList.remove(cls)
   }
   node.style.removeProperty('zoom')
+  // 종이에서는 접을 수 없으니 접힌 콜아웃은 펼쳐서 낸다
+  for (const d of Array.from(node.querySelectorAll('details'))) d.setAttribute('open', '')
 }
 
 export function extractHtml(root: HTMLElement): string {

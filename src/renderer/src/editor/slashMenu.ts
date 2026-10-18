@@ -20,6 +20,7 @@ import highlightIcon from '../icons/tb-highlight.svg?raw'
 import {
   applyColor,
   toggleWrap,
+  insertCallout,
   insertCodeBlock,
   insertFootnote,
   insertLink,
@@ -53,6 +54,7 @@ const CMDS: SlashCmd[] = [
     run: (v) => toggleList(v, 'task')
   },
   { cmd: 'quote', label: '인용', icon: quoteIcon, group: 1, run: (v) => toggleQuote(v) },
+  { cmd: 'callout', label: '콜아웃', icon: quoteIcon, group: 1, run: (v) => insertCallout(v) },
   { cmd: 'link', label: '링크', icon: linkIcon, group: 2, run: (v) => insertLink(v) },
   { cmd: 'wiki', label: '위키링크', icon: wikilinkIcon, group: 2, run: (v) => insertWikilink(v) },
   { cmd: 'foot', label: '각주', icon: footnoteIcon, group: 2, run: (v) => insertFootnote(v) },
