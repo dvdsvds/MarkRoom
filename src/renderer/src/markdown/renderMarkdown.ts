@@ -47,6 +47,10 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
         token.attrSet('data-line', String(token.map[0]))
         token.attrSet('data-end', String(token.map[1]))
       }
+      // 위키링크 `[[노트#제목]]`으로 미리보기를 제목 위치에 바로 맞추기 위한 줄 번호
+      if (token.type === 'heading_open' && token.level === 0 && token.map) {
+        token.attrSet('data-line', String(token.map[0]))
+      }
     }
     return true
   })
@@ -57,7 +61,7 @@ const md = createMarkdownIt()
 
 const sanitizeConfig: SanitizeConfig = {
   ADD_TAGS: ['input'],
-  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', ' data-line']
+  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', 'data-heading', ' data-line']
 }
 
 function resolveAttachmentSrcs(html: string, baseDir: string): string {

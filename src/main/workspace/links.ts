@@ -32,8 +32,17 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+// `[[노트]]`, `[[노트#제목]]`, `[[노트|별칭]]`을 모두 잡는다. 1번 그룹은 `#제목|별칭` 부분
 function wikilinkPattern(title: string): RegExp {
-  return new RegExp(`\\[\\[\\s*${escapeRegExp(title)}\\s*\\]\\]`, 'g')
+  return new RegExp(
+    `\\[\\[\\s*${escapeRegExp(title)}\\s*((?:#[^\\]|\\n]*)?(?:\\|[^\\]\\n]*)?)\\]\\]`,
+    'g'
+  )
+}
+
+/** `[[ ]]` 안쪽에서 노트 이름만 꺼낸다. `[[#제목]]`이면 빈 문자열 */
+function linkTargetNote(inner: string): string {
+  return inner.split(/[#|]/)[0].trim()
 }
 
 export interface Backlink {
@@ -129,7 +138,7 @@ export function updateWikilinksOnRename(
     }
     if (!pattern.test(content)) continue
     pattern.lastIndex = 0
-    const updated = content.replace(pattern, () => `[[${newTitle}]]`)
+    const updated = content.replace(pattern, (_m, rest: string) => `[[${newTitle}${rest}]]`)
     if (updated !== content) {
       beforeWrite?.(filePath, content)
       writeFileSync(filePath, updated, 'utf-8')
@@ -163,7 +172,7 @@ export function buildLinkGraph(rootDir: string): LinkGraph {
       continue
     }
     for (const m of content.matchAll(WIKILINK_RE)) {
-      const target = byTitle.get(m[1].trim())
+      const target = byTitle.get(linkTargetNote(m[1]))
       if (!target || target === filePath) continue
       const key = `${filePath}\0${target}`
       if (seen.has(key)) continue

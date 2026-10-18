@@ -1,6 +1,7 @@
 import { fileKindOf, type FileKind } from '@renderer/utils/fileKind'
 import { create } from 'zustand'
 import { sepOf } from '@renderer/utils/path'
+import { wikilinkPatternFor } from '@renderer/utils/wikilink'
 
 export interface Tab {
   id: string
@@ -147,12 +148,12 @@ export const useTabsStore = create<TabsState>((set, get) => ({
     })),
 
   rewriteWikilinks: (oldTitle, newTitle) => {
-    const escaped = oldTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const pattern = new RegExp(`\\[\\[\\s*${escaped}\\s*\\]\\]`, 'g')
+    const pattern = wikilinkPatternFor(oldTitle)
     set((s) => ({
       tabs: s.tabs.map((t) => {
         if (!t.filePath?.toLowerCase().endsWith('.md')) return t
-        const content = t.content.replace(pattern, () => `[[${newTitle}]]`)
+        // `#제목`, `|별칭` 부분은 그대로 두고 노트 이름만 바꾼다
+        const content = t.content.replace(pattern, (_m, rest: string) => `[[${newTitle}${rest}]]`)
         return content === t.content ? t : { ...t, content }
       })
     }))

@@ -23,6 +23,11 @@ async function settle(host: HTMLElement): Promise<void> {
 function transformLinks(host: HTMLElement, note: PdfNote): void {
   for (const sp of Array.from(host.querySelectorAll<HTMLElement>('span[data-wikilink]'))) {
     const title = sp.getAttribute('data-wikilink') ?? ''
+    if (!title) {
+      // `[[#제목]]`처럼 같은 문서를 가리키는 링크는 글자만 남긴다
+      sp.removeAttribute('data-wikilink')
+      continue
+    }
     const href = Object.prototype.hasOwnProperty.call(note.links, title) ? note.links[title] : null
     if (href) {
       const a = document.createElement('a')

@@ -17,6 +17,13 @@ export function useScrollSync(
       if (!el) return
       const max = el.scrollHeight - el.clientHeight
       el.scrollTop = max > 0 ? ratio * max : 0
+    },
+    scrollToLine: (line: number) => {
+      const el = containerRef.current
+      const target = el?.querySelector<HTMLElement>(`[data-line="${line - 1}"]`)
+      if (!el || !target) return
+      const offset = target.getBoundingClientRect().top - el.getBoundingClientRect().top
+      el.scrollTop += offset - 12
     }
   }))
 

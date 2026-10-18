@@ -1,4 +1,5 @@
 import type { MarkdownIt, StateInline } from 'markdown-it'
+import { parseWikilink, wikilinkLabel } from '../utils/wikilink'
 
 export function wikilinkPlugin(md: MarkdownIt): void {
   md.inline.ruler.before('link', 'wikilink', (state: StateInline, silent: boolean): boolean => {
@@ -22,8 +23,10 @@ export function wikilinkPlugin(md: MarkdownIt): void {
   })
 
   md.renderer.rules.wikilink = (tokens, idx): string => {
-    const name = tokens[idx].content
-    const escaped = md.utils.escapeHtml(name)
-    return `<span class="wikilink" data-wikilink="${escaped}">${escaped}</span>`
+    const raw = tokens[idx].content
+    const parts = parseWikilink(raw)
+    const esc = md.utils.escapeHtml
+    const heading = parts.heading ? ` data-heading="${esc(parts.heading)}"` : ''
+    return `<span class="wikilink" data-wikilink="${esc(parts.note)}"${heading} title="${esc(`[[${raw}]]`)}">${esc(wikilinkLabel(parts))}</span>`
   }
 }

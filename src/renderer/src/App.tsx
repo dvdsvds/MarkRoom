@@ -29,6 +29,7 @@ import { useTabsStore, type Tab } from './stores/tabsStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { useToastStore } from './stores/toastStore'
 import { flattenFilePaths, flattenNotes } from './utils/noteIndex'
+import { findHeadingLine } from './utils/wikilink'
 import { extractToc } from './utils/toc'
 import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
@@ -127,9 +128,21 @@ function App(): React.JSX.Element {
   const pushToast = useToastStore((s) => s.push)
   const editorRef = useRef<MarkdownEditorHandle>(null)
   const previewRef = useRef<MarkdownPreviewHandle>(null)
-  const scrollSourceRef = useRef<'editor' | 'preview' | null>(null)
+  const scrollSourceRef = useRef<'editor' | 'preview' | 'jump' | null>(null)
+  const jumpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 특정 줄로 이동할 때는 에디터와 미리보기를 각각 그 위치로 맞추고,
+  // 그 직후 생기는 스크롤 이벤트로 서로를 비율로 다시 끌고 가지 않게 잠깐 동기화를 멈춘다
+  const jumpToLine = useCallback((line: number) => {
+    scrollSourceRef.current = 'jump'
+    editorRef.current?.scrollToLine(line)
+    previewRef.current?.scrollToLine(line)
+    if (jumpTimerRef.current) clearTimeout(jumpTimerRef.current)
+    jumpTimerRef.current = setTimeout(() => {
+      scrollSourceRef.current = null
+    }, 150)
+  }, [])
   const handleEditorScrollRatio = useCallback((ratio: number) => {
-    if (scrollSourceRef.current === 'preview') return
+    if (scrollSourceRef.current === 'preview' || scrollSourceRef.current === 'jump') return
     scrollSourceRef.current = 'editor'
     previewRef.current?.scrollToRatio(ratio)
     requestAnimationFrame(() => {
@@ -139,7 +152,7 @@ function App(): React.JSX.Element {
     })
   }, [])
   const handlePreviewScrollRatio = useCallback((ratio: number) => {
-    if (scrollSourceRef.current === 'editor') return
+    if (scrollSourceRef.current === 'editor' || scrollSourceRef.current === 'jump') return
     scrollSourceRef.current = 'preview'
     editorRef.current?.scrollToRatio(ratio)
     requestAnimationFrame(() => {
@@ -416,19 +429,6 @@ function App(): React.JSX.Element {
     },
     [historyTarget, openFile, setContent, pushToast]
   )
-  const handleWikilinkClick = useCallback(
-    (title: string): void => {
-      const notes = flattenNotes(useWorkspaceStore.getState().tree)
-      const match = notes.find((n) => n.title === title)
-      if (match) {
-        handleOpenFile(match.path)
-      } else {
-        pushToast({ kind: 'info', message: `"${title}" 파일을 찾을 수 없어요.` })
-      }
-    },
-    [handleOpenFile, pushToast]
-  )
-
   const handleLinkClick = useCallback(
     (href: string): void => {
       let rel = href.split('#')[0].split('?')[0]
@@ -455,7 +455,7 @@ function App(): React.JSX.Element {
       setTodoOpen(false)
       const target = resolveNotePath(filePath)
       const jump = (): void => {
-        setTimeout(() => editorRef.current?.scrollToLine(line), 80)
+        setTimeout(() => jumpToLine(line), 80)
       }
       const existing = useTabsStore.getState().tabs.find((t) => t.filePath === target)
       if (existing) {
@@ -468,7 +468,39 @@ function App(): React.JSX.Element {
         jump()
       })
     },
-    [setActiveTab, openFile]
+    [setActiveTab, openFile, jumpToLine]
+  )
+
+  const handleWikilinkClick = useCallback(
+    (title: string, heading: string | null): void => {
+      // `[[#제목]]`은 지금 보고 있는 노트를 가리킨다
+      const targetPath = title
+        ? flattenNotes(useWorkspaceStore.getState().tree).find((n) => n.title === title)?.path
+        : (useTabsStore.getState().tabs.find((t) => t.id === useTabsStore.getState().activeTabId)
+            ?.filePath ?? undefined)
+      if (!targetPath) {
+        pushToast({ kind: 'info', message: `"${title}" 파일을 찾을 수 없어요.` })
+        return
+      }
+      if (!heading) {
+        handleOpenFile(targetPath)
+        return
+      }
+      const openTab = useTabsStore.getState().tabs.find((t) => t.filePath === targetPath)
+      const loadContent = openTab
+        ? Promise.resolve(openTab.content)
+        : window.api.workspace.readFile(targetPath)
+      void loadContent.then((content) => {
+        const line = findHeadingLine(content, heading)
+        if (line === null) {
+          handleOpenFile(targetPath)
+          pushToast({ kind: 'info', message: `'${heading}' 제목을 찾을 수 없어요.` })
+          return
+        }
+        handleOpenTodo(targetPath, line)
+      })
+    },
+    [handleOpenFile, handleOpenTodo, pushToast]
   )
 
   const handleToggleTask = useCallback(
@@ -521,9 +553,12 @@ function App(): React.JSX.Element {
   }, [])
 
   const tocEntries = useMemo(() => extractToc(activeTab?.content ?? ''), [activeTab?.content])
-  const handleTocJump = useCallback((line: number) => {
-    editorRef.current?.scrollToLine(line)
-  }, [])
+  const handleTocJump = useCallback(
+    (line: number) => {
+      jumpToLine(line)
+    },
+    [jumpToLine]
+  )
   const handleTocReturnFocus = useCallback(() => {
     editorRef.current?.focus()
   }, [])

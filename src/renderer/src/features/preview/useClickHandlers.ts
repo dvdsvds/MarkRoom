@@ -2,7 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 
 export function useClickHandlers(
   containerRef: RefObject<HTMLDivElement | null>,
-  onWikilinkClick: ((title: string) => void) | undefined,
+  onWikilinkClick: ((title: string, heading: string | null) => void) | undefined,
   onToggleTask: ((line: number) => void) | undefined,
   onLinkClick?: (href: string) => void
 ): void {
@@ -22,8 +22,9 @@ export function useClickHandlers(
       const t = e.target as HTMLElement | null
       const wiki = t?.closest('[data-wikilink]')
       if (wiki) {
-        const title = wiki.getAttribute('data-wikilink')
-        if (title) wikilinkRef.current?.(title)
+        const title = wiki.getAttribute('data-wikilink') ?? ''
+        const heading = wiki.getAttribute('data-heading')
+        if (title || heading) wikilinkRef.current?.(title, heading)
         return
       }
       const a = t?.closest('a[href]')

@@ -5,6 +5,27 @@ import { copyFile, mkdir, writeFile } from 'fs/promises'
 import { frontMatterFor } from './noteProps'
 
 const WIKILINK_RE = /\[\[\s*([^[\]\n]+?)\s*\]\]/g
+
+/** `노트#제목|별칭`을 나눈다. `[[#제목]]`이면 note가 빈 문자열 */
+function parseWikilink(inner: string): { note: string; heading: string | null; label: string } {
+  const bar = inner.indexOf('|')
+  const target = bar === -1 ? inner : inner.slice(0, bar)
+  const alias = bar === -1 ? '' : inner.slice(bar + 1).trim()
+  const hash = target.indexOf('#')
+  const note = (hash === -1 ? target : target.slice(0, hash)).trim()
+  const heading = hash === -1 ? null : target.slice(hash + 1).trim() || null
+  const label = alias || (heading ? (note ? `${note} > ${heading}` : heading) : note)
+  return { note, heading, label }
+}
+
+/** GitHub 방식 제목 앵커 */
+function headingSlug(heading: string): string {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s/g, '-')
+}
 const IMG_RE = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)\)/g
 const LINK_RE = /(?<!!)\[([^\]]*)\]\((<[^>]+>|[^)\s]+)\)/g
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
@@ -76,8 +97,8 @@ export function checkExportLinks(rootDir: string, folderPath: string): BrokenLin
     WIKILINK_RE.lastIndex = 0
     let match: RegExpExecArray | null
     while ((match = WIKILINK_RE.exec(raw)) !== null) {
-      const title = match[1]
-      if (seen.has(title)) continue
+      const title = parseWikilink(match[1]).note
+      if (!title || seen.has(title)) continue
       seen.add(title)
       for (; pos < match.index; pos++) if (raw.charCodeAt(pos) === 10) line++
       const target = titleIndex.get(title)
@@ -186,15 +207,17 @@ export async function exportFolder(rootDir: string, opts: ExportOptions): Promis
       return href ? `[${label}](${href})` : whole
     })
 
-    text = text.replace(WIKILINK_RE, (_whole: string, rawTitle: string) => {
-      const title = rawTitle.trim()
-      const target = titleIndex.get(title)
-      if (!target) return title
+    text = text.replace(WIKILINK_RE, (_whole: string, inner: string) => {
+      const { note, heading, label } = parseWikilink(inner)
+      const anchor = heading ? `#${headingSlug(heading)}` : ''
+      if (!note) return anchor ? `[${label}](${anchor})` : label
+      const target = titleIndex.get(note)
+      if (!target) return label
       const insideFolder = target === filePath || target.startsWith(folderPrefix)
-      if (!insideFolder) return title
+      if (!insideFolder) return label
       const destTargetPath = join(opts.destDir, destRelFor(target, opts))
       const linkPath = toPosix(relative(destDirPath, destTargetPath))
-      return `[${title}](${wrapHref(linkPath)})`
+      return `[${label}](${wrapHref(linkPath + anchor)})`
     })
 
     writes.push({ to: destPath, text: frontMatterFor(filePath) + text })
@@ -235,8 +258,8 @@ export function listPdfNotes(rootDir: string, folderPath: string): PdfNote[] {
     }
     const links: Record<string, string | null> = {}
     for (const m of source.matchAll(WIKILINK_RE)) {
-      const title = m[1].trim()
-      if (Object.prototype.hasOwnProperty.call(links, title)) continue
+      const title = parseWikilink(m[1]).note
+      if (!title || Object.prototype.hasOwnProperty.call(links, title)) continue
       const target = titleIndex.get(title)
       const inside = target && (target === filePath || target.startsWith(folderPrefix))
       links[title] = inside

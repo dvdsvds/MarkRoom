@@ -12,13 +12,15 @@ import { getLiveEdit, subscribeLiveEdit } from '../template/preview/liveEdit'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
+  /** 원문 줄 번호(1부터)가 붙은 요소로 스크롤. 지금은 제목, 코드 블록, 체크리스트에만 줄 번호가 있다 */
+  scrollToLine: (line: number) => void
 }
 
 interface MarkdownPreviewProps {
   source: string
   baseDir?: string
   onScrollRatio?: (ratio: number) => void
-  onWikilinkClick?: (title: string) => void
+  onWikilinkClick?: (title: string, heading: string | null) => void
   onToggleTask?: (line: number) => void
   onReplaceSource?: (next: string) => void
   onMinWidthChange?: (px: number) => void
