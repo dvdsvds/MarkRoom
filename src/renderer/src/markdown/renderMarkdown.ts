@@ -8,6 +8,7 @@ import footnote from 'markdown-it-footnote'
 import DOMPurify, { type Config as SanitizeConfig } from 'dompurify'
 import { wikilinkPlugin } from './wikilinkPlugin'
 import { calloutPlugin } from './calloutPlugin'
+import { embedPlugin } from './embedPlugin'
 import { blockPlugin } from './blockPlugin'
 import { colorSpanPlugin } from './colorSpanPlugin'
 import { templatePlugin } from '../features/template/parse/templatePlugin'
@@ -37,6 +38,7 @@ function createMarkdownIt(): InstanceType<typeof MarkdownIt> {
     return true
   })
   md.use(footnote)
+  md.use(embedPlugin)
   md.use(wikilinkPlugin)
   md.use(calloutPlugin)
   md.use(blockPlugin)
@@ -63,7 +65,7 @@ const md = createMarkdownIt()
 
 const sanitizeConfig: SanitizeConfig = {
   ADD_TAGS: ['input'],
-  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', 'data-heading', 'data-callout', 'data-color', 'open', ' data-line']
+  ADD_ATTR: ['type', 'checked', 'disabled', 'id', 'class', 'data-wikilink', 'data-heading', 'data-callout', 'data-color', 'open', 'data-embed-note', 'data-embed-file', 'data-alias', 'data-width', ' data-line']
 }
 
 function resolveAttachmentSrcs(html: string, baseDir: string): string {

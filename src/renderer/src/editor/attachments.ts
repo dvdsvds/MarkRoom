@@ -47,7 +47,8 @@ export async function insertAttachments(
       buffer
     )
     const savedName = relativePath.split('/').pop() ?? relativePath
-    parts.push(isImage ? `![](<${relativePath}>)` : `[${savedName}](<${relativePath}>)`)
+    // 이미지는 앱 안에서 `![[ ]]` 하나로 통일하고, md로 내보낼 때만 표준 문법으로 바꾼다
+    parts.push(isImage ? `![[${relativePath}]]` : `[${savedName}](<${relativePath}>)`)
   }
 
   const insertText = parts.join(' ')

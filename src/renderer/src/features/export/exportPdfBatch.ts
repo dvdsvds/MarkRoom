@@ -13,7 +13,11 @@ const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms
 async function settle(host: HTMLElement): Promise<void> {
   await sleep(50)
   const start = Date.now()
-  while (host.querySelector('pre > code.language-mermaid') && Date.now() - start < 5000) {
+  while (
+    (host.querySelector('pre > code.language-mermaid') ||
+      host.querySelector('[data-embeds-pending]')) &&
+    Date.now() - start < 5000
+  ) {
     await sleep(100)
   }
   await document.fonts.ready

@@ -1,6 +1,6 @@
 import { basename, dirname, extname, join, relative, resolve, sep } from 'path'
 import { walkMdFiles } from './links'
-import { readFileSync, statSync } from 'fs'
+import { readFileSync, readdirSync, statSync } from 'fs'
 import { copyFile, mkdir, writeFile } from 'fs/promises'
 import { frontMatterFor } from './noteProps'
 
@@ -26,6 +26,56 @@ function headingSlug(heading: string): string {
     .replace(/[^\p{L}\p{N}\s-]/gu, '')
     .replace(/\s/g, '-')
 }
+const EMBED_RE = /!\[\[\s*([^[\]\n]+?)\s*\]\]/g
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|svg|bmp)$/i
+
+/** `![[ ]]`·`[[ ]]` 대상이 노트가 아니라 파일(확장자가 있고 .md가 아님)인지 */
+function isFileTarget(target: string): boolean {
+  return /\.[A-Za-z0-9]{1,8}$/.test(target) && !/\.(md|markdown)$/i.test(target)
+}
+
+function walkAllFiles(dir: string, out: string[] = []): string[] {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return out
+  }
+  for (const name of entries) {
+    if (name.startsWith('.')) continue
+    const p = join(dir, name)
+    try {
+      if (statSync(p).isDirectory()) walkAllFiles(p, out)
+      else out.push(p)
+    } catch {
+      continue
+    }
+  }
+  return out
+}
+
+/** 노트 기준 상대 경로가 맞으면 그것을, 아니면 작업 폴더에서 같은 이름 파일(가까운 것 우선)을 찾는다 */
+function resolveEmbedAsset(
+  target: string,
+  noteDir: string,
+  rootDir: string,
+  allFiles: () => string[]
+): string | null {
+  const root = resolve(rootDir) + sep
+  const direct = resolve(noteDir, target)
+  if (direct.startsWith(root) && isFile(direct)) return direct
+  const name = basename(target).toLowerCase()
+  const candidates = allFiles().filter((f) => basename(f).toLowerCase() === name)
+  if (candidates.length === 0) return null
+  const rank = (f: string): number => {
+    const d = dirname(f)
+    if (d === join(noteDir, 'img') || d === join(noteDir, 'files')) return 0
+    if (d === noteDir) return 1
+    return d.startsWith(noteDir + sep) ? 2 : 3
+  }
+  return [...candidates].sort((a, b) => rank(a) - rank(b) || a.length - b.length)[0]
+}
+
 const IMG_RE = /!\[([^\]]*)\]\((<[^>]+>|[^)\s]+)\)/g
 const LINK_RE = /(?<!!)\[([^\]]*)\]\((<[^>]+>|[^)\s]+)\)/g
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
@@ -98,7 +148,7 @@ export function checkExportLinks(rootDir: string, folderPath: string): BrokenLin
     let match: RegExpExecArray | null
     while ((match = WIKILINK_RE.exec(raw)) !== null) {
       const title = parseWikilink(match[1]).note
-      if (!title || seen.has(title)) continue
+      if (!title || isFileTarget(title) || seen.has(title)) continue
       seen.add(title)
       for (; pos < match.index; pos++) if (raw.charCodeAt(pos) === 10) line++
       const target = titleIndex.get(title)
@@ -188,6 +238,8 @@ export async function exportFolder(rootDir: string, opts: ExportOptions): Promis
   const imgs = newCollector(opts.destDir, 'imgs')
   const files = newCollector(opts.destDir, 'files')
   const writes: { to: string; text: string }[] = []
+  let allFilesCache: string[] | null = null
+  const allFiles = (): string[] => (allFilesCache ??= walkAllFiles(rootDir))
 
   for (const filePath of walkMdFiles(opts.folderPath)) {
     const destPath = join(opts.destDir, destRelFor(filePath, opts))
@@ -205,6 +257,20 @@ export async function exportFolder(rootDir: string, opts: ExportOptions): Promis
       if (!FILES_RE.test(stripAngle(target))) return whole
       const href = rewriteAsset(target, noteDir, rootDir, files, destDirPath)
       return href ? `[${label}](${href})` : whole
+    })
+
+    // 앱 안의 `![[ ]]`를 표준 마크다운으로 바꾼다. 노트 임베드는 링크로 둔다.
+    text = text.replace(EMBED_RE, (_whole: string, inner: string) => {
+      const target = inner.split('|')[0].split('#')[0].trim()
+      if (!isFileTarget(target)) return `[[${inner}]]`
+      const abs = resolveEmbedAsset(target, noteDir, rootDir, allFiles)
+      if (!abs) return target
+      const isImage = IMAGE_EXT_RE.test(abs)
+      const c = isImage ? imgs : files
+      const href = wrapHref(
+        toPosix(relative(destDirPath, join(c.destDir, c.folder, collect(c, abs))))
+      )
+      return isImage ? `![](${href})` : `[${basename(abs)}](${href})`
     })
 
     text = text.replace(WIKILINK_RE, (_whole: string, inner: string) => {
@@ -259,7 +325,8 @@ export function listPdfNotes(rootDir: string, folderPath: string): PdfNote[] {
     const links: Record<string, string | null> = {}
     for (const m of source.matchAll(WIKILINK_RE)) {
       const title = parseWikilink(m[1]).note
-      if (!title || Object.prototype.hasOwnProperty.call(links, title)) continue
+      if (!title || isFileTarget(title) || Object.prototype.hasOwnProperty.call(links, title))
+        continue
       const target = titleIndex.get(title)
       const inside = target && (target === filePath || target.startsWith(folderPrefix))
       links[title] = inside

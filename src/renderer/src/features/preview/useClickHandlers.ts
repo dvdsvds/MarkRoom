@@ -43,7 +43,8 @@ export function useClickHandlers(
     if (!el) return
     const handleClick = (e: MouseEvent): void => {
       const input = (e.target as HTMLElement | null)?.closest('input.task-list-item-checkbox')
-      if (!input) return
+      // 임베드 안의 체크박스는 원본 노트의 줄이라 지금 노트를 바꾸면 안 된다
+      if (!input || input.closest('.embed-body')) return
       const li = input.closest('li[data-line]')
       const line = li ? Number(li.getAttribute('data-line')) : NaN
       if (Number.isNaN(line)) return

@@ -9,6 +9,7 @@ import { useOutputBlocks } from './useOutputBlocks'
 import { useTemplateRender } from '../template/preview/useTemplateRender'
 import { useTemplateEdit } from '../template/preview/useTemplateEdit'
 import { getLiveEdit, subscribeLiveEdit } from '../template/preview/liveEdit'
+import { useEmbeds } from './useEmbeds'
 
 export interface MarkdownPreviewHandle {
   scrollToRatio: (ratio: number) => void
@@ -76,6 +77,7 @@ export const MarkdownPreview = forwardRef<MarkdownPreviewHandle, MarkdownPreview
     }, [html])
 
     useMermaid(containerRef, html)
+    useEmbeds(containerRef, html, baseDir, docKey)
     useCodeDecorations(containerRef, html)
     useOutputBlocks(containerRef, html)
     useEffect(() => {
