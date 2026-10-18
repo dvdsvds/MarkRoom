@@ -6,6 +6,8 @@ import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { SHORTCUT_LABELS, type ShortcutAction } from '../../utils/shortcuts'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsParts'
+import { PropertyOptionsEditor } from './PropertyOptionsEditor'
+import { PROPERTY_LABELS } from '../../utils/noteProperties'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'newNote',
@@ -26,7 +28,7 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'graph'
 ]
 
-export const CATEGORIES = ['일반', '화면', '상태 표시줄', '단축키'] as const
+export const CATEGORIES = ['일반', '화면', '상태 표시줄', '태그', '단축키'] as const
 export type Category = (typeof CATEGORIES)[number]
 
 export interface SettingItem {
@@ -320,6 +322,15 @@ export function useSettingItems(): SettingItem[] {
           </div>
         )
       },
+      ...(['status', 'substatus', 'priority'] as const).map(
+        (key): SettingItem => ({
+          id: `property-${key}`,
+          category: '태그',
+          group: PROPERTY_LABELS[key],
+          label: `${PROPERTY_LABELS[key]} 값`,
+          render: () => <PropertyOptionsEditor propKey={key} />
+        })
+      ),
       ...SHORTCUT_ACTIONS.map(
         (action): SettingItem => ({
           id: `shortcut-${action}`,
