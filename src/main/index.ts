@@ -30,6 +30,24 @@ const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 let mainWindowRef: BrowserWindow | null = null
 let closeConfirmed = true
 
+// 같은 작업 폴더를 두 앱이 동시에 감시·저장하지 않도록 한 번만 실행되게 한다.
+// 두 번째로 실행하면 새로 띄우지 않고 이미 떠 있는 창을 앞으로 가져온다.
+const gotInstanceLock = app.requestSingleInstanceLock()
+if (!gotInstanceLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const win = mainWindowRef
+    if (!win) {
+      if (app.isReady()) createWindow()
+      return
+    }
+    if (win.isMinimized()) win.restore()
+    win.show()
+    win.focus()
+  })
+}
+
 function isAllowedNavigationTarget(url: string): boolean {
   if (is.dev && devServerUrl && url.startsWith(devServerUrl)) return true
   return url.startsWith('app://renderer/')
@@ -100,6 +118,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  if (!gotInstanceLock) return
   electronApp.setAppUserModelId('com.markroom.app')
 
   app.on('browser-window-created', (_, window) => {
