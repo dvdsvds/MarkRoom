@@ -3,19 +3,29 @@ import { useSettingsStore } from '../stores/settingsStore'
 import type { Tab } from '../stores/tabsStore'
 import { fileNameOf } from '@renderer/utils/path'
 import { CsvStatus } from './CsvStatus'
+import { useCursorStore } from '../stores/cursorStore'
 
 interface StatusBarProps {
   tab: Tab | null
   isViewer: boolean
   vimModeLabel: string
-  cursorPos: { line: number; col: number }
+}
+
+// 커서 위치만 따로 구독해서, 커서가 움직일 때 이 숫자만 다시 그린다
+function CursorPosition(): React.JSX.Element {
+  const line = useCursorStore((s) => s.line)
+  const col = useCursorStore((s) => s.col)
+  return (
+    <span>
+      {line}:{col}
+    </span>
+  )
 }
 
 export function StatusBar({
   tab,
   isViewer,
-  vimModeLabel,
-  cursorPos
+  vimModeLabel
 }: StatusBarProps): React.JSX.Element {
   const vimMode = useSettingsStore((s) => s.vimMode)
   const uiZoom = useSettingsStore((s) => s.uiZoom)
@@ -44,11 +54,7 @@ export function StatusBar({
       <div className="flex items-center gap-3">
         {vimMode && !isViewer && <span className="truncate">{filePathLabel}</span>}
         {tab && !isViewer && <CsvStatus />}
-        {tab && !isViewer && showLineCol && (
-          <span>
-            {cursorPos.line}:{cursorPos.col}
-          </span>
-        )}
+        {tab && !isViewer && showLineCol && <CursorPosition />}
         {tab && !isViewer && showWordCount && <span>{wordCount}단어</span>}
         {tab && !isViewer && showCharCount && (charCountIncludeSpaces || charCountExcludeSpaces) && (
           <span>

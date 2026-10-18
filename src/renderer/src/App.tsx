@@ -30,6 +30,7 @@ import { useSettingsStore } from './stores/settingsStore'
 import { useToastStore } from './stores/toastStore'
 import { flattenFilePaths, flattenNotes } from './utils/noteIndex'
 import { findHeadingLine } from './utils/wikilink'
+import { useCursorStore } from './stores/cursorStore'
 import { extractToc } from './utils/toc'
 import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
@@ -111,7 +112,6 @@ function App(): React.JSX.Element {
 
   const [searchOpen, setSearchOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 })
   const [vimModeLabel, setVimModeLabel] = useState('NORMAL')
   const [diffPopup, setDiffPopup] = useState<DiffPopupState | null>(null)
   const [historyTarget, setHistoryTarget] = useState<{ filePath: string; content: string } | null>(
@@ -213,7 +213,7 @@ function App(): React.JSX.Element {
   }, [setRootDir, setTree])
 
   const handleCursorChange = useCallback((pos: { line: number; col: number }): void => {
-    setCursorPos(pos)
+    useCursorStore.getState().setCursor(pos)
   }, [])
 
   const resolveNewNoteDir = useCallback(
@@ -740,7 +740,6 @@ function App(): React.JSX.Element {
             tab={activeTab}
             isViewer={isViewer}
             vimModeLabel={vimModeLabel}
-            cursorPos={cursorPos}
           />
         </div>
       </main>
