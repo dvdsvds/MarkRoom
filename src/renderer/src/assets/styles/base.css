@@ -2,6 +2,9 @@ html,
 body,
 #root {
   height: 100%;
+  /* hidden은 코드로 하는 스크롤(에디터 scrollIntoView, 포커스 이동)까지는 막지 못해 화면 전체가 튀었다.
+     clip은 그런 스크롤도 막는다. 스크롤은 탭 막대·트리·에디터가 각자 맡는다. */
+  overflow: clip;
 }
 
 body {
