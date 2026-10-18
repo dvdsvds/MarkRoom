@@ -19,22 +19,24 @@ export async function restoreOpenTabs(knownPaths: Set<string>): Promise<void> {
     } catch {
       saved = null
     }
-    const { openFile, setActiveTab } = useTabsStore.getState()
     const paths = (saved?.paths ?? []).filter(
       (path) => knownPaths.has(path) && fileKindOf(path) !== 'external'
     )
-    for (const p of paths) {
-      try {
-        openFile(p, await readFileContent(p))
-      } catch {
-        // 그사이 바이너리로 바뀌었거나 너무 커진 파일은 복원하지 않는다
-      }
-    }
-    const activePath = saved?.activeTabId ?? null
-    if (activePath) {
-      const tab = useTabsStore.getState().tabs.find((t) => t.filePath === activePath)
-      if (tab) setActiveTab(tab.id)
-    }
+    // 전부 읽은 다음 한 번에 넣어야 탭을 하나씩 훑으며 그리지 않는다
+    const files = await Promise.all(
+      paths.map(async (filePath) => {
+        try {
+          return { filePath, content: await readFileContent(filePath) }
+        } catch {
+          // 그사이 바이너리로 바뀌었거나 너무 커진 파일은 복원하지 않는다
+          return null
+        }
+      })
+    )
+    useTabsStore.getState().restoreTabs(
+      files.filter((f): f is { filePath: string; content: string } => f !== null),
+      saved?.activeTabId ?? null
+    )
   } finally {
     restoreDone = true
   }

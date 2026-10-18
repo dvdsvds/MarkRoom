@@ -28,6 +28,7 @@ interface TabsState {
   recentTabIds: string[]
 
   openFile: (filePath: string, content: string) => void
+  restoreTabs: (files: { filePath: string; content: string }[], activePath: string | null) => void
   setActiveTab: (tabId: string) => void
   setContent: (tabId: string, content: string) => void
   markSaved: (tabId: string, filePath: string, savedContent: string) => void
@@ -40,6 +41,20 @@ interface TabsState {
 
 function pushRecent(recentTabIds: string[], tabId: string): string[] {
   return [...recentTabIds.filter((id) => id !== tabId), tabId]
+}
+
+function makeTab(filePath: string, content: string): Tab {
+  const kind = fileKindOf(filePath)
+  const text = kind === 'text' ? content : ''
+  return {
+    id: makeId(),
+    filePath,
+    content: text,
+    baseContent: text,
+    kind,
+    dirty: false,
+    missing: false
+  }
 }
 
 export const useTabsStore = create<TabsState>((set, get) => ({
@@ -56,23 +71,32 @@ export const useTabsStore = create<TabsState>((set, get) => ({
       }))
       return
     }
-    const kind = fileKindOf(filePath)
-    const text = kind === 'text' ? content : ''
-    const tab: Tab = {
-      id: makeId(),
-      filePath,
-      content: text,
-      baseContent: text,
-      kind,
-      dirty: false,
-      missing: false
-    }
+    const tab = makeTab(filePath, content)
     set((s) => ({
       tabs: insertAfterActive(s.tabs, s.activeTabId, tab),
       activeTabId: tab.id,
       recentTabIds: pushRecent(s.recentTabIds, tab.id)
     }))
   },
+
+  // 앱을 켤 때 저장해 둔 탭을 한 번에 넣는다. 활성 탭만 화면에 그려지게 한 번의 상태 변경으로 끝낸다.
+  restoreTabs: (files, activePath) =>
+    set((s) => {
+      const known = new Set(s.tabs.map((t) => t.filePath))
+      const added = files
+        .filter((f) => !known.has(f.filePath))
+        .map((f) => makeTab(f.filePath, f.content))
+      if (added.length === 0) return s
+      const tabs = [...s.tabs, ...added]
+      const active =
+        tabs.find((t) => t.filePath === activePath) ?? (s.activeTabId ? null : added[0])
+      if (!active) return { tabs }
+      return {
+        tabs,
+        activeTabId: active.id,
+        recentTabIds: pushRecent(s.recentTabIds, active.id)
+      }
+    }),
 
   setActiveTab: (tabId) =>
     set((s) => ({ activeTabId: tabId, recentTabIds: pushRecent(s.recentTabIds, tabId) })),
@@ -85,9 +109,7 @@ export const useTabsStore = create<TabsState>((set, get) => ({
   markSaved: (tabId, filePath, savedContent) =>
     set((s) => ({
       tabs: s.tabs.map((t) =>
-        t.id === tabId 
-          ? { ...t, filePath, dirty: t.content !== savedContent, missing: false } 
-          : t
+        t.id === tabId ? { ...t, filePath, dirty: t.content !== savedContent, missing: false } : t
       )
     })),
 
