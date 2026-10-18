@@ -4,7 +4,7 @@ import { ContextMenu } from '../../components/ContextMenu'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { ExportDialog } from '../export/ExportDialog'
 import { FileTypeIcon } from '../../components/FileTypeIcon'
-import { dirOf, fileNameOf } from '@renderer/utils/path'
+import { dirOf, fileNameOf, sepOf } from '@renderer/utils/path'
 import ExportIcon from '../../icons/export.svg?react'
 import NewFileIcon from '../../icons/new-file.svg?react'
 import NewFolderIcon from '../../icons/new-folder.svg?react'
@@ -13,7 +13,7 @@ import { InlineNameInput, NewFileRow } from './InlineInputs'
 import { TreeRow, type RowContext } from './TreeRow'
 import { buildMenuItems } from './sidebarMenu'
 import { useTreeFocus } from './useTreeFocus'
-import { useTreeActions } from './useTreeActions'
+import { useTreeActions, type DeleteTarget } from './useTreeActions'
 import { TagSection } from './TagSection'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
 
@@ -69,6 +69,35 @@ function SectionHeader({
 
 const ICON_BTN =
   'flex h-[26px] w-[26px] items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-text-secondary'
+
+function countDirtyUnder(dirtyFilePaths: string[], node: TreeNode): number {
+  const prefix = node.path + sepOf(node.path)
+  return dirtyFilePaths.filter((p) => p === node.path || p.startsWith(prefix)).length
+}
+
+function deleteMessage(target: DeleteTarget, dirtyCount: number): string {
+  const parts: string[] = []
+  if (dirtyCount > 0) {
+    parts.push(
+      target.node.type === 'folder'
+        ? `저장 안 한 변경이 있는 파일이 ${dirtyCount}개 있어요. 휴지통에서 복원해도 이 변경은 돌아오지 않아요.`
+        : '저장 안 한 변경이 있어요. 휴지통에서 복원해도 이 변경은 돌아오지 않아요.'
+    )
+  }
+  if (target.node.type === 'folder') {
+    if (dirtyCount === 0) {
+      parts.push('폴더 안의 모든 파일이 휴지통으로 이동돼요. 언제든 복원할 수 있어요')
+    }
+  } else if (target.loading) {
+    parts.push('링크를 확인하고 있어요…')
+  } else if (target.backlinks && target.backlinks.length > 0) {
+    const count = target.backlinks.reduce((sum, b) => sum + b.count, 0)
+    parts.push(`이 파일을 가리키는 위키링크가 ${count}개 있어요. 삭제하면 링크가 끊겨요.`)
+  } else if (dirtyCount === 0) {
+    parts.push('휴지통으로 이동돼요. 언제든 복원할 수 있어요')
+  }
+  return parts.join(' ')
+}
 
 export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   {
@@ -339,15 +368,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         <ConfirmDialog
           title="삭제할까요?"
           subject={{ name: deleteTarget.node.name, kind: deleteTarget.node.type }}
-          message={
-            deleteTarget.node.type === 'folder'
-              ? '폴더 안의 모든 파일이 휴지통으로 이동돼요. 언제든 복원할 수 있어요'
-              : deleteTarget.loading
-                ? '링크를 확인하고 있어요…'
-                : deleteTarget.backlinks && deleteTarget.backlinks.length > 0
-                  ? `이 파일을 가리키는 위키링크가 ${deleteTarget.backlinks.reduce((sum, b) => sum + b.count, 0)}개 있어요. 삭제하면 링크가 끊겨요.`
-                  : '휴지통으로 이동돼요. 언제든 복원할 수 있어요'
-          }
+          message={deleteMessage(deleteTarget, countDirtyUnder(dirtyFilePaths, deleteTarget.node))}
           items={deleteTarget.backlinks?.map((b) => fileNameOf(b.path))}
           confirmLabel="삭제"
           danger

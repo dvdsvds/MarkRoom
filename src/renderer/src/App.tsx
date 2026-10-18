@@ -42,7 +42,7 @@ import { EmptyState } from './components/EmptyState'
 import { StatusBar } from './components/StatusBar'
 import { useWorkspaceEvents } from './hooks/useWorkspaceEvents'
 import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
-import { dirOf, fileNameOf, splitName } from './utils/path'
+import { dirOf, fileNameOf, splitName, sepOf } from './utils/path'
 import { GraphDialog } from './components/GraphDialog'
 import { useNotePropsStore } from './stores/notePropsStore'
 import { TagBar } from './components/TagBar'
@@ -300,8 +300,9 @@ function App(): React.JSX.Element {
 
   const handleEntryDeleted = useCallback(
     (path: string): void => {
-      const tab = useTabsStore.getState().tabs.find((t) => t.filePath === path)
-      if (tab) closeTab(tab.id)
+      const prefix = path + sepOf(path)
+      const doomed = useTabsStore.getState().tabs.filter((t) => t.filePath === path || t.filePath?.startsWith(prefix))
+      for (const tab of doomed) closeTab(tab.id)
       void useNotePropsStore.getState().load()
     },
     [closeTab]
