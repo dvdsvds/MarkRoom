@@ -1,0 +1,52 @@
+/* 구분자 파일(csv, tsv 등)의 열 색. 8색을 돌려 쓰고, 구분자는 본문 글자색으로 칠한다. */
+:root {
+  --csv-c0: #1f6fc5;
+  --csv-c1: #23824b;
+  --csv-c2: #c2410c;
+  --csv-c3: #8b3fd9;
+  --csv-c4: #c42a63;
+  --csv-c5: #0e7490;
+  --csv-c6: #a16207;
+  --csv-c7: #4f46e5;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --csv-c0: #6cb6ff;
+    --csv-c1: #57d18b;
+    --csv-c2: #f0a35e;
+    --csv-c3: #c49bff;
+    --csv-c4: #f783ac;
+    --csv-c5: #4fd1c5;
+    --csv-c6: #e3c15a;
+    --csv-c7: #9ea7ff;
+  }
+}
+
+:root[data-theme='dark'] {
+  --csv-c0: #6cb6ff;
+  --csv-c1: #57d18b;
+  --csv-c2: #f0a35e;
+  --csv-c3: #c49bff;
+  --csv-c4: #f783ac;
+  --csv-c5: #4fd1c5;
+  --csv-c6: #e3c15a;
+  --csv-c7: #9ea7ff;
+}
+
+.cm-csv-c0 { color: var(--csv-c0); }
+.cm-csv-c1 { color: var(--csv-c1); }
+.cm-csv-c2 { color: var(--csv-c2); }
+.cm-csv-c3 { color: var(--csv-c3); }
+.cm-csv-c4 { color: var(--csv-c4); }
+.cm-csv-c5 { color: var(--csv-c5); }
+.cm-csv-c6 { color: var(--csv-c6); }
+.cm-csv-c7 { color: var(--csv-c7); }
+
+.cm-csv-head {
+  font-weight: 600;
+}
+
+.cm-csv-delim {
+  color: var(--color-text);
+}

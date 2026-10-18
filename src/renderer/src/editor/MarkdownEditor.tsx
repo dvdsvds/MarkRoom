@@ -17,6 +17,7 @@ import { languages } from '@codemirror/language-data'
 import { LanguageDescription } from '@codemirror/language'
 import { isMarkdownPath } from '../utils/fileKind'
 import { fileNameOf } from '../utils/path'
+import { csvColumns, delimitedHint, detectDelimiter } from './csvColumns'
 import { search, searchKeymap } from '@codemirror/search'
 import { createFindPanel } from './findPanel'
 import { vim, Vim } from '@replit/codemirror-vim'
@@ -270,8 +271,15 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
       })
       const path = filePathRef.current
       if (path && !isMarkdownPath(path)) {
-        const desc = LanguageDescription.matchFilename(languages, fileNameOf(path))
+        const hint = delimitedHint(path)
+        const desc = hint ? null : LanguageDescription.matchFilename(languages, fileNameOf(path))
         if (desc) loadLanguage(currentTabIdRef.current, desc)
+        // 구분자 파일은 자동 감지해서 켜고, 문법이 없는 일반 텍스트는 꺼 둔 채로 넣어 상태 표시줄에서 켤 수 있게 한다
+        const csv = hint
+          ? csvColumns({ delimiter: detectDelimiter(doc, hint), header: true })
+          : desc
+            ? []
+            : csvColumns({ delimiter: null, header: true })
         return EditorState.create({
           doc,
           extensions: [
@@ -284,6 +292,7 @@ export const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorPro
               () => onOpenBaseDiffRef.current?.(),
               !desc
             ),
+            csv,
             updateListener
           ]
         })

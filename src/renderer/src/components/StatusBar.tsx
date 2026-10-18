@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useSettingsStore } from '../stores/settingsStore'
 import type { Tab } from '../stores/tabsStore'
 import { fileNameOf } from '@renderer/utils/path'
+import { CsvStatus } from './CsvStatus'
 
 interface StatusBarProps {
   tab: Tab | null
@@ -42,6 +43,7 @@ export function StatusBar({
       </div>
       <div className="flex items-center gap-3">
         {vimMode && !isViewer && <span className="truncate">{filePathLabel}</span>}
+        {tab && !isViewer && <CsvStatus />}
         {tab && !isViewer && showLineCol && (
           <span>
             {cursorPos.line}:{cursorPos.col}
