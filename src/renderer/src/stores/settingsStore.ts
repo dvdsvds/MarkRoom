@@ -59,6 +59,8 @@ interface SettingsState {
   setFilesSectionOpen: (value: boolean) => void
   tagsSectionOpen: boolean
   setTagsSectionOpen: (value: boolean) => void
+  collapsedFolders: string[]
+  setFolderCollapsed: (path: string, collapsed: boolean) => void
   tagGroupBy: TagGroupBy
   setTagGroupBy: (value: TagGroupBy) => void
   tagCollapsedGroups: Record<TagGroupBy, string[]>
@@ -146,6 +148,17 @@ export const useSettingsStore = create<SettingsState>()(
       setFilesSectionOpen: (value) => set({ filesSectionOpen: value }),
       tagsSectionOpen: true,
       setTagsSectionOpen: (value) => set({ tagsSectionOpen: value }),
+      collapsedFolders: [],
+      setFolderCollapsed: (path, collapsed) =>
+        set((state) => {
+          const has = state.collapsedFolders.includes(path)
+          if (has === collapsed) return state
+          return {
+            collapsedFolders: collapsed
+              ? [...state.collapsedFolders, path]
+              : state.collapsedFolders.filter((p) => p !== path)
+          }
+        }),
       tagGroupBy: 'status',
       setTagGroupBy: (value) => set({ tagGroupBy: value }),
       tagCollapsedGroups: { status: [], priority: [] },

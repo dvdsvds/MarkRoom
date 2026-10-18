@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { TreeNode } from '../../types/workspace'
 import { findNodeByPath } from './TreeRow'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 export function useTreeFocus({
   tree,
@@ -19,25 +20,18 @@ export function useTreeFocus({
   onSelectFolder: (path: string | null) => void
   onFocusEditor: () => void
 }) {
-  const [collapsedPaths, setCollapsedPaths] = useState<Set<string>>(new Set())
+  // 접은 폴더는 설정에 저장해서 앱을 다시 켜도 그대로 둔다
+  const collapsedFolders = useSettingsStore((s) => s.collapsedFolders)
+  const setFolderCollapsed = useSettingsStore((s) => s.setFolderCollapsed)
+  const collapsedPaths = useMemo(() => new Set(collapsedFolders), [collapsedFolders])
   const rowRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
 
   const isExpanded = (path: string): boolean => !collapsedPaths.has(path)
   const toggleExpand = (path: string): void => {
-    setCollapsedPaths((prev) => {
-      const next = new Set(prev)
-      if (next.has(path)) next.delete(path)
-      else next.add(path)
-      return next
-    })
+    setFolderCollapsed(path, !collapsedPaths.has(path))
   }
   const expandPath = (path: string): void => {
-    setCollapsedPaths((prev) => {
-      if (!prev.has(path)) return prev
-      const next = new Set(prev)
-      next.delete(path)
-      return next
-    })
+    setFolderCollapsed(path, false)
   }
   const registerRowRef = (path: string, el: HTMLButtonElement | null): void => {
     if (el) rowRefs.current.set(path, el)
