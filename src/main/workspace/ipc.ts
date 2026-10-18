@@ -243,6 +243,9 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
     onExternalNameSanitized: (oldPath: string, newPath: string) => {
       getWindow()?.webContents.send('workspace:external-name-sanitized', oldPath, newPath)
     },
+    onFileExternallyMoved: (oldPath: string, newPath: string) => {
+      moveNoteProps(oldPath, newPath)
+    },
     onFileExternallyRemoved: (filePath: string) => {
       getWindow()?.webContents.send('workspace:file-externally-removed', filePath)
     }

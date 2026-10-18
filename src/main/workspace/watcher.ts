@@ -19,6 +19,7 @@ function wasSavedByApp(filePath: string): boolean {
 
 interface WatcherCallbacks {
   onTreeChanged: () => void
+  onFileExternallyMoved: (oldPath: string, newPath: string) => void
   onFileExternallyChanged: (filePath: string) => void
   onExternalNameSanitized: (oldPath: string, newPath: string) => void
   onFileExternallyRemoved: (filePath: string) => void
@@ -47,7 +48,23 @@ function sanitizeExternalName(filePath: string): { oldPath: string; newPath: str
   return { oldPath: filePath, newPath }
 }
 
+interface FileStat {
+  size: number
+  mtimeMs: number
+}
+
+interface PendingMove {
+  path: string
+  stat: FileStat
+  timer: ReturnType<typeof setTimeout>
+}
+
+const PAIR_WINDOW_MS = 1000
+
 let watcher: FSWatcher | null = null
+const fileStats = new Map<string, FileStat>()
+const goneFiles = new Map<string, PendingMove>()
+const appearedFiles = new Map<string, PendingMove>()
 const files = new Set<string>()
 const dirs = new Set<string>()
 const pending = new Map<string, ReturnType<typeof setTimeout>>()
@@ -55,7 +72,48 @@ let treeTimer: ReturnType<typeof setTimeout> | null = null
 
 const isHidden = (root: string, p: string): boolean => /(^|[/\\])\../.test(relative(root, p))
 
-function scan(root: string, dir: string): void {
+const statOf = (st: Stats): FileStat => ({ size: st.size, mtimeMs: st.mtimeMs })
+
+function sameFile(aPath: string, a: FileStat, bPath: string, b: FileStat): boolean {
+  return (
+    a.size === b.size &&
+    a.mtimeMs === b.mtimeMs &&
+    extname(aPath).toLowerCase() === extname(bPath).toLowerCase()
+  )
+}
+
+function pickCounterpart(
+  pool: Map<string, PendingMove>,
+  path: string,
+  stat: FileStat
+): PendingMove | null {
+  const matches = [...pool.values()].filter(
+    (m) => m.path !== path && sameFile(m.path, m.stat, path, stat)
+  )
+  if (matches.length === 1) return matches[0]
+  const sameName = matches.filter((m) => basename(m.path) === basename(path))
+  return sameName.length === 1 ? sameName[0] : null
+}
+
+function park(pool: Map<string, PendingMove>, path: string, stat: FileStat): void {
+  const timer = setTimeout(() => pool.delete(path), PAIR_WINDOW_MS)
+  pool.set(path, { path, stat, timer })
+}
+
+function claim(pool: Map<string, PendingMove>, match: PendingMove): void {
+  clearTimeout(match.timer)
+  pool.delete(match.path)
+}
+
+function clearPairing(): void {
+  for (const pool of [goneFiles, appearedFiles]) {
+    for (const m of pool.values()) clearTimeout(m.timer)
+    pool.clear()
+  }
+  fileStats.clear()
+}
+
+function scan(root: string, dir: string, added?: string[]): void {
   let entries
   try {
     entries = readdirSync(dir, { withFileTypes: true })
@@ -67,9 +125,15 @@ function scan(root: string, dir: string): void {
     if (isHidden(root, p)) continue
     if (e.isDirectory()) {
       dirs.add(p)
-      scan(root, p)
+      scan(root, p, added)
     } else if (e.isFile()) {
       files.add(p)
+      added?.push(p)
+      try {
+        fileStats.set(p, statOf(statSync(p)))
+      } catch {
+
+      }
     }
   }
 }
@@ -79,7 +143,32 @@ export function startWatcher(callbacks: WatcherCallbacks): void {
   const root = getRootDir()
   files.clear()
   dirs.clear()
+  clearPairing()
   scan(root, root)
+
+  const fileGone = (p: string): void => {
+    const stat = fileStats.get(p)
+    fileStats.delete(p)
+    if (!stat) return
+    const match = pickCounterpart(appearedFiles, p, stat)
+    if (match) {
+      claim(appearedFiles, match)
+      callbacks.onFileExternallyMoved(p, match.path)
+    } else {
+      park(goneFiles, p, stat)
+    }
+  }
+
+  const fileAppeared = (p: string, stat: FileStat): void => {
+    fileStats.set(p, stat)
+    const match = pickCounterpart(goneFiles, p, stat)
+    if (match) {
+      claim(goneFiles, match)
+      callbacks.onFileExternallyMoved(match.path, p)
+    } else {
+      park(appearedFiles, p, stat)
+    }
+  }
 
   const treeChanged = (): void => {
     if (treeTimer) clearTimeout(treeTimer)
@@ -99,6 +188,7 @@ export function startWatcher(callbacks: WatcherCallbacks): void {
     }
     if (st?.isFile()) {
       if (files.has(p)) {
+        fileStats.set(p, statOf(st))
         if (!wasSavedByApp(p)) callbacks.onFileExternallyChanged(p)
         return
       }
@@ -109,28 +199,43 @@ export function startWatcher(callbacks: WatcherCallbacks): void {
         files.add(sanitized.newPath)
         callbacks.onExternalNameSanitized(sanitized.oldPath, sanitized.newPath)
       }
+      if (wasSavedByApp(p)) fileStats.set(p, statOf(st))
+      else fileAppeared(sanitized?.newPath ?? p, statOf(st))
       treeChanged()
       return
     }
     if (st?.isDirectory()) {
       if (!dirs.has(p)) {
         dirs.add(p)
-        scan(root, p)
+        const added: string[] = []
+        scan(root, p, added)
+        for (const f of added) {
+          const stat = fileStats.get(f)
+          if (stat && !wasSavedByApp(f)) fileAppeared(f, stat)
+        }
         treeChanged()
       }
       return
     }
     if (files.delete(p)) {
-      if (!wasSavedByApp(p)) callbacks.onFileExternallyRemoved(p)
+      if (wasSavedByApp(p)) {
+        fileStats.delete(p)
+      } else {
+        callbacks.onFileExternallyRemoved(p)
+        fileGone(p)
+      }
       treeChanged()
       return
     }
     if (dirs.delete(p)) {
       const prefix = p + sep
       for (const f of [...files]) {
-        if (!f.startsWith(prefix)) continue
-        files.delete(f)
-        if (!wasSavedByApp(f)) callbacks.onFileExternallyRemoved(f)
+        if (wasSavedByApp(f)) {
+          fileStats.delete(f)
+        } else {
+          callbacks.onFileExternallyRemoved(f)
+          fileGone(f)
+        }
       }
       for (const d of [...dirs]) if (d.startsWith(prefix)) dirs.delete(d)
       treeChanged()
@@ -165,6 +270,7 @@ export function stopWatcher(): void {
   watcher = null
   for (const t of pending.values()) clearTimeout(t)
   pending.clear()
+  clearPairing()
   if (treeTimer) clearTimeout(treeTimer)
   treeTimer = null
 }

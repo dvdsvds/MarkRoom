@@ -4,6 +4,7 @@ import { useToastStore } from '../stores/toastStore'
 import { useWorkspaceStore } from '../stores/workspaceStore'
 import { readFileContent } from '../utils/fileKind'
 import { fileNameOf } from '@renderer/utils/path'
+import { useNotePropsStore } from '@renderer/stores/notePropsStore'
 
 const EXTERNAL_CHANGE_BATCH_WINDOW_MS = 600
 
@@ -24,7 +25,10 @@ export function useWorkspaceEvents(): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    return window.api.workspace.onTreeChanged((newTree) => setTree(newTree))
+    return window.api.workspace.onTreeChanged((newTree) => {
+      setTree(newTree)
+      void useNotePropsStore.getState().load()
+    })
   }, [setTree])
 
   useEffect(() => {
