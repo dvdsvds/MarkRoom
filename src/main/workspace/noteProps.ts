@@ -83,6 +83,28 @@ export function moveNoteProps(oldPath: string, newPath: string): void {
   if (changed) save(data)
 }
 
+export function popNoteProps(targetPath: string): Record<string, NoteProps> {
+  const data = load()
+  const target = keyOf(targetPath)
+  const out: Record<string, NoteProps> = {}
+  for (const key of Object.keys(data.notes)) {
+    if (key !== target && !key.startsWith(`${target}/`)) continue
+    out[key.slice(target.length)] = data.notes[key]
+    delete data.notes[key]
+  }
+  if (Object.keys(out).length > 0) save(data)
+  return out
+}
+
+export function restoreNoteProps(targetPath: string, props: Record<string, NoteProps>): void {
+  const entries = Object.entries(props)
+  if (entries.length === 0) return
+  const data = load()
+  const target = keyOf(targetPath)
+  for (const [suffix, noteProps] of entries) data.notes[target + suffix] = noteProps
+  save(data)
+}
+
 export function removeNoteProps(targetPath: string): void {
   const data = load()
   const target = keyOf(targetPath)

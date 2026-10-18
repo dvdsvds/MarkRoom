@@ -156,7 +156,11 @@ const api = {
       ipcRenderer.invoke('workspace:renameEntry', oldPath, newName),
     moveEntry: (sourcePath: string, targetDirPath: string): Promise<string> =>
       ipcRenderer.invoke('workspace:moveEntry', sourcePath, targetDirPath),
-    trash: (targetPath: string): Promise<void> => ipcRenderer.invoke('workspace:trash', targetPath),
+    trash: (targetPath: string): Promise<string> =>
+      ipcRenderer.invoke('workspace:trash', targetPath),
+    restoreTrash: (id: string): Promise<string> => ipcRenderer.invoke('workspace:restoreTrash', id),
+    emptyTrash: (): Promise<void> => ipcRenderer.invoke('workspace:emptyTrash'),
+    openTrash: (): Promise<string> => ipcRenderer.invoke('workspace:openTrash'),
     reveal: (targetPath: string): Promise<void> =>
       ipcRenderer.invoke('workspace:reveal', targetPath),
     openInDefaultApp: (targetPath: string): Promise<string> =>

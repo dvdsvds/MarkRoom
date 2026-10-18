@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { TreeNode } from '../../types/workspace'
-import { dirOf, sepOf, splitName } from '@renderer/utils/path'
+import { dirOf, fileNameOf, sepOf, splitName } from '@renderer/utils/path'
+import { popUndo, pushUndo } from '@renderer/utils/sidebarUndo'
 import { useToastStore } from '@renderer/stores/toastStore'
 
 export interface DeleteTarget {
@@ -39,6 +40,7 @@ export function useTreeActions({
     window.api.workspace
       .renameEntry(node.path, newName)
       .then((newPath) => {
+        pushUndo({ kind: 'rename', oldPath: node.path, newPath })
         onEntryRenamed(node.path, newPath)
       })
       .catch(() => {
@@ -81,7 +83,8 @@ export function useTreeActions({
     const idx = visibleNodes.findIndex((n) => n.path === node.path)
     const after = visibleNodes.slice(idx + 1).find((n) => !n.path.startsWith(node.path + sep))
     const neighbor = after ?? visibleNodes[idx - 1] ?? null
-    void window.api.workspace.trash(node.path).then(() => {
+    void window.api.workspace.trash(node.path).then((trashId) => {
+      pushUndo({ kind: 'delete', trashId })
       onEntryDeleted(node.path)
       const next = neighbor ? neighbor.path : null
       setFocusedPath(next)
@@ -100,8 +103,38 @@ export function useTreeActions({
     if (!sourcePath) return
     if (dirOf(sourcePath) === targetDirPath) return
     void window.api.workspace.moveEntry(sourcePath, targetDirPath).then((newPath) => {
+      pushUndo({ kind: 'move', oldPath: sourcePath, newPath })
       onEntryMoved(sourcePath, newPath)
     })
+  }
+
+  const undoLast = async (): Promise<void> => {
+    const op = popUndo()
+    if (!op) return
+    const toast = useToastStore.getState().push
+    try {
+      if (op.kind === 'delete') {
+        const restored = await window.api.workspace.restoreTrash(op.trashId)
+        setFocusedPath(restored)
+        toast({ kind: 'info', message: `${fileNameOf(restored)}을(를) 되돌렸어요.` })
+      } else if (op.kind === 'rename') {
+        const back = await window.api.workspace.renameEntry(op.newPath, fileNameOf(op.oldPath))
+        onEntryRenamed(op.newPath, back)
+        setFocusedPath(back)
+      } else {
+        const back = await window.api.workspace.moveEntry(op.newPath, dirOf(op.oldPath))
+        onEntryMoved(op.newPath, back)
+        if (fileNameOf(back) === fileNameOf(op.oldPath)) {
+          setFocusedPath(back)
+        } else {
+          const renamed = await window.api.workspace.renameEntry(back, fileNameOf(op.oldPath))
+          onEntryRenamed(back, renamed)
+          setFocusedPath(renamed)
+        }
+      }
+    } catch {
+      toast({ kind: 'info', message: '되돌릴 수 없어요. 같은 이름이 이미 있거나 파일이 바뀌었어요.' })
+    }
   }
 
   return {
@@ -120,6 +153,7 @@ export function useTreeActions({
     commitNewFile,
     openDeleteConfirm,
     confirmDelete,
-    handleDrop
+    handleDrop,
+    undoLast
   }
 }

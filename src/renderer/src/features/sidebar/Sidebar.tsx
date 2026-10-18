@@ -80,13 +80,13 @@ function deleteMessage(target: DeleteTarget, dirtyCount: number): string {
   if (dirtyCount > 0) {
     parts.push(
       target.node.type === 'folder'
-        ? `저장 안 한 변경이 있는 파일이 ${dirtyCount}개 있어요. 휴지통에서 복원해도 이 변경은 돌아오지 않아요.`
-        : '저장 안 한 변경이 있어요. 휴지통에서 복원해도 이 변경은 돌아오지 않아요.'
+        ? `저장 안 한 변경이 있는 파일이 ${dirtyCount}개 있어요. 되돌려도 이 변경은 돌아오지 않아요.`
+        : '저장 안 한 변경이 있어요. 되돌려도 이 변경은 돌아오지 않아요.'
     )
   }
   if (target.node.type === 'folder') {
     if (dirtyCount === 0) {
-      parts.push('폴더 안의 모든 파일이 휴지통으로 이동돼요. 언제든 복원할 수 있어요')
+      parts.push('폴더 안의 모든 파일이 앱 휴지통으로 이동돼요. Ctrl+Z로 되돌릴 수 있어요')
     }
   } else if (target.loading) {
     parts.push('링크를 확인하고 있어요…')
@@ -94,7 +94,7 @@ function deleteMessage(target: DeleteTarget, dirtyCount: number): string {
     const count = target.backlinks.reduce((sum, b) => sum + b.count, 0)
     parts.push(`이 파일을 가리키는 위키링크가 ${count}개 있어요. 삭제하면 링크가 끊겨요.`)
   } else if (dirtyCount === 0) {
-    parts.push('휴지통으로 이동돼요. 언제든 복원할 수 있어요')
+    parts.push('앱 휴지통으로 이동돼요. Ctrl+Z로 되돌릴 수 있어요')
   }
   return parts.join(' ')
 }
@@ -176,7 +176,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     commitNewFile,
     openDeleteConfirm,
     confirmDelete,
-    handleDrop
+    handleDrop,
+    undoLast
   } = useTreeActions({
     visibleNodes,
     rowRefs,
@@ -257,7 +258,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
       style={style}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => rootDir && handleDrop(e, rootDir)}
-      onKeyDown={(e) => handleTreeKeyDown(e, openDeleteConfirm)}
+      onKeyDown={(e) => handleTreeKeyDown(e, openDeleteConfirm, () => void undoLast())}
     >
       <div className={`flex min-h-0 flex-col ${filesOpen ? 'flex-1' : 'shrink-0'}`}>
         <div className="flex h-9 shrink-0 items-center justify-between pl-2 pr-2">

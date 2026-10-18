@@ -7,6 +7,7 @@ import { SHORTCUT_LABELS, type ShortcutAction } from '../../utils/shortcuts'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsParts'
 import { PropertyOptionsEditor } from './PropertyOptionsEditor'
+import { TrashSetting } from './TrashSetting'
 import { PROPERTY_LABELS } from '../../utils/noteProperties'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [
@@ -164,6 +165,13 @@ export function useSettingItems(): SettingItem[] {
             </div>
           </div>
         )
+      },
+      {
+        id: 'trash',
+        category: '일반',
+        group: '휴지통',
+        label: '앱 휴지통',
+        render: () => <TrashSetting />
       },
       {
         id: 'theme',

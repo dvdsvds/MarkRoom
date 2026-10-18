@@ -89,9 +89,18 @@ export function useTreeFocus({
     return result
   }, [tree, collapsedPaths])
 
-  const handleTreeKeyDown = (e: React.KeyboardEvent, onDelete: (node: TreeNode) => void): void => {
+  const handleTreeKeyDown = (
+    e: React.KeyboardEvent,
+    onDelete: (node: TreeNode) => void,
+    onUndo: () => void
+  ): void => {
     const target = e.target as HTMLElement
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      onUndo()
+      return
+    }
     if (e.key === 'Escape') {
       setFocusedPath(null)
       setHighlightOff(true)

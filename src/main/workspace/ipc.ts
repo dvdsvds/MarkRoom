@@ -8,7 +8,6 @@ import { buildTree } from './tree'
 import {
   readNote,
   renameEntry,
-  trashEntry,
   writeFileAtomic,
   createFolder,
   createEmptyNote,
@@ -22,10 +21,10 @@ import { searchNotes, type SearchQuery } from './search'
 import {
   getAllNoteProps,
   moveNoteProps,
-  removeNoteProps,
   setNoteProps,
   type NoteProps
 } from './noteProps'
+import { emptyTrash, moveToTrash, purgeOldTrash, restoreFromTrash, trashFolderPath } from './trash'
 import { markRemovalByApp, markSavedByApp, markMoveByApp, startWatcher } from './watcher'
 import { checkExportLinks, exportFolder, listPdfNotes, type ExportOptions } from './exporter'
 import { applyRecovery, discardRecovery, findRecoverableFiles } from './recovery'
@@ -109,11 +108,15 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
     moveNoteProps(sourcePath, destination)
     return destination
   })
-  ipcMain.handle('workspace:trash', async (_event, targetPath: string) => {
+  ipcMain.handle('workspace:trash', (_event, targetPath: string) => {
     markRemovalByApp(targetPath)
-    await trashEntry(targetPath)
-    removeNoteProps(targetPath)
+    return moveToTrash(targetPath)
   })
+  ipcMain.handle('workspace:restoreTrash', (_event, id: string) =>
+    restoreFromTrash(id, markSavedByApp)
+  )
+  ipcMain.handle('workspace:emptyTrash', () => emptyTrash())
+  ipcMain.handle('workspace:openTrash', () => shell.openPath(trashFolderPath()))
   ipcMain.handle('props:getAll', () => getAllNoteProps())
   ipcMain.handle('props:set', (_event, filePath: string, props: NoteProps | null) =>
     setNoteProps(filePath, props)
@@ -233,6 +236,7 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
       return { ok: false as const, error: e instanceof Error ? e.message : String(e) }
     }
   })
+  purgeOldTrash()
   startWatcher({
     onTreeChanged: () => {
       getWindow()?.webContents.send('workspace:tree-changed', buildTree(getRootDir()))

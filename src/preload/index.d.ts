@@ -119,7 +119,10 @@ export interface MarkRoomApi {
     createNote: (dirPath: string, name: string) => Promise<string>
     renameEntry: (oldPath: string, newName: string) => Promise<string>
     moveEntry: (sourcePath: string, targetDirPath: string) => Promise<string>
-    trash: (targetPath: string) => Promise<void>
+    trash: (targetPath: string) => Promise<string>
+    restoreTrash: (id: string) => Promise<string>
+    emptyTrash: () => Promise<void>
+    openTrash: () => Promise<string>
     reveal: (targetPath: string) => Promise<void>
     openInDefaultApp: (targetPath: string) => Promise<string>
     copyPath: (targetPath: string, relative: boolean) => Promise<void>
