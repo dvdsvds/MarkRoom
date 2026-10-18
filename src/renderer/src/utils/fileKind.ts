@@ -1,6 +1,6 @@
 import { fileNameOf, splitName } from "./path"
 
-export type FileKind = 'text' | 'image' | 'pdf' | 'external'
+export type FileKind = 'text' | 'image' | 'pdf' | 'docx' | 'xlsx' | 'external'
 
 const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'])
 const MARKDOWN_EXTS = new Set(['md', 'markdown'])
@@ -22,6 +22,8 @@ function extOf(filePath: string): string {
 export function fileKindOf(filePath: string): FileKind {
   const ext = extOf(filePath)
   if (ext === 'pdf') return 'pdf'
+  if (ext === 'docx') return 'docx'
+  if (ext === 'xlsx') return 'xlsx'
   if (IMAGE_EXTS.has(ext)) return 'image'
   if (BINARY_EXTS.has(ext)) return 'external'
   return 'text'

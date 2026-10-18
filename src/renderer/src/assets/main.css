@@ -20,6 +20,7 @@
 @import './styles/template.css';
 @import './styles/dialogs.css';
 @import './styles/csv.css';
+@import './styles/office.css';
 
 @theme inline {
   --color-bg: var(--color-bg);

@@ -1,4 +1,6 @@
 import { PdfViewer } from './PdfViewer'
+import { DocxViewer } from './DocxViewer'
+import { XlsxViewer } from './XlsxViewer'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FileKind } from '../utils/fileKind'
 import { snoteUrl } from '@renderer/utils/snoteUrl'
@@ -116,5 +118,7 @@ export function FileViewer({
   kind: Exclude<FileKind, 'text'>
 }): React.JSX.Element {
   if (kind === 'pdf') return <PdfViewer filePath={filePath} />
+  if (kind === 'docx') return <DocxViewer filePath={filePath} />
+  if (kind === 'xlsx') return <XlsxViewer filePath={filePath} />
   return <ImageViewer filePath={filePath} />
 }

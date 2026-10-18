@@ -1,0 +1,55 @@
+/* docx 미리보기: docx-preview 기본 회색 바탕을 앱 바탕색으로 바꾼다. 페이지는 종이처럼 흰색 그대로 둔다. */
+.docx-viewer .docx-wrapper {
+  background: var(--color-bg-soft);
+  padding: 24px 0;
+}
+
+.docx-viewer .docx-wrapper > section.docx {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  margin-bottom: 24px;
+}
+
+/* xlsx 미리보기 */
+.xlsx-table {
+  table-layout: fixed;
+}
+
+.xlsx-table th,
+.xlsx-table td {
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  height: 24px;
+  padding: 0 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.xlsx-colhead,
+.xlsx-rowhead,
+.xlsx-corner {
+  background: var(--color-bg-soft);
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+  font-size: 11px;
+  text-align: center;
+}
+
+.xlsx-colhead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.xlsx-rowhead {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+
+.xlsx-corner {
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 3;
+}
