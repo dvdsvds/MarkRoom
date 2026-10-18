@@ -15,6 +15,7 @@ import { buildMenuItems } from './sidebarMenu'
 import { useTreeFocus } from './useTreeFocus'
 import { useTreeActions } from './useTreeActions'
 import { TagSection } from './TagSection'
+import { useSettingsStore } from '@renderer/stores/settingsStore'
 
 interface SidebarProps {
   tree: TreeNode[]
@@ -99,8 +100,10 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     isRoot: boolean
     label: string
   } | null>(null)
-  const [filesOpen, setFilesOpen] = useState(true)
-  const [tagsOpen, setTagsOpen] = useState(true)
+  const filesOpen = useSettingsStore((s) => s.filesSectionOpen)
+  const setFilesOpen = useSettingsStore((s) => s.setFilesSectionOpen)
+  const tagsOpen = useSettingsStore((s) => s.tagsSectionOpen)
+  const setTagsOpen = useSettingsStore((s) => s.setTagsSectionOpen)
 
   const {
     rowRefs,
@@ -229,7 +232,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     >
       <div className={`flex min-h-0 flex-col ${filesOpen ? 'flex-1' : 'shrink-0'}`}>
         <div className="flex h-9 shrink-0 items-center justify-between pl-2 pr-2">
-          <SectionHeader label="파일" open={filesOpen} onToggle={() => setFilesOpen((v) => !v)} />
+          <SectionHeader label="파일" open={filesOpen} onToggle={() => setFilesOpen(!filesOpen)} />
           <div className="flex items-center gap-0.5 opacity-0 transition-opacity duration-150 group-focus-within/sb:opacity-100 group-hover/sb:opacity-100">
             <button
               type="button"
@@ -316,7 +319,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         className={`flex min-h-0 flex-col border-t border-border ${tagsOpen ? 'flex-1' : 'shrink-0'}`}
       >
         <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
-          <SectionHeader label="태그" open={tagsOpen} onToggle={() => setTagsOpen((v) => !v)} />
+          <SectionHeader label="태그" open={tagsOpen} onToggle={() => setTagsOpen(!tagsOpen)} />
         </div>
         {tagsOpen && (
           <div className="flex-1 overflow-auto pb-2">

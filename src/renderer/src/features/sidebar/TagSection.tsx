@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import type { TreeNode } from '../../types/workspace'
 import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { splitName, fileNameOf } from '@renderer/utils/path'
 import ChevronIcon from '../../icons/chevron.svg?react'
-import { useSettingsStore } from '../../stores/settingsStore'
+import { useSettingsStore, type TagGroupBy } from '../../stores/settingsStore'
 import { useNotePropsStore } from '../../stores/notePropsStore'
 import {
   PROPERTY_COLORS,
@@ -12,8 +12,6 @@ import {
   findOption,
   type NoteProps
 } from '../../utils/noteProperties'
-
-type GroupBy = 'status' | 'priority'
 
 const ROW_BASE =
   'flex h-7 w-full items-center gap-2 rounded-md pr-2 text-left text-[13px] text-text transition-colors hover:bg-bg-mute/60 focus:outline-none'
@@ -37,8 +35,10 @@ export function TagSection({
 }): React.JSX.Element {
   const options = useSettingsStore((s) => s.propertyOptions)
   const byPath = useNotePropsStore((s) => s.byPath)
-  const [groupBy, setGroupBy] = useState<GroupBy>('status')
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const groupBy: TagGroupBy = useSettingsStore((s) => s.tagGroupBy)
+  const setGroupBy = useSettingsStore((s) => s.setTagGroupBy)
+  const collapsed = useSettingsStore((s) => s.tagCollapsedGroups[s.tagGroupBy])
+  const toggleTagGroup = useSettingsStore((s) => s.toggleTagGroup)
 
   const groups = useMemo(() => {
     const existing = collectFiles(tree, new Set())
@@ -52,15 +52,6 @@ export function TagSection({
       }))
       .filter((g) => g.notes.length > 0)
   }, [tree, byPath, options, groupBy])
-
-  const toggleGroup = (label: string): void => {
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(label)) next.delete(label)
-      else next.add(label)
-      return next
-    })
-  }
 
   const metaOf = (props: NoteProps): { label: string; color: string }[] => {
     const keys =
@@ -84,10 +75,7 @@ export function TagSection({
           <button
             key={key}
             type="button"
-            onClick={() => {
-              setGroupBy(key)
-              setCollapsed(new Set())
-            }}
+            onClick={() => setGroupBy(key)}
             className={`rounded px-1.5 py-0.5 text-[11px] transition-colors ${
               groupBy === key
                 ? 'bg-bg-mute text-text'
@@ -105,12 +93,12 @@ export function TagSection({
       )}
       <div className="px-2">
         {groups.map(({ option, notes }) => {
-          const open = !collapsed.has(option.label)
+          const open = !collapsed.includes(option.label)
           return (
             <div key={option.label}>
               <button
                 type="button"
-                onClick={() => toggleGroup(option.label)}
+                onClick={() => toggleTagGroup(groupBy, option.label)}
                 className={ROW_BASE}
                 style={{ paddingLeft: 8 }}
               >

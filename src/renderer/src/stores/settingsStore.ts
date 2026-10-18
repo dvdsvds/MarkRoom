@@ -9,6 +9,7 @@ import {
 } from '../utils/noteProperties'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
+export type TagGroupBy = 'status' | 'priority'
 
 const OLD_EDITOR_FONT_FAMILY = "'IBM Plex Mono', 'D2Coding', Pretendard, monospace"
 const DEFAULT_EDITOR_FONT_FAMILY = "'Roboto Mono', Pretendard, monospace"
@@ -54,6 +55,14 @@ interface SettingsState {
   charCountExcludeSpaces: boolean
   toggleCharCountIncludeSpaces: () => void
   toggleCharCountExcludeSpaces: () => void
+  filesSectionOpen: boolean
+  setFilesSectionOpen: (value: boolean) => void
+  tagsSectionOpen: boolean
+  setTagsSectionOpen: (value: boolean) => void
+  tagGroupBy: TagGroupBy
+  setTagGroupBy: (value: TagGroupBy) => void
+  tagCollapsedGroups: Record<TagGroupBy, string[]>
+  toggleTagGroup: (groupBy: TagGroupBy, label: string) => void
   propertyOptions: PropertyOptions
   setPropertyOptions: (key: PropertyKey, options: PropertyOption[]) => void
   shortcuts: ShortcutMap
@@ -133,6 +142,21 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({ charCountIncludeSpaces: !state.charCountIncludeSpaces })),
       toggleCharCountExcludeSpaces: () =>
         set((state) => ({ charCountExcludeSpaces: !state.charCountExcludeSpaces })),
+      filesSectionOpen: true,
+      setFilesSectionOpen: (value) => set({ filesSectionOpen: value }),
+      tagsSectionOpen: true,
+      setTagsSectionOpen: (value) => set({ tagsSectionOpen: value }),
+      tagGroupBy: 'status',
+      setTagGroupBy: (value) => set({ tagGroupBy: value }),
+      tagCollapsedGroups: { status: [], priority: [] },
+      toggleTagGroup: (groupBy, label) =>
+        set((state) => {
+          const current = state.tagCollapsedGroups[groupBy]
+          const next = current.includes(label)
+            ? current.filter((l) => l !== label)
+            : [...current, label]
+          return { tagCollapsedGroups: { ...state.tagCollapsedGroups, [groupBy]: next } }
+        }),
       propertyOptions: DEFAULT_PROPERTY_OPTIONS,
       setPropertyOptions: (key, options) =>
         set((state) => ({ propertyOptions: { ...state.propertyOptions, [key]: options } })),
@@ -154,6 +178,7 @@ export const useSettingsStore = create<SettingsState>()(
           ...current,
           ...p,
           shortcuts: { ...DEFAULT_SHORTCUTS, ...(p.shortcuts ?? {}) },
+          tagCollapsedGroups: { ...current.tagCollapsedGroups, ...(p.tagCollapsedGroups ?? {}) },
           propertyOptions: { ...DEFAULT_PROPERTY_OPTIONS, ...(p.propertyOptions ?? {})}
         }
       },
