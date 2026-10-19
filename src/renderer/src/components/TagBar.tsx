@@ -121,7 +121,14 @@ function TagSelect({
   )
 }
 
-export function TagBar({ filePath }: { filePath: string }): React.JSX.Element {
+export function TagBar({
+  filePath,
+  children
+}: {
+  filePath: string
+  /** 오른쪽 끝에 붙일 것 (데일리 노트 이동 버튼 등) */
+  children?: React.ReactNode
+}): React.JSX.Element {
   const options = useSettingsStore((s) => s.propertyOptions)
   const noteProps = useNotePropsStore((s) => s.byPath[filePath])
   const setProps = useNotePropsStore((s) => s.setProps)
@@ -163,6 +170,7 @@ export function TagBar({ filePath }: { filePath: string }): React.JSX.Element {
         options={options.priority}
         onChange={(value) => setProps(filePath, { priority: value })}
       />
+      {children}
     </div>
   )
 }

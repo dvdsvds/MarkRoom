@@ -15,6 +15,8 @@ import { buildMenuItems } from './sidebarMenu'
 import { useTreeFocus } from './useTreeFocus'
 import { useTreeActions, type DeleteTarget } from './useTreeActions'
 import { TagSection } from './TagSection'
+import { TemplateSection } from './TemplateSection'
+import type { NoteTemplate } from '../../utils/noteTemplate'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
 
 interface SidebarProps {
@@ -33,6 +35,8 @@ interface SidebarProps {
   onOpenAtLine: (filePath: string, line: number) => void
   selectedFolderPath: string | null
   onSelectFolder: (path: string | null) => void
+  onInsertTemplate: (template: NoteTemplate) => void
+  onCreateFromTemplate: (template: NoteTemplate) => void
   className?: string
   style?: React.CSSProperties
 }
@@ -116,6 +120,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onOpenAtLine,
     selectedFolderPath,
     onSelectFolder,
+    onInsertTemplate,
+    onCreateFromTemplate,
     className,
     style
   }: SidebarProps,
@@ -133,6 +139,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const setFilesOpen = useSettingsStore((s) => s.setFilesSectionOpen)
   const tagsOpen = useSettingsStore((s) => s.tagsSectionOpen)
   const setTagsOpen = useSettingsStore((s) => s.setTagsSectionOpen)
+  const templatesOpen = useSettingsStore((s) => s.templatesSectionOpen)
+  const setTemplatesOpen = useSettingsStore((s) => s.setTemplatesSectionOpen)
 
   const {
     rowRefs,
@@ -354,6 +362,22 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
         {tagsOpen && (
           <div className="flex-1 overflow-auto pb-2">
             <TagSection tree={tree} activeFilePath={activeFilePath} onOpenFile={onOpenFile} />
+          </div>
+        )}
+      </div>
+      <div
+        className={`flex min-h-0 flex-col border-t border-border ${templatesOpen ? 'flex-1' : 'shrink-0'}`}
+      >
+        <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+          <SectionHeader
+            label="템플릿"
+            open={templatesOpen}
+            onToggle={() => setTemplatesOpen(!templatesOpen)}
+          />
+        </div>
+        {templatesOpen && (
+          <div className="flex-1 overflow-auto pb-2">
+            <TemplateSection onInsert={onInsertTemplate} onCreateNote={onCreateFromTemplate} />
           </div>
         )}
       </div>

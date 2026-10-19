@@ -8,6 +8,7 @@ import { ThemeToggle } from '../../components/ThemeToggle'
 import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsParts'
 import { PropertyOptionsEditor } from './PropertyOptionsEditor'
 import { TrashSetting } from './TrashSetting'
+import { DailyNoteSetting } from './DailyNoteSetting'
 import { PROPERTY_LABELS } from '../../utils/noteProperties'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [
@@ -26,7 +27,8 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'todoDashboard',
   'backlinks',
   'toggleSidebar',
-  'graph'
+  'graph',
+  'dailyNote'
 ]
 
 export const CATEGORIES = ['일반', '화면', '상태 표시줄', '태그', '단축키'] as const
@@ -165,6 +167,13 @@ export function useSettingItems(): SettingItem[] {
             </div>
           </div>
         )
+      },
+      {
+        id: 'daily-note',
+        category: '일반',
+        group: '데일리 노트',
+        label: '데일리 노트 폴더 형식',
+        render: () => <DailyNoteSetting />
       },
       {
         id: 'trash',

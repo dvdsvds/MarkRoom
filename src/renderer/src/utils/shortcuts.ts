@@ -15,6 +15,7 @@ export interface ShortcutMap {
   backlinks: string
   toggleSidebar: string
   graph: string
+  dailyNote: string
 }
 
 export type ShortcutAction = keyof ShortcutMap
@@ -36,6 +37,7 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   backlinks: 'Ctrl+Shift+B',
   toggleSidebar: 'Ctrl+Shift+E',
   graph: 'Ctrl+Shift+G',
+  dailyNote: 'Ctrl+Shift+D'
 }
 
 export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
@@ -54,7 +56,8 @@ export const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
   todoDashboard: '할일 대시보드',
   backlinks: '백링크 패널',
   toggleSidebar: '사이드바 접기/펼치기',
-  graph: '그래프 뷰'
+  graph: '그래프 뷰',
+  dailyNote: '오늘 데일리 노트'
 }
 
 function normalizeKey(key: string): string {

@@ -7,6 +7,10 @@ import {
   type PropertyOption,
   type PropertyOptions
 } from '../utils/noteProperties'
+import { DAILY_TEMPLATE_ID, DEFAULT_TEMPLATES, type NoteTemplate } from '../utils/noteTemplate'
+
+const OLD_DAILY_CONTENT =
+  '# {{date:YYYY년 M월 D일 dddd}}\n\n← [[{{yesterday}}]] · [[{{tomorrow}}]] →\n\n## 오늘 할 일\n\n- [ ] \n\n## 메모\n\n'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
 export type TagGroupBy = 'status' | 'priority'
@@ -61,6 +65,14 @@ interface SettingsState {
   setTagsSectionOpen: (value: boolean) => void
   collapsedFolders: string[]
   setFolderCollapsed: (path: string, collapsed: boolean) => void
+  dailyFolder: string
+  dailyFormat: string
+  setDailyNote: (partial: Partial<{ folder: string; format: string }>) => void
+  templates: NoteTemplate[]
+  saveTemplate: (template: NoteTemplate) => void
+  deleteTemplate: (id: string) => void
+  templatesSectionOpen: boolean
+  setTemplatesSectionOpen: (value: boolean) => void
   tagGroupBy: TagGroupBy
   setTagGroupBy: (value: TagGroupBy) => void
   tagCollapsedGroups: Record<TagGroupBy, string[]>
@@ -148,6 +160,24 @@ export const useSettingsStore = create<SettingsState>()(
       setFilesSectionOpen: (value) => set({ filesSectionOpen: value }),
       tagsSectionOpen: true,
       setTagsSectionOpen: (value) => set({ tagsSectionOpen: value }),
+      dailyFolder: '데일리',
+      dailyFormat: 'YYYY-MM-DD',
+      setDailyNote: (partial) =>
+        set((state) => ({
+          dailyFolder: partial.folder ?? state.dailyFolder,
+          dailyFormat: partial.format ?? state.dailyFormat
+        })),
+      templates: DEFAULT_TEMPLATES,
+      saveTemplate: (template) =>
+        set((state) => ({
+          templates: state.templates.some((t) => t.id === template.id)
+            ? state.templates.map((t) => (t.id === template.id ? template : t))
+            : [...state.templates, template]
+        })),
+      deleteTemplate: (id) =>
+        set((state) => ({ templates: state.templates.filter((t) => t.id !== id) })),
+      templatesSectionOpen: true,
+      setTemplatesSectionOpen: (value) => set({ templatesSectionOpen: value }),
       collapsedFolders: [],
       setFolderCollapsed: (path, collapsed) =>
         set((state) => {
@@ -192,7 +222,13 @@ export const useSettingsStore = create<SettingsState>()(
           ...p,
           shortcuts: { ...DEFAULT_SHORTCUTS, ...(p.shortcuts ?? {}) },
           tagCollapsedGroups: { ...current.tagCollapsedGroups, ...(p.tagCollapsedGroups ?? {}) },
-          propertyOptions: { ...DEFAULT_PROPERTY_OPTIONS, ...(p.propertyOptions ?? {})}
+          propertyOptions: { ...DEFAULT_PROPERTY_OPTIONS, ...(p.propertyOptions ?? {})},
+          // 사용자가 고치지 않은 예전 데일리 기본값(어제·내일 링크 줄 포함)은 새 기본값으로 바꾼다
+          templates: (p.templates ?? current.templates).map((t) =>
+            t.id === DAILY_TEMPLATE_ID && t.content === OLD_DAILY_CONTENT
+              ? { ...t, content: DEFAULT_TEMPLATES[0].content }
+              : t
+          )
         }
       },
       migrate: (persisted, version) => {

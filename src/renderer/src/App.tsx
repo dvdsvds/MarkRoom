@@ -31,6 +31,11 @@ import { useToastStore } from './stores/toastStore'
 import { flattenFilePaths, flattenNotes } from './utils/noteIndex'
 import { findHeadingLine } from './utils/wikilink'
 import { useCursorStore } from './stores/cursorStore'
+import { buildDailyContent, dailyNoteDate, dailyNotePath } from './utils/dailyNote'
+import { DailyNav } from './components/DailyNav'
+import { applyTemplate, type NoteTemplate } from './utils/noteTemplate'
+import { getCurrentView } from './editor/currentView'
+import CalendarIcon from './icons/calendar.svg?react'
 import { extractToc } from './utils/toc'
 import SearchIcon from './icons/search.svg?react'
 import SettingsIcon from './icons/settings.svg?react'
@@ -99,6 +104,14 @@ function App(): React.JSX.Element {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? null
   const tagBarPath = activeTab?.kind === 'text' && !activeTab.missing && activeTab.filePath?.toLowerCase().endsWith('.md') ? activeTab.filePath : null
   const isViewer = activeTab !== null && activeTab.kind !== 'text'
+  const dailyFolderSetting = useSettingsStore((s) => s.dailyFolder)
+  const dailyFormatSetting = useSettingsStore((s) => s.dailyFormat)
+  const activeDailyDate = useMemo(
+    () => (tagBarPath ? dailyNoteDate(tagBarPath) : null),
+    // 설정이 바뀌면 다시 판단한다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tagBarPath, rootDir, dailyFolderSetting, dailyFormatSetting]
+  )
   const showPreview = !activeTab?.filePath || isMarkdownPath(activeTab.filePath)
   const sidebarRef = useRef<SidebarHandle>(null)
 
@@ -246,7 +259,8 @@ function App(): React.JSX.Element {
     toggleTodo: () => setTodoOpen((v) => !v),
     toggleBacklinks: () => setBacklinksOpen((v) => !v),
     toggleSidebar: () => setSidebarCollapsed(!useSettingsStore.getState().sidebarCollapsed),
-    toggleGraph: () => setGraphOpen((v) => !v)
+    toggleGraph: () => setGraphOpen((v) => !v),
+    openDailyNote: () => void openDailyNote(new Date())
   })
 
   const handleOpenFile = useCallback(
@@ -286,6 +300,80 @@ function App(): React.JSX.Element {
       })
     },
     [openFile, pushToast]
+  )
+
+  // 템플릿을 지금 노트의 커서 위치에 넣는다
+  const handleInsertTemplate = useCallback(
+    (template: NoteTemplate): void => {
+      const { tabs: allTabs, activeTabId: activeId } = useTabsStore.getState()
+      const tab = allTabs.find((t) => t.id === activeId)
+      const view = getCurrentView()
+      if (!tab?.filePath || !isMarkdownPath(tab.filePath) || !view) {
+        pushToast({ kind: 'info', message: '템플릿을 넣을 노트를 먼저 열어 주세요.' })
+        return
+      }
+      const text = applyTemplate(template.content, {
+        date: new Date(),
+        title: splitName(fileNameOf(tab.filePath)).base,
+        dateFormat: useSettingsStore.getState().dailyFormat
+      })
+      const pos = view.state.selection.main.head
+      view.dispatch({
+        changes: { from: pos, to: view.state.selection.main.to, insert: text },
+        selection: { anchor: pos + text.length },
+        scrollIntoView: true
+      })
+      view.focus()
+    },
+    [pushToast]
+  )
+
+  // 템플릿 이름으로 새 노트를 만든다. 이름이 겹치면 '회의록 2'처럼 번호가 붙는다
+  const handleCreateFromTemplate = useCallback(
+    async (template: NoteTemplate): Promise<void> => {
+      try {
+        const created = await window.api.workspace.createNote(
+          resolveNewNoteDir(),
+          `${template.name}.md`
+        )
+        const content = applyTemplate(template.content, {
+          date: new Date(),
+          title: splitName(fileNameOf(created)).base,
+          dateFormat: useSettingsStore.getState().dailyFormat
+        })
+        await window.api.workspace.saveNote({ filePath: created, content })
+        openFile(created, content)
+      } catch {
+        pushToast({ kind: 'info', message: '템플릿으로 노트를 만들지 못했어요.' })
+      }
+    },
+    [resolveNewNoteDir, openFile, pushToast]
+  )
+
+  // 그날 데일리 노트를 연다. 없으면 템플릿(`템플릿/데일리.md`)으로 새로 만든다
+  const openDailyNote = useCallback(
+    async (date: Date): Promise<void> => {
+      const path = dailyNotePath(date)
+      if (!path) return
+      const exists = flattenFilePaths(useWorkspaceStore.getState().tree).some(
+        (p) => p.toLowerCase() === path.toLowerCase()
+      )
+      if (exists) {
+        handleOpenFile(path)
+        return
+      }
+      const title = splitName(fileNameOf(path)).base
+      try {
+        const content = buildDailyContent(date, title)
+        // 형식에 점이 있어도(2026.10.19) 확장자로 오해하지 않게 .md를 붙여서 넘긴다
+        const created = await window.api.workspace.createNote(dirOf(path), `${title}.md`)
+        await window.api.workspace.saveNote({ filePath: created, content })
+        openFile(created, content)
+      } catch {
+        pushToast({ kind: 'info', message: '데일리 노트를 만들지 못했어요. 폴더 설정을 확인해 주세요.' })
+      }
+    },
+    [handleOpenFile, openFile, pushToast]
   )
 
   const handleEditorChange = useCallback(
@@ -621,6 +709,14 @@ function App(): React.JSX.Element {
         >
           <GrpahIcon />
         </button>
+        <button
+          type="button"
+          onClick={() => void openDailyNote(new Date())}
+          title="오늘 데일리 노트 (Ctrl+Shift+D)"
+          className={TITLE_BTN}
+        >
+          <CalendarIcon />
+        </button>
       </TitleBar>
       <main className="flex min-h-0 flex-1 pb-2 pr-2">
         <motion.div
@@ -648,6 +744,8 @@ function App(): React.JSX.Element {
                 onOpenAtLine={handleOpenTodo}
                 selectedFolderPath={selectedFolderPath}
                 onSelectFolder={setSelectedFolderPath}
+                onInsertTemplate={handleInsertTemplate}
+                onCreateFromTemplate={(t) => void handleCreateFromTemplate(t)}
                 className="h-full"
               />
             </div>
@@ -670,7 +768,17 @@ function App(): React.JSX.Element {
             onCloseAll={tabClose.closeAll}
             onMissingClick={handleMissingTabClick}
           />
-          {tagBarPath && <TagBar filePath={tagBarPath} />}
+          {tagBarPath && (
+            <TagBar filePath={tagBarPath}>
+              {activeDailyDate && (
+                <DailyNav
+                  date={activeDailyDate}
+                  onOpenFile={handleOpenFile}
+                  onOpenToday={() => void openDailyNote(new Date())}
+                />
+              )}
+            </TagBar>
+          )}
           {activeTab && activeTab.kind !== 'text' && activeTab.filePath ? (
             <FileViewer  key={activeTab.id} filePath={activeTab.filePath} kind={activeTab.kind}/>
           ) : activeTab ? (

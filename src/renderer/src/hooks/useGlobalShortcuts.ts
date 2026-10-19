@@ -15,6 +15,7 @@ export interface GlobalShortcutActions {
   toggleBacklinks: () => void
   toggleSidebar: () => void
   toggleGraph: () => void
+  openDailyNote: () => void
 }
 
 function copyActivePath(e: KeyboardEvent, relative: boolean): void {
@@ -100,6 +101,11 @@ export function useGlobalShortcuts(actions: GlobalShortcutActions): void {
       if (matchesShortcut(e, shortcuts.graph)) {
         e.preventDefault()
         a.toggleGraph()
+        return
+      }
+      if (matchesShortcut(e, shortcuts.dailyNote)) {
+        e.preventDefault()
+        a.openDailyNote()
         return
       }
       if (e.key === 'Escape' && a.settingsOpen) {
