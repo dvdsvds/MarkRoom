@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { useNotePropsStore } from '../../stores/notePropsStore'
 import { useToastStore } from '../../stores/toastStore'
 import {
   PROPERTY_COLORS,
   type PropertyColor,
+  type PropertyKey,
   type PropertyOption
 } from '../../utils/noteProperties'
-import { INPUT } from './SettingsParts'
+import { Checkbox, INPUT } from './SettingsParts'
 
 const COLOR_NAMES = Object.keys(PROPERTY_COLORS) as PropertyColor[]
 
@@ -17,6 +19,7 @@ function OptionRow({
   option,
   first,
   last,
+  showSubstatus,
   confirmCount,
   onRename,
   onChange,
@@ -28,6 +31,7 @@ function OptionRow({
   option: PropertyOption
   first: boolean
   last: boolean
+  showSubstatus: boolean
   confirmCount: number | null
   onRename: (name: string) => boolean
   onChange: (next: PropertyOption) => void
@@ -98,6 +102,15 @@ function OptionRow({
           ✕
         </button>
       </div>
+      {showSubstatus && (
+        <div className="mt-1.5 pl-0.5 text-[12.5px] text-text-secondary">
+          <Checkbox
+            checked={option.hasSubstatus === true}
+            onChange={() => onChange({ ...option, hasSubstatus: !option.hasSubstatus })}
+            label="이 값을 고르면 세부 선택 보이기"
+          />
+        </div>
+      )}
       {confirmCount !== null && (
         <div className="mt-1.5 flex items-center gap-3 text-[12.5px] text-text-secondary">
           <span>{confirmCount}개 노트에서 이 값이 지워져요</span>
@@ -113,24 +126,16 @@ function OptionRow({
   )
 }
 
-/** 선택·여러 개 선택 속성의 값 목록(이름, 색, 순서) 편집. 이름을 바꾸면 노트의 값도 같이 바뀐다 */
-export function PropertyOptionsEditor({
-  propKey,
-  options,
-  onOptionsChange
-}: {
-  propKey: string
-  options: PropertyOption[]
-  onOptionsChange: (options: PropertyOption[]) => void
-}): React.JSX.Element {
-  // 값마다 쓰는 노트 수를 다시 세려고 구독만 해 둔다
-  useNotePropsStore((s) => s.byPath)
-  const countWithValue = useNotePropsStore((s) => s.countWithValue)
+export function PropertyOptionsEditor({ propKey }: { propKey: PropertyKey }): React.JSX.Element {
+  const options = useSettingsStore((s) => s.propertyOptions[propKey])
+  const setOptions = useSettingsStore((s) => s.setPropertyOptions)
+  const byPath = useNotePropsStore((s) => s.byPath)
   const renameValue = useNotePropsStore((s) => s.renameValue)
   const pushToast = useToastStore((s) => s.push)
   const [confirming, setConfirming] = useState<string | null>(null)
 
-  const countOf = (label: string): number => countWithValue(propKey, label)
+  const countOf = (label: string): number =>
+    Object.values(byPath).filter((p) => p[propKey] === label).length
 
   const rename = (option: PropertyOption, name: string): boolean => {
     const next = name.trim()
@@ -143,13 +148,19 @@ export function PropertyOptionsEditor({
       pushToast({ kind: 'info', message: '같은 이름이 이미 있어요.' })
       return false
     }
-    onOptionsChange(options.map((o) => (o === option ? { ...o, label: next } : o)))
+    setOptions(
+      propKey,
+      options.map((o) => (o === option ? { ...o, label: next } : o))
+    )
     renameValue(propKey, option.label, next)
     return true
   }
 
   const update = (option: PropertyOption, next: PropertyOption): void => {
-    onOptionsChange(options.map((o) => (o === option ? next : o)))
+    setOptions(
+      propKey,
+      options.map((o) => (o === option ? next : o))
+    )
   }
 
   const move = (index: number, dir: -1 | 1): void => {
@@ -157,11 +168,14 @@ export function PropertyOptionsEditor({
     const target = index + dir
     if (target < 0 || target >= list.length) return
     ;[list[index], list[target]] = [list[target], list[index]]
-    onOptionsChange(list)
+    setOptions(propKey, list)
   }
 
   const remove = (option: PropertyOption): void => {
-    onOptionsChange(options.filter((o) => o !== option))
+    setOptions(
+      propKey,
+      options.filter((o) => o !== option)
+    )
     renameValue(propKey, option.label, null)
     setConfirming(null)
   }
@@ -170,7 +184,7 @@ export function PropertyOptionsEditor({
     let name = '새 값'
     let n = 2
     while (options.some((o) => o.label === name)) name = `새 값 ${n++}`
-    onOptionsChange([...options, { label: name, color: 'gray' }])
+    setOptions(propKey, [...options, { label: name, color: 'gray' }])
   }
 
   return (
@@ -183,6 +197,7 @@ export function PropertyOptionsEditor({
             option={option}
             first={i === 0}
             last={i === options.length - 1}
+            showSubstatus={propKey === 'status'}
             confirmCount={confirming === option.label ? count : null}
             onRename={(name) => rename(option, name)}
             onChange={(next) => update(option, next)}

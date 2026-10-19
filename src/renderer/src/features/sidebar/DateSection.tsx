@@ -48,7 +48,7 @@ export function DateSection({
     for (const path of flattenFilePaths(tree)) {
       if (!isMarkdownPath(path)) continue
       const created = byPath[path]?.created
-      if (typeof created !== 'string' || !created) continue
+      if (!created) continue
       const list = byDay.get(created) ?? []
       list.push(path)
       byDay.set(created, list)
