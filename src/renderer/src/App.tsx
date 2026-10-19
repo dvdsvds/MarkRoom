@@ -53,7 +53,7 @@ import { useGlobalShortcuts } from './hooks/useGlobalShortcuts'
 import { dirOf, fileNameOf, splitName, sepOf } from './utils/path'
 import { GraphDialog } from './components/GraphDialog'
 import { useNotePropsStore } from './stores/notePropsStore'
-import { TagBar } from './components/TagBar'
+import { PropertyBar } from './components/PropertyBar'
 
 const TITLE_BTN =
   'flex h-7 w-7 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-bg-mute hover:text-text'
@@ -772,7 +772,7 @@ function App(): React.JSX.Element {
             onMissingClick={handleMissingTabClick}
           />
           {tagBarPath && (
-            <TagBar filePath={tagBarPath}>
+            <PropertyBar filePath={tagBarPath}>
               {activeDailyDate && (
                 <DailyNav
                   date={activeDailyDate}
@@ -780,7 +780,7 @@ function App(): React.JSX.Element {
                   onOpenToday={() => void openDailyNote(new Date())}
                 />
               )}
-            </TagBar>
+            </PropertyBar>
           )}
           {activeTab && activeTab.kind !== 'text' && activeTab.filePath ? (
             <FileViewer  key={activeTab.id} filePath={activeTab.filePath} kind={activeTab.kind}/>

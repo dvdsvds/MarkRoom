@@ -6,11 +6,10 @@ import { FileTypeIcon } from '../../components/FileTypeIcon'
 import { SHORTCUT_LABELS, type ShortcutAction } from '../../utils/shortcuts'
 import { ThemeToggle } from '../../components/ThemeToggle'
 import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsParts'
-import { PropertyOptionsEditor } from './PropertyOptionsEditor'
+import { PropertyDefsEditor } from './PropertyDefsEditor'
 import { TrashSetting } from './TrashSetting'
 import { DailyNoteSetting } from './DailyNoteSetting'
 import { SnippetSetting } from './SnippetSetting'
-import { PROPERTY_LABELS } from '../../utils/noteProperties'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'newNote',
@@ -32,7 +31,7 @@ const SHORTCUT_ACTIONS: ShortcutAction[] = [
   'dailyNote'
 ]
 
-export const CATEGORIES = ['일반', '화면', '상태 표시줄', '태그', '단축키'] as const
+export const CATEGORIES = ['일반', '화면', '상태 표시줄', '속성', '단축키'] as const
 export type Category = (typeof CATEGORIES)[number]
 
 export interface SettingItem {
@@ -347,15 +346,13 @@ export function useSettingItems(): SettingItem[] {
           </div>
         )
       },
-      ...(['status', 'substatus', 'priority'] as const).map(
-        (key): SettingItem => ({
-          id: `property-${key}`,
-          category: '태그',
-          group: PROPERTY_LABELS[key],
-          label: `${PROPERTY_LABELS[key]} 값`,
-          render: () => <PropertyOptionsEditor propKey={key} />
-        })
-      ),
+      {
+        id: 'property-defs',
+        category: '속성',
+        group: '노트 속성',
+        label: '속성 추가 이름 타입 값 순서 태그',
+        render: () => <PropertyDefsEditor />
+      },
       ...SHORTCUT_ACTIONS.map(
         (action): SettingItem => ({
           id: `shortcut-${action}`,

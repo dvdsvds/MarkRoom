@@ -2,10 +2,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_SHORTCUTS, type ShortcutAction, type ShortcutMap } from '../utils/shortcuts'
 import {
-  DEFAULT_PROPERTY_OPTIONS,
-  type PropertyKey,
-  type PropertyOption,
-  type PropertyOptions
+  CREATED_PROP_ID,
+  DEFAULT_PROPERTY_DEFS,
+  migrateLegacyOptions,
+  type PropertyDef
 } from '../utils/noteProperties'
 import { DAILY_TEMPLATE_ID, DEFAULT_TEMPLATES, type NoteTemplate } from '../utils/noteTemplate'
 import { DEFAULT_SNIPPETS, type CssSnippet } from '../utils/cssSnippets'
@@ -14,7 +14,8 @@ const OLD_DAILY_CONTENT =
   '# {{date:YYYY년 M월 D일 dddd}}\n\n← [[{{yesterday}}]] · [[{{tomorrow}}]] →\n\n## 오늘 할 일\n\n- [ ] \n\n## 메모\n\n'
 
 export type ThemePreference = 'system' | 'light' | 'dark'
-export type TagGroupBy = 'status' | 'priority'
+/** 사이드바 태그 섹션에서 묶어 보는 기준. 선택 타입 속성의 id */
+export type TagGroupBy = string
 
 const OLD_EDITOR_FONT_FAMILY = "'IBM Plex Mono', 'D2Coding', Pretendard, monospace"
 const DEFAULT_EDITOR_FONT_FAMILY = "'Roboto Mono', Pretendard, monospace"
@@ -84,8 +85,9 @@ interface SettingsState {
   setTagGroupBy: (value: TagGroupBy) => void
   tagCollapsedGroups: Record<TagGroupBy, string[]>
   toggleTagGroup: (groupBy: TagGroupBy, label: string) => void
-  propertyOptions: PropertyOptions
-  setPropertyOptions: (key: PropertyKey, options: PropertyOption[]) => void
+  propertyDefs: PropertyDef[]
+  setPropertyDefs: (defs: PropertyDef[]) => void
+  updatePropertyDef: (def: PropertyDef) => void
   shortcuts: ShortcutMap
   setShortcut: (action: ShortcutAction, combo: string) => void
   resetShortcut: (action: ShortcutAction) => void
@@ -212,18 +214,21 @@ export const useSettingsStore = create<SettingsState>()(
         }),
       tagGroupBy: 'status',
       setTagGroupBy: (value) => set({ tagGroupBy: value }),
-      tagCollapsedGroups: { status: [], priority: [] },
+      tagCollapsedGroups: {},
       toggleTagGroup: (groupBy, label) =>
         set((state) => {
-          const current = state.tagCollapsedGroups[groupBy]
+          const current = state.tagCollapsedGroups[groupBy] ?? []
           const next = current.includes(label)
             ? current.filter((l) => l !== label)
             : [...current, label]
           return { tagCollapsedGroups: { ...state.tagCollapsedGroups, [groupBy]: next } }
         }),
-      propertyOptions: DEFAULT_PROPERTY_OPTIONS,
-      setPropertyOptions: (key, options) =>
-        set((state) => ({ propertyOptions: { ...state.propertyOptions, [key]: options } })),
+      propertyDefs: DEFAULT_PROPERTY_DEFS,
+      setPropertyDefs: (defs) => set({ propertyDefs: defs }),
+      updatePropertyDef: (def) =>
+        set((state) => ({
+          propertyDefs: state.propertyDefs.map((d) => (d.id === def.id ? def : d))
+        })),
       shortcuts: DEFAULT_SHORTCUTS,
       setShortcut: (action, combo) =>
         set((state) => ({ shortcuts: { ...state.shortcuts, [action]: combo } })),
@@ -235,15 +240,19 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'markroom-settings',
-      version: 4,
+      version: 5,
       merge: (persisted, current) => {
         const p = (persisted ?? {}) as Partial<SettingsState>
+        const defs = p.propertyDefs ?? current.propertyDefs
         return {
           ...current,
           ...p,
           shortcuts: { ...DEFAULT_SHORTCUTS, ...(p.shortcuts ?? {}) },
           tagCollapsedGroups: { ...current.tagCollapsedGroups, ...(p.tagCollapsedGroups ?? {}) },
-          propertyOptions: { ...DEFAULT_PROPERTY_OPTIONS, ...(p.propertyOptions ?? {})},
+          // 만든 날짜 속성은 앱이 기록하는 값이라 정의가 지워져 있어도 항상 둔다
+          propertyDefs: defs.some((d) => d.id === CREATED_PROP_ID)
+            ? defs
+            : [...defs, DEFAULT_PROPERTY_DEFS[DEFAULT_PROPERTY_DEFS.length - 1]],
           // 사용자가 고치지 않은 예전 데일리 기본값(어제·내일 링크 줄 포함)은 새 기본값으로 바꾼다
           templates: (p.templates ?? current.templates).map((t) =>
             t.id === DAILY_TEMPLATE_ID && t.content === OLD_DAILY_CONTENT
@@ -271,8 +280,14 @@ export const useSettingsStore = create<SettingsState>()(
         if (version < 3) {
           s.showToolbar = false
         }
+        const legacy = s as { propertyOptions?: Parameters<typeof migrateLegacyOptions>[0] }
         if (version < 4) {
-          delete s.propertyOptions
+          delete legacy.propertyOptions
+        }
+        if (version < 5) {
+          // 상태·세부·중요도로 고정돼 있던 값 목록을 속성 정의로 옮긴다
+          s.propertyDefs = migrateLegacyOptions(legacy.propertyOptions ?? {})
+          delete legacy.propertyOptions
         }
         return s as SettingsState
       }
