@@ -744,6 +744,7 @@ function App(): React.JSX.Element {
                 onOpenAtLine={handleOpenTodo}
                 selectedFolderPath={selectedFolderPath}
                 onSelectFolder={setSelectedFolderPath}
+                dailyFocusDate={activeDailyDate}
                 onInsertTemplate={handleInsertTemplate}
                 onCreateFromTemplate={(t) => void handleCreateFromTemplate(t)}
                 className="h-full"

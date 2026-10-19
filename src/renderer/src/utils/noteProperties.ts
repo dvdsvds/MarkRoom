@@ -1,6 +1,7 @@
 export type PropertyKey = 'status' | 'substatus' | 'priority'
 export type PropertyColor = 'gray' | 'blue' | 'green' | 'orange' | 'red' | 'yellow' | 'purple'
-export type NoteProps = Partial<Record<PropertyKey, string>>
+/** created: 앱이 기록한 생성 날짜(YYYY-MM-DD). 태그바에서 고르는 값은 아니다 */
+export type NoteProps = Partial<Record<PropertyKey | 'created', string>>
 
 export interface PropertyOption {
   label: string

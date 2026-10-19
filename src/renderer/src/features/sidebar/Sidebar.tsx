@@ -16,6 +16,7 @@ import { useTreeFocus } from './useTreeFocus'
 import { useTreeActions, type DeleteTarget } from './useTreeActions'
 import { TagSection } from './TagSection'
 import { TemplateSection } from './TemplateSection'
+import { DateSection } from './DateSection'
 import type { NoteTemplate } from '../../utils/noteTemplate'
 import { useSettingsStore } from '@renderer/stores/settingsStore'
 
@@ -35,6 +36,8 @@ interface SidebarProps {
   onOpenAtLine: (filePath: string, line: number) => void
   selectedFolderPath: string | null
   onSelectFolder: (path: string | null) => void
+  /** 열려 있는 데일리 노트의 날짜. 날짜 섹션을 그날로 맞춘다 */
+  dailyFocusDate: Date | null
   onInsertTemplate: (template: NoteTemplate) => void
   onCreateFromTemplate: (template: NoteTemplate) => void
   className?: string
@@ -120,6 +123,7 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
     onOpenAtLine,
     selectedFolderPath,
     onSelectFolder,
+    dailyFocusDate,
     onInsertTemplate,
     onCreateFromTemplate,
     className,
@@ -139,6 +143,8 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
   const setFilesOpen = useSettingsStore((s) => s.setFilesSectionOpen)
   const tagsOpen = useSettingsStore((s) => s.tagsSectionOpen)
   const setTagsOpen = useSettingsStore((s) => s.setTagsSectionOpen)
+  const datesOpen = useSettingsStore((s) => s.datesSectionOpen)
+  const setDatesOpen = useSettingsStore((s) => s.setDatesSectionOpen)
   const templatesOpen = useSettingsStore((s) => s.templatesSectionOpen)
   const setTemplatesOpen = useSettingsStore((s) => s.setTemplatesSectionOpen)
 
@@ -350,6 +356,22 @@ export const Sidebar = forwardRef<SidebarHandle, SidebarProps>(function Sidebar(
             {tree.map((node) => (
               <TreeRow key={node.path} node={node} depth={0} ctx={ctx} />
             ))}
+          </div>
+        )}
+      </div>
+      {/* 날짜 섹션은 그날 노트 몇 개뿐이라 남은 높이를 나눠 갖지 않고 목록 길이만큼만 차지한다 */}
+      <div className="flex shrink-0 flex-col border-t border-border">
+        <div className="flex h-9 shrink-0 items-center pl-2 pr-2">
+          <SectionHeader label="날짜" open={datesOpen} onToggle={() => setDatesOpen(!datesOpen)} />
+        </div>
+        {datesOpen && (
+          <div className="max-h-56 overflow-auto pb-2">
+            <DateSection
+              tree={tree}
+              activeFilePath={activeFilePath}
+              focusDate={dailyFocusDate}
+              onOpenFile={onOpenFile}
+            />
           </div>
         )}
       </div>

@@ -73,6 +73,8 @@ interface SettingsState {
   deleteTemplate: (id: string) => void
   templatesSectionOpen: boolean
   setTemplatesSectionOpen: (value: boolean) => void
+  datesSectionOpen: boolean
+  setDatesSectionOpen: (value: boolean) => void
   tagGroupBy: TagGroupBy
   setTagGroupBy: (value: TagGroupBy) => void
   tagCollapsedGroups: Record<TagGroupBy, string[]>
@@ -178,6 +180,8 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => ({ templates: state.templates.filter((t) => t.id !== id) })),
       templatesSectionOpen: true,
       setTemplatesSectionOpen: (value) => set({ templatesSectionOpen: value }),
+      datesSectionOpen: true,
+      setDatesSectionOpen: (value) => set({ datesSectionOpen: value }),
       collapsedFolders: [],
       setFolderCollapsed: (path, collapsed) =>
         set((state) => {

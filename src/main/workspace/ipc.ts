@@ -17,11 +17,19 @@ import {
   openInDefaultApp,
   saveAttachment
 } from './fileOps'
-import { findBacklinks, findBacklinkContexts, updateWikilinksOnRename, buildLinkGraph } from './links'
+import {
+  findBacklinks,
+  findBacklinkContexts,
+  updateWikilinksOnRename,
+  buildLinkGraph,
+  walkMdFiles
+} from './links'
 import { searchNotes, type SearchQuery } from './search'
 import {
+  ensureCreatedDates,
   getAllNoteProps,
   moveNoteProps,
+  recordCreated,
   setNoteProps,
   type NoteProps
 } from './noteProps'
@@ -85,6 +93,7 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
   ipcMain.handle('workspace:createNote', (_event, dirPath: string, title: string) => {
     const target = createEmptyNote(dirPath, title)
     markSavedByApp(target)
+    if (extname(target).toLowerCase() === '.md') recordCreated(target)
     return target
   })
   ipcMain.handle('workspace:renameEntry', (_event, oldPath: string, newName: string) => {
@@ -239,8 +248,11 @@ export function registerWorkspaceIpc(getWindow: () => BrowserWindow | null): voi
     }
   })
   purgeOldTrash()
+  ensureCreatedDates(walkMdFiles(getRootDir()))
   startWatcher({
     onTreeChanged: () => {
+      // 앱 밖에서 생긴 노트에도 생성 날짜를 남긴 뒤 알린다(화면이 트리를 받고 속성을 다시 읽는다)
+      ensureCreatedDates(walkMdFiles(getRootDir()))
       getWindow()?.webContents.send('workspace:tree-changed', buildTree(getRootDir()))
     },
     onFileExternallyChanged: (filePath: string) => {
