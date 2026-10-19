@@ -9,6 +9,7 @@ import { Checkbox, INPUT, NumberField, Row, SubRow, Toggle } from './SettingsPar
 import { PropertyOptionsEditor } from './PropertyOptionsEditor'
 import { TrashSetting } from './TrashSetting'
 import { DailyNoteSetting } from './DailyNoteSetting'
+import { SnippetSetting } from './SnippetSetting'
 import { PROPERTY_LABELS } from '../../utils/noteProperties'
 
 const SHORTCUT_ACTIONS: ShortcutAction[] = [
@@ -192,6 +193,13 @@ export function useSettingItems(): SettingItem[] {
             <ThemeToggle />
           </Row>
         )
+      },
+      {
+        id: 'css-snippets',
+        category: '화면',
+        group: 'CSS 스니펫',
+        label: 'CSS 스니펫 꾸미기',
+        render: () => <SnippetSetting />
       },
       {
         id: 'editor-font-family',

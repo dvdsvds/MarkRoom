@@ -23,6 +23,7 @@ import { toggleTaskAtLine } from './utils/tasks'
 import { TitleBar } from './components/TitleBar'
 import { useAppliedTheme } from './stores/useAppliedTheme'
 import { useAppliedFonts } from './stores/useAppliedFonts'
+import { useAppliedSnippets } from './stores/useAppliedSnippets'
 import { useAppliedZoom } from './stores/useAppliedZoom'
 import { useWorkspaceStore } from './stores/workspaceStore'
 import { useTabsStore, type Tab } from './stores/tabsStore'
@@ -84,6 +85,7 @@ interface DiffPopupState {
 function App(): React.JSX.Element {
   useAppliedTheme()
   useAppliedFonts()
+  useAppliedSnippets()
   useAppliedZoom()
   useWorkspaceEvents()
   usePersistOpenTabs()

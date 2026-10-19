@@ -8,6 +8,7 @@ import {
   type PropertyOptions
 } from '../utils/noteProperties'
 import { DAILY_TEMPLATE_ID, DEFAULT_TEMPLATES, type NoteTemplate } from '../utils/noteTemplate'
+import { DEFAULT_SNIPPETS, type CssSnippet } from '../utils/cssSnippets'
 
 const OLD_DAILY_CONTENT =
   '# {{date:YYYY년 M월 D일 dddd}}\n\n← [[{{yesterday}}]] · [[{{tomorrow}}]] →\n\n## 오늘 할 일\n\n- [ ] \n\n## 메모\n\n'
@@ -75,6 +76,10 @@ interface SettingsState {
   setTemplatesSectionOpen: (value: boolean) => void
   datesSectionOpen: boolean
   setDatesSectionOpen: (value: boolean) => void
+  snippets: CssSnippet[]
+  saveSnippet: (snippet: CssSnippet) => void
+  deleteSnippet: (id: string) => void
+  toggleSnippet: (id: string) => void
   tagGroupBy: TagGroupBy
   setTagGroupBy: (value: TagGroupBy) => void
   tagCollapsedGroups: Record<TagGroupBy, string[]>
@@ -182,6 +187,18 @@ export const useSettingsStore = create<SettingsState>()(
       setTemplatesSectionOpen: (value) => set({ templatesSectionOpen: value }),
       datesSectionOpen: true,
       setDatesSectionOpen: (value) => set({ datesSectionOpen: value }),
+      snippets: DEFAULT_SNIPPETS,
+      saveSnippet: (snippet) =>
+        set((state) => ({
+          snippets: state.snippets.some((s) => s.id === snippet.id)
+            ? state.snippets.map((s) => (s.id === snippet.id ? snippet : s))
+            : [...state.snippets, snippet]
+        })),
+      deleteSnippet: (id) => set((state) => ({ snippets: state.snippets.filter((s) => s.id !== id) })),
+      toggleSnippet: (id) =>
+        set((state) => ({
+          snippets: state.snippets.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s))
+        })),
       collapsedFolders: [],
       setFolderCollapsed: (path, collapsed) =>
         set((state) => {
